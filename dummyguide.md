@@ -213,11 +213,91 @@ Your app does not need to send the OpenAI API key directly.
 
 Tokenometer uses the vaulted key.
 
+What this means in real life:
+
+- if you already have an app, you change the API URL in that app
+- if you do not have an app yet, you can use the sample snippet as a temporary test script
+- the snippet is not something you run "inside Tokenometer"
+- the snippet is something you run on your own machine, in your own terminal
+
+The easiest mental model is:
+
+- Tokenometer is the server
+- your test script is the client
+
+## Step 7.5: Where Do I Run the Snippet?
+
+Run the Node.js or Python snippet on your own computer.
+
+The easiest place is:
+
+- open your project in VS Code
+- open the VS Code terminal
+- run the script there
+
+If you prefer, you can also run it from:
+
+- PowerShell
+- Windows Terminal
+- Command Prompt
+
+These are all fine.
+
+### If you choose the Python snippet
+
+1. Create a file like:
+
+`test_tokenometer.py`
+
+2. Paste the Python example into that file.
+
+3. In VS Code terminal or PowerShell, run:
+
+```powershell
+python .\test_tokenometer.py
+```
+
+If `python` does not work, try:
+
+```powershell
+py .\test_tokenometer.py
+```
+
+### If you choose the Node.js snippet
+
+1. Create a file like:
+
+`test-tokenometer.mjs`
+
+2. Paste the Node.js example into that file.
+
+3. In VS Code terminal or PowerShell, run:
+
+```powershell
+node .\test-tokenometer.mjs
+```
+
+### Which one should you use?
+
+Use whichever feels easier.
+
+- If you already use Python sometimes, use Python.
+- If you already use Node.js / JavaScript, use Node.js.
+
+For your first proof that Tokenometer works, either one is perfectly fine.
+
 ## Step 8: Run One Real Test Call
 
 Use the copied snippet.
 
-Run it locally from your machine or from a test script.
+Run it locally from your machine as a small test script.
+
+The simplest setup is:
+
+- open VS Code
+- open terminal
+- save the snippet to a `.py` or `.mjs` file
+- run it from that terminal
 
 If it works:
 
@@ -225,6 +305,10 @@ If it works:
 - Tokenometer records the token usage
 - the usage appears in Live mode
 - the Gateway page shows the recent call
+
+If you are asking "can I run it from here, from PowerShell?" the answer is:
+
+**Yes. PowerShell is a perfectly correct place to run it.**
 
 ## Step 9: Switch to Live Mode
 
@@ -401,4 +485,3 @@ Your App -> Tokenometer -> OpenAI
 Because traffic passes through Tokenometer, Tokenometer can count it.
 
 That is the whole product.
-
