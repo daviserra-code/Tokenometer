@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { decryptSecret } from "@/lib/crypto";
+import { decryptVaultSecret } from "@/lib/secret-store";
 import { Prisma, WalletEntryType } from "@prisma/client";
 
 export type ProxyContext = {
@@ -66,7 +66,7 @@ export async function authProxy(
 
   let plaintext: string;
   try {
-    plaintext = decryptSecret(cred.encryptedKey);
+    plaintext = decryptVaultSecret(cred.encryptedKey);
   } catch {
     return NextResponse.json(
       { error: "Failed to decrypt vaulted credential. Re-add the key." },

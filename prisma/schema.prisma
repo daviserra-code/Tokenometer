@@ -72,6 +72,8 @@ model Organization {
   ingestSources       IngestSource[]
   importJobs          ImportJob[]
   insights            Insight[]
+  adminUsers          AdminUser[]
+  auditLogs           AuditLog[]
 }
 
 model Team {
@@ -296,20 +298,75 @@ model ProviderCredential {
 }
 
 model IngestSource {
-  id             String    @id @default(cuid())
-  organizationId String
-  name           String
+  id              String    @id @default(cuid())
+  organizationId  String
+  name            String
   // Public identifier sent in the X-Ingest-Key header
-  apiKey         String    @unique
-  // HMAC secret (raw text, server-side only). Treat like a password.
-  secret         String
-  active         Boolean   @default(true)
-  lastSeenAt     DateTime?
-  createdAt      DateTime  @default(now())
+  apiKey          String    @unique
+  // Legacy raw HMAC secret. Migrated to encryptedSecret on next access.
+  secret          String?
+  // AES-GCM ciphertext for the HMAC secret.
+  encryptedSecret String?
+  secretHint      String    @default("")
+  active          Boolean   @default(true)
+  lastSeenAt      DateTime?
+  createdAt       DateTime  @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
+}
+
+model AdminUser {
+  id                  String    @id @default(cuid())
+  organizationId      String?
+  username            String    @unique
+  passwordHash        String
+  passwordSalt        String
+  passwordIterations  Int       @default(210000)
+  totpSecretEncrypted String?
+  totpEnabled         Boolean   @default(false)
+  active              Boolean   @default(true)
+  lastLoginAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  auditLogs    AuditLog[]
+
+  @@index([organizationId])
+}
+
+model LoginAttempt {
+  id         String   @id @default(cuid())
+  identifier String
+  ip         String?
+  ok         Boolean  @default(false)
+  reason     String
+  createdAt  DateTime @default(now())
+
+  @@index([identifier, createdAt])
+  @@index([ip, createdAt])
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String?
+  adminUserId    String?
+  action         String
+  targetType     String?
+  targetId       String?
+  ip             String?
+  userAgent      String?
+  metadataJson   Json?
+  createdAt      DateTime @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  adminUser    AdminUser?    @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([adminUserId, createdAt])
+  @@index([action, createdAt])
 }
 
 model ImportJob {

@@ -5,14 +5,15 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import {
-  encryptSecret,
   generateApiKey,
-  generateSecret,
   maskKey,
 } from "@/lib/crypto";
+import { encryptVaultSecret } from "@/lib/secret-store";
 import { importUsageCsv } from "@/lib/ingest";
 import { syncProviderUsage } from "@/lib/provider-sync";
 import { requireAdmin } from "@/lib/auth";
+import { auditLog } from "@/lib/audit";
+import { newEncryptedIngestSecret } from "@/lib/ingest-secret";
 import { cookies } from "next/headers";
 
 // --- Provider credentials -------------------------------------------------
@@ -38,14 +39,20 @@ export async function saveCredentialAction(formData: FormData) {
       organizationId,
       providerId,
       label,
-      encryptedKey: encryptSecret(apiKey),
+      encryptedKey: encryptVaultSecret(apiKey),
       keyHint: apiKey.slice(-4),
     },
     update: {
-      encryptedKey: encryptSecret(apiKey),
+      encryptedKey: encryptVaultSecret(apiKey),
       keyHint: apiKey.slice(-4),
       active: true,
     },
+  });
+  await auditLog({
+    action: "credential.upsert",
+    organizationId,
+    targetType: "ProviderCredential",
+    metadata: { providerId, label, keyHint: apiKey.slice(-4) },
   });
 
   revalidatePath("/settings/credentials");
@@ -56,7 +63,14 @@ export async function deleteCredentialAction(formData: FormData) {
   requireAdmin();
   const id = String(formData.get("id") ?? "");
   if (!id) throw new Error("Credential id required.");
+  const existing = await prisma.providerCredential.findUnique({ where: { id } });
   await prisma.providerCredential.delete({ where: { id } });
+  await auditLog({
+    action: "credential.delete",
+    organizationId: existing?.organizationId,
+    targetType: "ProviderCredential",
+    targetId: id,
+  });
   revalidatePath("/settings/credentials");
 }
 
@@ -71,13 +85,21 @@ export async function createIngestSourceAction(formData: FormData) {
   requireAdmin();
   const parsed = IngestSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+  const secret = newEncryptedIngestSecret();
   await prisma.ingestSource.create({
     data: {
       organizationId: parsed.data.organizationId,
       name: parsed.data.name,
       apiKey: generateApiKey(),
-      secret: generateSecret(),
+      encryptedSecret: secret.encryptedSecret,
+      secretHint: secret.secretHint,
     },
+  });
+  await auditLog({
+    action: "ingest_source.create",
+    organizationId: parsed.data.organizationId,
+    targetType: "IngestSource",
+    metadata: { name: parsed.data.name },
   });
   revalidatePath("/settings/ingest");
   redirect("/settings/ingest");
@@ -87,9 +109,16 @@ export async function rotateIngestSecretAction(formData: FormData) {
   requireAdmin();
   const id = String(formData.get("id") ?? "");
   if (!id) throw new Error("id required.");
-  await prisma.ingestSource.update({
+  const secret = newEncryptedIngestSecret();
+  const source = await prisma.ingestSource.update({
     where: { id },
-    data: { secret: generateSecret() },
+    data: { encryptedSecret: secret.encryptedSecret, secretHint: secret.secretHint, secret: null },
+  });
+  await auditLog({
+    action: "ingest_source.rotate_secret",
+    organizationId: source.organizationId,
+    targetType: "IngestSource",
+    targetId: id,
   });
   revalidatePath("/settings/ingest");
 }
@@ -98,7 +127,14 @@ export async function deleteIngestSourceAction(formData: FormData) {
   requireAdmin();
   const id = String(formData.get("id") ?? "");
   if (!id) throw new Error("id required.");
+  const source = await prisma.ingestSource.findUnique({ where: { id } });
   await prisma.ingestSource.delete({ where: { id } });
+  await auditLog({
+    action: "ingest_source.delete",
+    organizationId: source?.organizationId,
+    targetType: "IngestSource",
+    targetId: id,
+  });
   revalidatePath("/settings/ingest");
 }
 
@@ -141,6 +177,13 @@ export async function importCsvAction(formData: FormData): Promise<ImportActionS
       },
     });
     revalidatePath("/settings/import");
+    await auditLog({
+      action: "csv.import",
+      organizationId,
+      targetType: "ImportJob",
+      targetId: job.id,
+      metadata: { filename: file.name, inserted: result.inserted, failed: result.failed },
+    });
     return {
       ok: true,
       inserted: result.inserted,
@@ -263,6 +306,13 @@ export async function testCredentialAction(formData: FormData) {
     JSON.stringify({ provider: providerName, ok, message, inserted: ok ? 1 : 0, skipped: 0 }),
     { path: "/settings/credentials", maxAge: 30, httpOnly: false }
   );
+  await auditLog({
+    action: "credential.test",
+    organizationId: cred?.organizationId,
+    targetType: "ProviderCredential",
+    targetId: id,
+    metadata: { provider: providerName, ok },
+  });
   revalidatePath("/", "layout");
   redirect("/settings/credentials");
 }
@@ -306,6 +356,7 @@ export async function wipeDemoDataAction() {
     }),
     { path: "/settings/credentials", maxAge: 30, httpOnly: false }
   );
+  await auditLog({ action: "demo_data.wipe", targetType: "Organization" });
   revalidatePath("/", "layout");
   redirect("/settings/credentials");
 }
@@ -331,6 +382,12 @@ export async function syncCredentialAction(formData: FormData) {
     }),
     { path: "/settings/credentials", maxAge: 30, httpOnly: false }
   );
+  await auditLog({
+    action: "credential.sync",
+    targetType: "ProviderCredential",
+    targetId: id,
+    metadata: { provider: result.provider, ok: result.ok, inserted: result.inserted, skipped: result.skipped },
+  });
   revalidatePath("/settings/credentials");
   redirect("/settings/credentials");
 }

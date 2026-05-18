@@ -21,6 +21,12 @@ export default async function SettingsPage() {
       <Card title="Data ingestion" description="Feed Tokenometer with real AI usage data.">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <SettingsLink
+            href="/settings/security"
+            icon="shield_lock"
+            title="Security"
+            desc="Admin users, 2FA, rate limits and audit logs."
+          />
+          <SettingsLink
             href="/settings/credentials"
             icon="key"
             title="Provider credentials"

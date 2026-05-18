@@ -33,21 +33,37 @@ function sign(value: string) {
 
 export function createAdminSessionValue() {
   const issuedAt = String(Date.now());
-  return `${issuedAt}.${sign(issuedAt)}`;
+  return `legacy.${issuedAt}.${sign(`legacy.${issuedAt}`)}`;
+}
+
+export function createAdminUserSessionValue(userId: string) {
+  const issuedAt = String(Date.now());
+  const payload = `${userId}.${issuedAt}`;
+  return `${payload}.${sign(payload)}`;
 }
 
 export function isValidAdminSession(value?: string) {
   if (!value) return false;
-  const [issuedAt, mac] = value.split(".");
+  const parts = value.split(".");
+  if (parts.length !== 3) return false;
+  const [userId, issuedAt, mac] = parts;
+  if (!userId || !issuedAt || !mac) return false;
   if (!issuedAt || !mac) return false;
   const issuedAtMs = Number(issuedAt);
   if (!Number.isFinite(issuedAtMs)) return false;
   if (Date.now() - issuedAtMs > SESSION_MAX_AGE_SECONDS * 1000) return false;
 
-  const expected = sign(issuedAt);
+  const expected = sign(`${userId}.${issuedAt}`);
   const a = Buffer.from(mac);
   const b = Buffer.from(expected);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+export function currentAdminUserId() {
+  const value = cookies().get(ADMIN_COOKIE)?.value;
+  if (!isValidAdminSession(value)) return null;
+  const [userId] = value!.split(".");
+  return userId === "legacy" ? null : userId;
 }
 
 export function isAdmin() {
@@ -59,7 +75,15 @@ export function requireAdmin() {
 }
 
 export function setAdminCookie() {
-  cookies().set(ADMIN_COOKIE, createAdminSessionValue(), {
+  setAdminSessionCookie(createAdminSessionValue());
+}
+
+export function setAdminUserCookie(userId: string) {
+  setAdminSessionCookie(createAdminUserSessionValue(userId));
+}
+
+function setAdminSessionCookie(value: string) {
+  cookies().set(ADMIN_COOKIE, value, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

@@ -62,10 +62,12 @@ fi
 ensure_env_value "INGEST_ENC_KEY" "$(random_secret)"
 ensure_env_value "AUTH_SECRET" "$(random_secret)"
 ensure_env_value "ADMIN_PASSWORD" "$(random_secret)"
+ensure_env_value "ADMIN_USERNAME" "admin"
 ensure_env_value "CRON_SECRET" "$(random_secret)"
 ensure_env_value "POSTGRES_PASSWORD" "$(random_secret)"
 ensure_env_value "NEXT_PUBLIC_APP_URL" "$TOKENOMETER_PUBLIC_URL"
 ensure_env_value "SERVER_ACTION_ALLOWED_ORIGINS" "$SERVER_ACTION_ALLOWED_ORIGINS"
+ensure_env_value "SECRET_STORE_PROVIDER" "local"
 
 echo "Fetching latest code..."
 git fetch origin "$BRANCH"

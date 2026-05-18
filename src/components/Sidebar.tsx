@@ -58,20 +58,20 @@ export function Sidebar() {
       {/* Secondary section */}
       <div className="border-t border-slate-800/50 p-4">
         <div className="mb-4 flex flex-col gap-1">
-          <a
+          <Link
             className="flex items-center gap-3 px-3 py-2 font-mono text-caps text-slate-400 transition-colors hover:text-slate-100"
-            href="#"
+            href="/settings/security"
           >
             <span className="material-symbols-outlined text-[16px]">history_edu</span>
             <span>Audit Logs</span>
-          </a>
-          <a
+          </Link>
+          <Link
             className="flex items-center gap-3 px-3 py-2 font-mono text-caps text-slate-400 transition-colors hover:text-slate-100"
-            href="#"
+            href="/settings/credentials"
           >
             <span className="material-symbols-outlined text-[16px]">vpn_key</span>
             <span>API Keys</span>
-          </a>
+          </Link>
         </div>
         <button className="flex w-full items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/10 py-2 font-mono text-caps text-primary transition-all hover:bg-primary hover:text-on-primary">
           <span className="material-symbols-outlined text-[16px]">download</span>

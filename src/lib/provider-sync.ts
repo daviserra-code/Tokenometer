@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { decryptSecret } from "@/lib/crypto";
+import { decryptVaultSecret } from "@/lib/secret-store";
 import { Prisma, WalletEntryType } from "@prisma/client";
 
 export type SyncResult = {
@@ -32,7 +32,7 @@ export async function syncProviderUsage(credentialId: string, days = 7): Promise
 
   let plaintext: string;
   try {
-    plaintext = decryptSecret(cred.encryptedKey);
+    plaintext = decryptVaultSecret(cred.encryptedKey);
   } catch {
     return { ok: false, provider: provider.name, inserted: 0, skipped: 0, error: "Failed to decrypt key." };
   }

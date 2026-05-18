@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyHmac } from "@/lib/crypto";
+import { readIngestSecret } from "@/lib/ingest-secret";
 import { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +44,8 @@ export async function POST(req: NextRequest) {
   }
 
   const rawBody = await req.text();
-  if (!verifyHmac(rawBody, source.secret, signature)) {
+  const hmacSecret = await readIngestSecret(source);
+  if (!verifyHmac(rawBody, hmacSecret, signature)) {
     return NextResponse.json({ error: "Bad HMAC signature." }, { status: 401 });
   }
 

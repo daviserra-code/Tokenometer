@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/Card";
 import { requireAdmin } from "@/lib/auth";
+import { readIngestSecret } from "@/lib/ingest-secret";
 import {
   createIngestSourceAction,
   rotateIngestSecretAction,
@@ -18,6 +19,10 @@ export default async function IngestPage() {
     where: { organizationId: org.id },
     orderBy: { createdAt: "desc" },
   });
+  const sourceSecrets = new Map<string, string>();
+  for (const source of sources) {
+    sourceSecrets.set(source.id, await readIngestSecret(source));
+  }
 
   const sampleEvent = JSON.stringify(
     {
@@ -98,7 +103,7 @@ export default async function IngestPage() {
                   <KV k="X-Ingest-Key" v={s.apiKey} mono />
                   <KV
                     k="HMAC secret"
-                    v={s.secret}
+                    v={sourceSecrets.get(s.id) ?? "Unavailable"}
                     mono
                     warn
                   />
