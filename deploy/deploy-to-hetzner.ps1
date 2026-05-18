@@ -120,6 +120,9 @@ fi
 
 cd "`$PROJECT_PATH"
 
+git fetch origin "`$BRANCH"
+git reset --hard "origin/`$BRANCH"
+
 if [ -f package.json ] && ! grep -q 'tokenradar' package.json; then
   echo "ABORT: remote path does not contain Tokenometer/tokenradar." >&2
   exit 1
