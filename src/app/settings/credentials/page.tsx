@@ -3,6 +3,7 @@ import { Card, PageHeader } from "@/components/Card";
 import { ProviderChip } from "@/components/ProviderChip";
 import { requireAdmin } from "@/lib/auth";
 import { cookies } from "next/headers";
+import Link from "next/link";
 import {
   saveCredentialAction,
   deleteCredentialAction,
@@ -175,6 +176,34 @@ export default async function CredentialsPage() {
               )}
             </tbody>
           </table>
+        </div>
+      </Card>
+
+      <Card
+        title="Recommended path: live metering"
+        description="Historical provider sync is useful, but it depends on admin keys and provider support. Live metering is the product engine."
+        action={
+          <Link
+            href="/gateway"
+            className="rounded-lg border border-primary/40 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10"
+          >
+            Open gateway
+          </Link>
+        }
+      >
+        <div className="grid grid-cols-1 gap-3 text-sm text-text-muted sm:grid-cols-3">
+          <div className="rounded-lg border border-border-subtle bg-background p-3">
+            <strong className="block text-on-surface">Test key</strong>
+            Sends one tiny call to prove the vaulted key can call the provider.
+          </div>
+          <div className="rounded-lg border border-border-subtle bg-background p-3">
+            <strong className="block text-on-surface">Historical sync</strong>
+            Imports old usage only when the provider exposes an admin usage API.
+          </div>
+          <div className="rounded-lg border border-border-subtle bg-background p-3">
+            <strong className="block text-on-surface">Live metering</strong>
+            Routes real app calls through Tokenometer and records tokens immediately.
+          </div>
         </div>
       </Card>
 

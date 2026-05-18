@@ -33,6 +33,12 @@ export default async function SettingsPage() {
             desc="Vault encrypted API keys per provider (OpenAI, Anthropic, …)."
           />
           <SettingsLink
+            href="/gateway"
+            icon="api"
+            title="Metering gateway"
+            desc="Route live model calls through Tokenometer and measure tokens immediately."
+          />
+          <SettingsLink
             href="/settings/ingest"
             icon="webhook"
             title="Ingest API & webhooks"

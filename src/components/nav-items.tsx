@@ -1,6 +1,7 @@
 export const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: "dashboard" },
   { href: "/wallet", label: "Wallet", icon: "account_balance_wallet" },
+  { href: "/gateway", label: "Gateway", icon: "api" },
   { href: "/ledger", label: "Token Ledger", icon: "receipt_long" },
   { href: "/projects", label: "Projects", icon: "account_tree" },
   { href: "/budgets", label: "Budgets", icon: "savings" },
@@ -13,8 +14,8 @@ export const NAV_ITEMS = [
 export const MOBILE_NAV_ITEMS = [
   { href: "/", label: "Home", icon: "home" },
   { href: "/reports", label: "Spend", icon: "query_stats" },
+  { href: "/gateway", label: "Meter", icon: "api" },
   { href: "/wallet", label: "Wallet", icon: "account_balance_wallet" },
-  { href: "/settings/credentials", label: "Sync", icon: "sync" },
   { href: "/settings", label: "Settings", icon: "settings" },
 ] as const;
 
