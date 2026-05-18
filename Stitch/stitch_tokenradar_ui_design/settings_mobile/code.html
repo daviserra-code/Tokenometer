@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Settings - TokenRadar.ai</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700&amp;family=Manrope:wght@400&amp;family=Space+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-tertiary-container": "#6e4600",
+                        "inverse-surface": "#dde4e5",
+                        "on-error": "#690005",
+                        "secondary-fixed-dim": "#bdc2ff",
+                        "primary-fixed-dim": "#2fd9f4",
+                        "surface-container-high": "#242b2d",
+                        "surface-variant": "#2f3638",
+                        "surface-elevated": "#334155",
+                        "on-primary-container": "#005763",
+                        "on-secondary-container": "#a8afff",
+                        "secondary-fixed": "#e0e0ff",
+                        "on-error-container": "#ffdad6",
+                        "surface": "#1E293B",
+                        "tertiary-fixed-dim": "#ffb957",
+                        "on-surface": "#dde4e5",
+                        "on-tertiary-fixed": "#2a1800",
+                        "text-muted": "#94A3B8",
+                        "status-exceeded": "#EF4444",
+                        "surface-container-low": "#161d1e",
+                        "inverse-primary": "#006877",
+                        "error-container": "#93000a",
+                        "on-primary": "#00363e",
+                        "surface-container": "#1a2122",
+                        "border-subtle": "#1E293B",
+                        "status-normal": "#10B981",
+                        "surface-container-lowest": "#090f11",
+                        "on-primary-fixed": "#001f25",
+                        "status-warning": "#F59E0B",
+                        "outline": "#859397",
+                        "error": "#ffb4ab",
+                        "primary-container": "#22d3ee",
+                        "surface-dim": "#0e1416",
+                        "surface-container-highest": "#2f3638",
+                        "on-tertiary": "#462b00",
+                        "primary": "#8aebff",
+                        "on-secondary-fixed-variant": "#2f3aa3",
+                        "on-background": "#dde4e5",
+                        "on-primary-fixed-variant": "#004e5a",
+                        "surface-bright": "#343a3c",
+                        "secondary-container": "#2f3aa3",
+                        "output-token": "#818CF8",
+                        "tertiary-container": "#ffb13b",
+                        "primary-fixed": "#a2eeff",
+                        "on-surface-variant": "#bbc9cd",
+                        "on-secondary": "#131e8c",
+                        "surface-tint": "#2fd9f4",
+                        "outline-variant": "#3c494c",
+                        "input-token": "#38BDF8",
+                        "on-secondary-fixed": "#000767",
+                        "background": "#0F172A",
+                        "tertiary-fixed": "#ffddb5",
+                        "secondary": "#bdc2ff",
+                        "on-tertiary-fixed-variant": "#643f00",
+                        "tertiary": "#ffd6a3",
+                        "inverse-on-surface": "#2b3233"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    spacing: {
+                        "container-margin": "24px",
+                        "gutter": "16px",
+                        "section-gap": "32px",
+                        "base": "4px",
+                        "card-padding": "20px"
+                    },
+                    fontFamily: {
+                        "body-md": ["Manrope"],
+                        "data-mono": ["Inter"],
+                        "kpi-value": ["Space Grotesk"],
+                        "h2": ["Space Grotesk"],
+                        "display": ["Space Grotesk"],
+                        "body-lg": ["Manrope"],
+                        "label-caps": ["Inter"],
+                        "h1": ["Space Grotesk"]
+                    },
+                    fontSize: {
+                        "body-md": ["14px", { lineHeight: "1.5", fontWeight: "400" }],
+                        "data-mono": ["13px", { lineHeight: "1.4", letterSpacing: "0.02em", fontWeight: "500" }],
+                        "kpi-value": ["28px", { lineHeight: "1", fontWeight: "600" }],
+                        "h2": ["24px", { lineHeight: "1.3", fontWeight: "600" }],
+                        "display": ["48px", { lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "700" }],
+                        "body-lg": ["18px", { lineHeight: "1.6", fontWeight: "400" }],
+                        "label-caps": ["11px", { lineHeight: "1", letterSpacing: "0.05em", fontWeight: "700" }],
+                        "h1": ["32px", { lineHeight: "1.2", fontWeight: "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.background');
+            color: theme('colors.on-background');
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<nav class="bg-slate-950/80 backdrop-blur-md font-['Space_Grotesk'] antialiased tracking-tight docked full-width top-0 sticky z-50 border-b border-slate-800/50 flat no shadows flex justify-between items-center px-6 h-16 w-full">
+<!-- Brand -->
+<div class="text-xl font-bold tracking-tighter text-cyan-400">TokenRadar.ai</div>
+<!-- Search (on_left) - Hidden on mobile for space, but structural wrapper exists -->
+<div class="hidden md:flex flex-1 mx-8 relative">
+<span class="material-symbols-outlined absolute left-3 top-2.5 text-slate-400" data-icon="search">search</span>
+<input class="w-full bg-slate-900/50 border border-slate-800/50 rounded-full py-2 pl-10 pr-4 text-slate-200 focus:outline-none focus:border-cyan-400" placeholder="Search..." type="text"/>
+</div>
+<!-- Trailing Actions -->
+<div class="flex items-center gap-4">
+<button class="text-slate-400 hover:bg-slate-900/50 hover:text-cyan-300 transition-colors Active: opacity-80 transition-all p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-cyan-400 border-b-2 border-cyan-400 hover:bg-slate-900/50 hover:text-cyan-300 transition-colors Active: opacity-80 transition-all p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<button class="text-slate-400 hover:bg-slate-900/50 hover:text-cyan-300 transition-colors Active: opacity-80 transition-all p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-elevated border border-border-subtle overflow-hidden ml-2 flex-shrink-0">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="professional headshot of a person looking forward against a neutral background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD7IhnAZQIYREjWnU1A0S47MoxSq908fgLzkadwbzB9WIAYcw75_LHNn1JT-OMTimI1XWWPHNWBEkCSgOwLV7Zajpt3rMuKlZhcpA15i0VF4UILNyDuerRTghJCfZtg6N6oaFkQ7KsMkMZSK36wKxzGKx7B0f1z0963ke9oOG6om7L4BKdHa6YtxgB4jQNOX6l1R2Hc8BmvH-QfLLNXHpSCEdbI6Xh-152G5r9DEaegEKAIgr_VHUcHrZZx8Rien27lkUwfWZcEmzI3"/>
+</div>
+</div>
+</nav>
+<!-- Main Content Container -->
+<main class="flex-1 w-full max-w-2xl mx-auto p-4 md:p-container-margin flex flex-col gap-section-gap pb-12">
+<header>
+<h1 class="font-h1 text-h1 text-on-surface">Settings</h1>
+<p class="font-body-md text-body-md text-text-muted mt-2">Manage your organization preferences and FinOps rules.</p>
+</header>
+<!-- Organization Profile Section -->
+<section class="flex flex-col gap-gutter">
+<h2 class="font-h2 text-h2 text-on-surface border-b border-border-subtle pb-2">Organization Profile</h2>
+<div class="bg-surface rounded-lg border border-border-subtle p-4 flex flex-col gap-4">
+<div class="flex flex-col gap-base">
+<label class="font-label-caps text-label-caps text-text-muted">ORGANIZATION NAME</label>
+<input class="bg-background border border-border-subtle rounded p-3 font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full transition-colors" type="text" value="Acme Corp FinOps"/>
+</div>
+<div class="flex flex-col gap-base">
+<label class="font-label-caps text-label-caps text-text-muted">ADMIN EMAIL</label>
+<input class="bg-background border border-border-subtle rounded p-3 font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full transition-colors" type="email" value="admin@acmecorp.com"/>
+</div>
+<div class="flex flex-col gap-base">
+<label class="font-label-caps text-label-caps text-text-muted">WORKSPACE ID</label>
+<div class="flex items-center gap-2">
+<input class="bg-surface-elevated border border-border-subtle rounded p-3 font-data-mono text-data-mono text-text-muted w-full cursor-not-allowed" readonly="" type="text" value="ws_09xjf82m"/>
+<button class="p-3 bg-surface border border-border-subtle rounded hover:bg-surface-bright transition-colors flex items-center justify-center text-text-muted hover:text-primary">
+<span class="material-symbols-outlined text-[18px]" data-icon="content_copy">content_copy</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- App Preferences Section -->
+<section class="flex flex-col gap-gutter">
+<h2 class="font-h2 text-h2 text-on-surface border-b border-border-subtle pb-2">App Preferences</h2>
+<div class="bg-surface rounded-lg border border-border-subtle p-4 flex flex-col gap-4">
+<div class="flex flex-col gap-base">
+<label class="font-label-caps text-label-caps text-text-muted">DEFAULT CURRENCY</label>
+<div class="relative">
+<select class="bg-background border border-border-subtle rounded p-3 pr-10 font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full appearance-none transition-colors">
+<option value="usd">USD ($)</option>
+<option value="eur">EUR (€)</option>
+<option value="gbp">GBP (£)</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-3 text-text-muted pointer-events-none" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+<div class="flex flex-col gap-base">
+<label class="font-label-caps text-label-caps text-text-muted">PRIMARY AI PROVIDER</label>
+<div class="relative">
+<select class="bg-background border border-border-subtle rounded p-3 pr-10 font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full appearance-none transition-colors">
+<option value="openai">OpenAI</option>
+<option value="anthropic">Anthropic</option>
+<option value="google">Google Vertex</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-3 text-text-muted pointer-events-none" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+</div>
+</section>
+<!-- System Controls Section -->
+<section class="flex flex-col gap-gutter">
+<h2 class="font-h2 text-h2 text-on-surface border-b border-border-subtle pb-2">System Controls</h2>
+<div class="flex flex-col gap-3">
+<!-- Toggle 1 (Inactive) -->
+<div class="flex items-center justify-between bg-surface p-4 rounded-lg border border-border-subtle">
+<div class="flex flex-col pr-4">
+<span class="font-body-lg text-body-lg text-on-surface">Demo Mode</span>
+<span class="font-body-md text-body-md text-text-muted mt-1">Use simulated ledger data for sandbox testing.</span>
+</div>
+<button class="w-12 h-6 rounded-full bg-surface-elevated relative flex items-center p-1 cursor-pointer flex-shrink-0 border border-border-subtle">
+<div class="w-4 h-4 rounded-full bg-text-muted transform translate-x-0 transition-transform"></div>
+</button>
+</div>
+<!-- Toggle 2 (Active) -->
+<div class="flex items-center justify-between bg-surface p-4 rounded-lg border border-border-subtle">
+<div class="flex flex-col pr-4">
+<span class="font-body-lg text-body-lg text-on-surface">Strict Budget Rules</span>
+<span class="font-body-md text-body-md text-text-muted mt-1">Automatically block API requests when project exceeds 100% budget.</span>
+</div>
+<button class="w-12 h-6 rounded-full bg-primary-container relative flex items-center p-1 cursor-pointer flex-shrink-0">
+<div class="w-4 h-4 rounded-full bg-on-primary-container transform translate-x-6 transition-transform"></div>
+</button>
+</div>
+</div>
+</section>
+<!-- Action Area -->
+<div class="mt-4 pt-4 border-t border-border-subtle flex gap-4">
+<button class="flex-1 bg-surface-elevated text-on-surface font-body-lg text-body-lg py-3 rounded-lg hover:bg-surface-bright transition-colors border border-border-subtle">Cancel</button>
+<button class="flex-[2] bg-primary text-on-primary font-body-lg text-body-lg py-3 rounded-lg hover:bg-primary-fixed transition-colors font-semibold shadow-[0_0_15px_rgba(138,235,255,0.15)]">Save Changes</button>
+</div>
+</main>
+</body></html>

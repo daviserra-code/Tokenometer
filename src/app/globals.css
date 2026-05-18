@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Material Symbols loaded via <link> in app/layout.tsx for reliability. */
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background-color: #0f172a;
+  color: #dde4e5;
+  font-feature-settings: "ss01", "cv11";
+}
+
+/* Subtle scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::selection {
+  background-color: #22d3ee33;
+  color: #dde4e5;
+}
+
+/* Material Symbols base */
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined", "Material Icons";
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: "liga";
+  -webkit-font-feature-settings: "liga";
+  font-variant-ligatures: discretionary-ligatures;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  /* Hide the literal text until the font has loaded so we never flash icon names */
+  overflow: hidden;
+  max-width: 1.5em;
+  vertical-align: middle;
+}
+.material-symbols-outlined.filled {
+  font-variation-settings: "FILL" 1, "wght" 500, "GRAD" 0, "opsz" 24;
+}
+
+/* Decorative ambient brand glow used behind page hero areas */
+.brand-glow::before {
+  content: "";
+  position: absolute;
+  top: -120px;
+  left: 25%;
+  width: 500px;
+  height: 500px;
+  background: rgba(34, 211, 238, 0.06);
+  border-radius: 9999px;
+  filter: blur(120px);
+  pointer-events: none;
+  z-index: -1;
+}

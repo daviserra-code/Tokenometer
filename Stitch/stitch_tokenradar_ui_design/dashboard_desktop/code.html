@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TokenRadar.ai - Dashboard</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&amp;family=Manrope:wght@400;500;600&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-container": "#6e4600",
+                    "inverse-surface": "#dde4e5",
+                    "on-error": "#690005",
+                    "secondary-fixed-dim": "#bdc2ff",
+                    "primary-fixed-dim": "#2fd9f4",
+                    "surface-container-high": "#242b2d",
+                    "surface-variant": "#2f3638",
+                    "surface-elevated": "#334155",
+                    "on-primary-container": "#005763",
+                    "on-secondary-container": "#a8afff",
+                    "secondary-fixed": "#e0e0ff",
+                    "on-error-container": "#ffdad6",
+                    "surface": "#1E293B",
+                    "tertiary-fixed-dim": "#ffb957",
+                    "on-surface": "#dde4e5",
+                    "on-tertiary-fixed": "#2a1800",
+                    "text-muted": "#94A3B8",
+                    "status-exceeded": "#EF4444",
+                    "surface-container-low": "#161d1e",
+                    "inverse-primary": "#006877",
+                    "error-container": "#93000a",
+                    "on-primary": "#00363e",
+                    "surface-container": "#1a2122",
+                    "border-subtle": "#1E293B",
+                    "status-normal": "#10B981",
+                    "surface-container-lowest": "#090f11",
+                    "on-primary-fixed": "#001f25",
+                    "status-warning": "#F59E0B",
+                    "outline": "#859397",
+                    "error": "#ffb4ab",
+                    "primary-container": "#22d3ee",
+                    "surface-dim": "#0e1416",
+                    "surface-container-highest": "#2f3638",
+                    "on-tertiary": "#462b00",
+                    "primary": "#8aebff",
+                    "on-secondary-fixed-variant": "#2f3aa3",
+                    "on-background": "#dde4e5",
+                    "on-primary-fixed-variant": "#004e5a",
+                    "surface-bright": "#343a3c",
+                    "secondary-container": "#2f3aa3",
+                    "output-token": "#818CF8",
+                    "tertiary-container": "#ffb13b",
+                    "primary-fixed": "#a2eeff",
+                    "on-surface-variant": "#bbc9cd",
+                    "on-secondary": "#131e8c",
+                    "surface-tint": "#2fd9f4",
+                    "outline-variant": "#3c494c",
+                    "input-token": "#38BDF8",
+                    "on-secondary-fixed": "#000767",
+                    "background": "#0F172A",
+                    "tertiary-fixed": "#ffddb5",
+                    "secondary": "#bdc2ff",
+                    "on-tertiary-fixed-variant": "#643f00",
+                    "tertiary": "#ffd6a3",
+                    "inverse-on-surface": "#2b3233"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "container-margin": "24px",
+                    "gutter": "16px",
+                    "section-gap": "32px",
+                    "base": "4px",
+                    "card-padding": "20px"
+            },
+            "fontFamily": {
+                    "body-md": ["Manrope"],
+                    "data-mono": ["Inter"],
+                    "kpi-value": ["Space Grotesk"],
+                    "h2": ["Space Grotesk"],
+                    "display": ["Space Grotesk"],
+                    "body-lg": ["Manrope"],
+                    "label-caps": ["Inter"],
+                    "h1": ["Space Grotesk"]
+            },
+            "fontSize": {
+                    "body-md": ["14px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                    "data-mono": ["13px", { "lineHeight": "1.4", "letterSpacing": "0.02em", "fontWeight": "500" }],
+                    "kpi-value": ["28px", { "lineHeight": "1", "fontWeight": "600" }],
+                    "h2": ["24px", { "lineHeight": "1.3", "fontWeight": "600" }],
+                    "display": ["48px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                    "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                    "label-caps": ["11px", { "lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                    "h1": ["32px", { "lineHeight": "1.2", "fontWeight": "600" }]
+            }
+          }
+        }
+      }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body-md text-body-md min-h-screen antialiased selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopAppBar -->
+<nav class="bg-slate-950/80 backdrop-blur-md text-cyan-400 font-['Space_Grotesk'] antialiased tracking-tight docked full-width top-0 sticky z-50 border-b border-slate-800/50 flex justify-between items-center px-6 h-16 w-full shadow-none transition-all duration-300 hover:opacity-100">
+<div class="flex items-center gap-4">
+<span class="text-xl font-bold tracking-tighter text-cyan-400">TokenRadar.ai</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-slate-400 hover:bg-slate-900/50 hover:text-cyan-300 transition-colors rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">notifications</span>
+</button>
+<button class="p-2 text-slate-400 hover:bg-slate-900/50 hover:text-cyan-300 transition-colors rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">settings</span>
+</button>
+<button class="p-2 text-slate-400 hover:bg-slate-900/50 hover:text-cyan-300 transition-colors rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">help</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-elevated border border-border-subtle ml-2 flex items-center justify-center overflow-hidden">
+<span class="material-symbols-outlined text-text-muted text-[18px]">person</span>
+</div>
+</div>
+</nav>
+<!-- SideNavBar & Main Content Wrapper -->
+<div class="flex h-[calc(100vh-64px)] w-full overflow-hidden">
+<!-- SideNavBar -->
+<aside class="bg-slate-950 text-cyan-400 font-['Space_Grotesk'] text-sm font-medium w-64 border-r border-slate-800 flex flex-col h-full flex-shrink-0 relative z-40 transition-transform">
+<div class="p-6 border-b border-slate-800/50 flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-surface flex items-center justify-center border border-border-subtle">
+<span class="material-symbols-outlined text-primary">radar</span>
+</div>
+<div>
+<h2 class="font-h2 text-body-lg text-white leading-tight">TokenRadar</h2>
+<p class="text-label-caps font-label-caps text-slate-400">FinOps Control</p>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-1">
+<!-- Active Tab: Dashboard -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-cyan-500/10 text-cyan-400 border-r-2 border-cyan-400 transition-transform hover:scale-[0.99]" href="#">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span>Dashboard</span>
+</a>
+<!-- Inactive Tabs -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-900 hover:text-slate-100 transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">receipt_long</span>
+<span>Token Ledger</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-900 hover:text-slate-100 transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">account_tree</span>
+<span>Projects</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-900 hover:text-slate-100 transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">account_balance_wallet</span>
+<span>Budgets</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-900 hover:text-slate-100 transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">query_stats</span>
+<span>Usage Trends</span>
+</a>
+</div>
+<div class="p-4 border-t border-slate-800/50">
+<div class="flex flex-col gap-1 mb-4">
+<a class="flex items-center gap-3 px-3 py-2 text-label-caps font-label-caps text-slate-400 hover:text-slate-100 transition-colors" href="#">
+<span class="material-symbols-outlined text-[16px]">history_edu</span>
+<span>Audit Logs</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-label-caps font-label-caps text-slate-400 hover:text-slate-100 transition-colors" href="#">
+<span class="material-symbols-outlined text-[16px]">vpn_key</span>
+<span>API Keys</span>
+</a>
+</div>
+<button class="w-full bg-primary/10 text-primary border border-primary/30 hover:bg-primary hover:text-on-primary transition-all rounded-lg py-2 font-label-caps text-label-caps flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[16px]">download</span>
+                    Generate Report
+                </button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 overflow-y-auto p-container-margin bg-background relative">
+<!-- Background glow effect -->
+<div class="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] pointer-events-none -z-10"></div>
+<div class="max-w-[1600px] mx-auto flex flex-col gap-section-gap">
+<!-- Page Header -->
+<header class="flex justify-between items-end">
+<div>
+<h1 class="font-h1 text-h1 text-on-surface mb-1">FinOps Dashboard</h1>
+<p class="text-text-muted">Real-time token consumption and fiscal tracking.</p>
+</div>
+<div class="flex gap-2">
+<div class="bg-surface border border-border-subtle rounded-lg px-3 py-1.5 flex items-center gap-2 text-data-mono font-data-mono">
+<span class="w-2 h-2 rounded-full bg-status-normal shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+                            API Status: Optimal
+                        </div>
+</div>
+</header>
+<!-- KPI Bento Grid -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter">
+<!-- KPI Card 1: MTD Spend -->
+<div class="bg-surface border border-border-subtle rounded-xl p-card-padding flex flex-col relative overflow-hidden group hover:border-primary/50 transition-colors">
+<div class="flex justify-between items-start mb-4">
+<span class="text-label-caps font-label-caps text-text-muted">MTD SPEND</span>
+<span class="material-symbols-outlined text-text-muted text-[20px]">payments</span>
+</div>
+<div class="font-kpi-value text-kpi-value text-on-surface mb-2">$14,285.00</div>
+<div class="flex items-center gap-2 mt-auto">
+<div class="bg-status-warning/10 text-status-warning px-1.5 py-0.5 rounded flex items-center gap-1 font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-[12px]">trending_up</span>
+                                +12.4%
+                            </div>
+<span class="text-data-mono font-data-mono text-text-muted text-[11px]">vs last month</span>
+</div>
+<div class="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-status-warning to-transparent w-1/3"></div>
+</div>
+<!-- KPI Card 2: Projected Spend -->
+<div class="bg-surface border border-border-subtle rounded-xl p-card-padding flex flex-col relative overflow-hidden group hover:border-primary/50 transition-colors">
+<div class="flex justify-between items-start mb-4">
+<span class="text-label-caps font-label-caps text-text-muted">PROJECTED MONTH-END</span>
+<span class="material-symbols-outlined text-text-muted text-[20px]">event_upcoming</span>
+</div>
+<div class="font-kpi-value text-kpi-value text-on-surface mb-2">$21,500.00</div>
+<div class="flex items-center gap-2 mt-auto">
+<div class="bg-status-exceeded/10 text-status-exceeded px-1.5 py-0.5 rounded flex items-center gap-1 font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-[12px]">warning</span>
+                                Over Budget
+                            </div>
+<span class="text-data-mono font-data-mono text-text-muted text-[11px]">Limit: $20k</span>
+</div>
+</div>
+<!-- KPI Card 3: MTD Input Tokens -->
+<div class="bg-surface border border-border-subtle rounded-xl p-card-padding flex flex-col relative overflow-hidden group hover:border-primary/50 transition-colors">
+<div class="flex justify-between items-start mb-4">
+<span class="text-label-caps font-label-caps text-text-muted">MTD INPUT TOKENS</span>
+<span class="material-symbols-outlined text-input-token text-[20px]">input</span>
+</div>
+<div class="font-kpi-value text-kpi-value text-on-surface mb-2">425.8M</div>
+<div class="flex items-center gap-2 mt-auto">
+<div class="bg-status-normal/10 text-status-normal px-1.5 py-0.5 rounded flex items-center gap-1 font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-[12px]">trending_down</span>
+                                -4.2%
+                            </div>
+<span class="text-data-mono font-data-mono text-text-muted text-[11px]">Efficiency gain</span>
+</div>
+</div>
+<!-- KPI Card 4: MTD Output Tokens -->
+<div class="bg-surface border border-border-subtle rounded-xl p-card-padding flex flex-col relative overflow-hidden group hover:border-primary/50 transition-colors">
+<div class="flex justify-between items-start mb-4">
+<span class="text-label-caps font-label-caps text-text-muted">MTD OUTPUT TOKENS</span>
+<span class="material-symbols-outlined text-output-token text-[20px]">output</span>
+</div>
+<div class="font-kpi-value text-kpi-value text-on-surface mb-2">112.4M</div>
+<div class="flex items-center gap-2 mt-auto">
+<div class="bg-status-warning/10 text-status-warning px-1.5 py-0.5 rounded flex items-center gap-1 font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-[12px]">trending_up</span>
+                                +18.7%
+                            </div>
+<span class="text-data-mono font-data-mono text-text-muted text-[11px]">High generation vol.</span>
+</div>
+</div>
+</section>
+<!-- Middle Section: Chart & Budgets -->
+<section class="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+<!-- Daily Trend Chart (8 cols) -->
+<div class="lg:col-span-8 bg-surface border border-border-subtle rounded-xl p-card-padding flex flex-col h-[400px]">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-h2 text-body-lg text-on-surface">Daily Token &amp; Cost Trend</h3>
+<div class="flex gap-4">
+<div class="flex items-center gap-2 text-data-mono font-data-mono text-[12px] text-text-muted">
+<span class="w-3 h-1 bg-input-token rounded-full"></span> Input
+                                </div>
+<div class="flex items-center gap-2 text-data-mono font-data-mono text-[12px] text-text-muted">
+<span class="w-3 h-1 bg-output-token rounded-full"></span> Output
+                                </div>
+</div>
+</div>
+<!-- Chart Mockup -->
+<div class="flex-1 relative w-full mt-4 border-l border-b border-border-subtle">
+<!-- Grid lines -->
+<div class="absolute inset-0 flex flex-col justify-between">
+<div class="w-full h-px bg-border-subtle/50"></div>
+<div class="w-full h-px bg-border-subtle/50"></div>
+<div class="w-full h-px bg-border-subtle/50"></div>
+<div class="w-full h-px bg-border-subtle/50"></div>
+</div>
+<!-- SVG Chart Area -->
+<svg class="absolute inset-0 w-full h-full" preserveaspectratio="none" viewbox="0 0 100 100">
+<defs>
+<lineargradient id="input-grad" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#38BDF8" stop-opacity="0.2"></stop>
+<stop offset="100%" stop-color="#38BDF8" stop-opacity="0"></stop>
+</lineargradient>
+<lineargradient id="output-grad" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#818CF8" stop-opacity="0.3"></stop>
+<stop offset="100%" stop-color="#818CF8" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+<!-- Input Area -->
+<path d="M0,80 Q10,70 20,75 T40,60 T60,65 T80,40 T100,45 L100,100 L0,100 Z" fill="url(#input-grad)"></path>
+<path d="M0,80 Q10,70 20,75 T40,60 T60,65 T80,40 T100,45" fill="none" stroke="#38BDF8" stroke-width="1.5" vector-effect="non-scaling-stroke"></path>
+<!-- Output Area -->
+<path d="M0,90 Q15,85 25,70 T45,75 T65,50 T85,55 T100,30 L100,100 L0,100 Z" fill="url(#output-grad)"></path>
+<path d="M0,90 Q15,85 25,70 T45,75 T65,50 T85,55 T100,30" fill="none" stroke="#818CF8" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+</svg>
+<!-- X Axis Labels -->
+<div class="absolute -bottom-6 left-0 right-0 flex justify-between text-label-caps font-label-caps text-text-muted">
+<span>Oct 1</span>
+<span>Oct 8</span>
+<span>Oct 15</span>
+<span>Oct 22</span>
+<span>Oct 31</span>
+</div>
+</div>
+</div>
+<!-- Budget Consumption (4 cols) -->
+<div class="lg:col-span-4 bg-surface border border-border-subtle rounded-xl p-card-padding flex flex-col h-[400px] overflow-hidden">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-h2 text-body-lg text-on-surface">Budget Consumption</h3>
+<button class="text-primary text-label-caps font-label-caps hover:underline">View All</button>
+</div>
+<div class="flex flex-col gap-6 overflow-y-auto pr-2">
+<!-- Budget Item 1 -->
+<div>
+<div class="flex justify-between items-end mb-2">
+<div>
+<div class="text-on-surface font-medium">Core API Infrastructure</div>
+<div class="text-data-mono font-data-mono text-[11px] text-text-muted">Production Env</div>
+</div>
+<div class="text-right">
+<div class="text-data-mono font-data-mono text-on-surface">$8,450 / $10k</div>
+<div class="text-status-warning font-label-caps text-label-caps">84.5%</div>
+</div>
+</div>
+<div class="w-full h-2 bg-surface-elevated rounded-full relative">
+<div class="absolute left-1/2 w-px h-3 -top-0.5 bg-border-subtle/80 z-10"></div>
+<div class="absolute left-[80%] w-px h-3 -top-0.5 bg-border-subtle/80 z-10"></div>
+<div class="h-full bg-status-warning rounded-full relative overflow-hidden" style="width: 84.5%">
+<div class="absolute inset-0 bg-white/20 w-full animate-pulse"></div>
+</div>
+</div>
+</div>
+<!-- Budget Item 2 -->
+<div>
+<div class="flex justify-between items-end mb-2">
+<div>
+<div class="text-on-surface font-medium">R&amp;D Experimentation</div>
+<div class="text-data-mono font-data-mono text-[11px] text-text-muted">Staging Env</div>
+</div>
+<div class="text-right">
+<div class="text-data-mono font-data-mono text-on-surface">$4,200 / $5k</div>
+<div class="text-status-exceeded font-label-caps text-label-caps">105%</div>
+</div>
+</div>
+<div class="w-full h-2 bg-surface-elevated rounded-full relative">
+<div class="absolute left-1/2 w-px h-3 -top-0.5 bg-border-subtle/80 z-10"></div>
+<div class="absolute left-[80%] w-px h-3 -top-0.5 bg-border-subtle/80 z-10"></div>
+<div class="h-full bg-status-exceeded rounded-full" style="width: 100%"></div>
+</div>
+</div>
+<!-- Budget Item 3 -->
+<div>
+<div class="flex justify-between items-end mb-2">
+<div>
+<div class="text-on-surface font-medium">Internal Analytics</div>
+<div class="text-data-mono font-data-mono text-[11px] text-text-muted">Data Team</div>
+</div>
+<div class="text-right">
+<div class="text-data-mono font-data-mono text-on-surface">$1,100 / $3k</div>
+<div class="text-primary font-label-caps text-label-caps">36.6%</div>
+</div>
+</div>
+<div class="w-full h-2 bg-surface-elevated rounded-full relative">
+<div class="absolute left-1/2 w-px h-3 -top-0.5 bg-border-subtle/80 z-10"></div>
+<div class="absolute left-[80%] w-px h-3 -top-0.5 bg-border-subtle/80 z-10"></div>
+<div class="h-full bg-primary rounded-full" style="width: 36.6%"></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Bottom Section: Top Models Data Table -->
+<section class="bg-surface border border-border-subtle rounded-xl overflow-hidden">
+<div class="p-card-padding border-b border-border-subtle flex justify-between items-center bg-surface-variant/30">
+<h3 class="font-h2 text-body-lg text-on-surface">Top Models &amp; Projects Breakdown</h3>
+<div class="flex gap-2">
+<button class="bg-surface-elevated border border-border-subtle text-on-surface px-3 py-1.5 rounded-lg text-label-caps font-label-caps flex items-center gap-1 hover:border-primary/50 transition-colors">
+<span class="material-symbols-outlined text-[14px]">filter_list</span> Filter
+                            </button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-border-subtle bg-surface/50">
+<th class="py-3 px-4 text-label-caps font-label-caps text-text-muted font-normal">MODEL</th>
+<th class="py-3 px-4 text-label-caps font-label-caps text-text-muted font-normal">PRIMARY PROJECT</th>
+<th class="py-3 px-4 text-label-caps font-label-caps text-text-muted font-normal text-right">INPUT TOKENS</th>
+<th class="py-3 px-4 text-label-caps font-label-caps text-text-muted font-normal text-right">OUTPUT TOKENS</th>
+<th class="py-3 px-4 text-label-caps font-label-caps text-text-muted font-normal text-right">EST. COST</th>
+<th class="py-3 px-4 text-label-caps font-label-caps text-text-muted font-normal text-center">STATUS</th>
+</tr>
+</thead>
+<tbody class="text-data-mono font-data-mono">
+<tr class="border-b border-border-subtle hover:bg-surface-elevated/30 transition-colors group">
+<td class="py-3 px-4 text-primary font-medium">gpt-4-turbo</td>
+<td class="py-3 px-4 text-on-surface">Core API Routing</td>
+<td class="py-3 px-4 text-right text-text-muted">184.2M</td>
+<td class="py-3 px-4 text-right text-text-muted">42.1M</td>
+<td class="py-3 px-4 text-right text-on-surface">$5,420.00</td>
+<td class="py-3 px-4 text-center">
+<span class="inline-flex items-center justify-center bg-status-normal/10 text-status-normal text-label-caps font-label-caps px-2 py-0.5 rounded border border-status-normal/20">Active</span>
+</td>
+</tr>
+<tr class="border-b border-border-subtle hover:bg-surface-elevated/30 transition-colors group">
+<td class="py-3 px-4 text-primary font-medium">claude-3-opus</td>
+<td class="py-3 px-4 text-on-surface">R&amp;D Data Synthesis</td>
+<td class="py-3 px-4 text-right text-text-muted">89.5M</td>
+<td class="py-3 px-4 text-right text-text-muted">31.8M</td>
+<td class="py-3 px-4 text-right text-on-surface">$3,850.50</td>
+<td class="py-3 px-4 text-center">
+<span class="inline-flex items-center justify-center bg-status-warning/10 text-status-warning text-label-caps font-label-caps px-2 py-0.5 rounded border border-status-warning/20">Warning</span>
+</td>
+</tr>
+<tr class="border-b border-border-subtle hover:bg-surface-elevated/30 transition-colors group">
+<td class="py-3 px-4 text-primary font-medium">gpt-3.5-turbo</td>
+<td class="py-3 px-4 text-on-surface">Internal Support Bot</td>
+<td class="py-3 px-4 text-right text-text-muted">120.1M</td>
+<td class="py-3 px-4 text-right text-text-muted">25.4M</td>
+<td class="py-3 px-4 text-right text-on-surface">$245.80</td>
+<td class="py-3 px-4 text-center">
+<span class="inline-flex items-center justify-center bg-status-normal/10 text-status-normal text-label-caps font-label-caps px-2 py-0.5 rounded border border-status-normal/20">Active</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-elevated/30 transition-colors group">
+<td class="py-3 px-4 text-primary font-medium">mistral-large</td>
+<td class="py-3 px-4 text-on-surface">Log Analysis Job</td>
+<td class="py-3 px-4 text-right text-text-muted">32.0M</td>
+<td class="py-3 px-4 text-right text-text-muted">13.1M</td>
+<td class="py-3 px-4 text-right text-on-surface">$768.20</td>
+<td class="py-3 px-4 text-center">
+<span class="inline-flex items-center justify-center bg-status-exceeded/10 text-status-exceeded text-label-caps font-label-caps px-2 py-0.5 rounded border border-status-exceeded/20">Spike</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</div>
+</main>
+</div>
+</body></html>

@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TokenRadar.ai - Projects &amp; Budgets</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Manrope:wght@400;500;600;700&amp;family=Space+Grotesk:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-tertiary-container": "#6e4600",
+                      "inverse-surface": "#dde4e5",
+                      "on-error": "#690005",
+                      "secondary-fixed-dim": "#bdc2ff",
+                      "primary-fixed-dim": "#2fd9f4",
+                      "surface-container-high": "#242b2d",
+                      "surface-variant": "#2f3638",
+                      "surface-elevated": "#334155",
+                      "on-primary-container": "#005763",
+                      "on-secondary-container": "#a8afff",
+                      "secondary-fixed": "#e0e0ff",
+                      "on-error-container": "#ffdad6",
+                      "surface": "#1E293B",
+                      "tertiary-fixed-dim": "#ffb957",
+                      "on-surface": "#dde4e5",
+                      "on-tertiary-fixed": "#2a1800",
+                      "text-muted": "#94A3B8",
+                      "status-exceeded": "#EF4444",
+                      "surface-container-low": "#161d1e",
+                      "inverse-primary": "#006877",
+                      "error-container": "#93000a",
+                      "on-primary": "#00363e",
+                      "surface-container": "#1a2122",
+                      "border-subtle": "#1E293B",
+                      "status-normal": "#10B981",
+                      "surface-container-lowest": "#090f11",
+                      "on-primary-fixed": "#001f25",
+                      "status-warning": "#F59E0B",
+                      "outline": "#859397",
+                      "error": "#ffb4ab",
+                      "primary-container": "#22d3ee",
+                      "surface-dim": "#0e1416",
+                      "surface-container-highest": "#2f3638",
+                      "on-tertiary": "#462b00",
+                      "primary": "#8aebff",
+                      "on-secondary-fixed-variant": "#2f3aa3",
+                      "on-background": "#dde4e5",
+                      "on-primary-fixed-variant": "#004e5a",
+                      "surface-bright": "#343a3c",
+                      "secondary-container": "#2f3aa3",
+                      "output-token": "#818CF8",
+                      "tertiary-container": "#ffb13b",
+                      "primary-fixed": "#a2eeff",
+                      "on-surface-variant": "#bbc9cd",
+                      "on-secondary": "#131e8c",
+                      "surface-tint": "#2fd9f4",
+                      "outline-variant": "#3c494c",
+                      "input-token": "#38BDF8",
+                      "on-secondary-fixed": "#000767",
+                      "background": "#0F172A",
+                      "tertiary-fixed": "#ffddb5",
+                      "secondary": "#bdc2ff",
+                      "on-tertiary-fixed-variant": "#643f00",
+                      "tertiary": "#ffd6a3",
+                      "inverse-on-surface": "#2b3233"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "container-margin": "24px",
+                      "gutter": "16px",
+                      "section-gap": "32px",
+                      "base": "4px",
+                      "card-padding": "20px"
+              },
+              "fontFamily": {
+                      "body-md": [
+                              "Manrope"
+                      ],
+                      "data-mono": [
+                              "Inter"
+                      ],
+                      "kpi-value": [
+                              "Space Grotesk"
+                      ],
+                      "h2": [
+                              "Space Grotesk"
+                      ],
+                      "display": [
+                              "Space Grotesk"
+                      ],
+                      "body-lg": [
+                              "Manrope"
+                      ],
+                      "label-caps": [
+                              "Inter"
+                      ],
+                      "h1": [
+                              "Space Grotesk"
+                      ]
+              },
+              "fontSize": {
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "1.5",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "data-mono": [
+                              "13px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "letterSpacing": "0.02em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "kpi-value": [
+                              "28px",
+                              {
+                                      "lineHeight": "1",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "h2": [
+                              "24px",
+                              {
+                                      "lineHeight": "1.3",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display": [
+                              "48px",
+                              {
+                                      "lineHeight": "1.1",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "1.6",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-caps": [
+                              "11px",
+                              {
+                                      "lineHeight": "1",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "h1": [
+                              "32px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+          font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen overflow-x-hidden selection:bg-primary-container/30">
+<!-- TopAppBar -->
+<header class="bg-slate-950/80 backdrop-blur-md font-['Space_Grotesk'] antialiased tracking-tight sticky top-0 z-50 border-b border-slate-800/50 flex justify-between items-center px-6 h-16 w-full text-cyan-400">
+<div class="flex items-center gap-4">
+<!-- Search Bar: on_left -->
+<div class="relative flex items-center bg-slate-900/50 rounded-lg px-3 py-1.5 border border-slate-800/50 focus-within:border-cyan-400/50 transition-colors">
+<span class="material-symbols-outlined text-slate-400 text-sm mr-2">search</span>
+<input class="bg-transparent border-none text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-0 w-48 font-['Space_Grotesk']" placeholder="Search tokens, projects..." type="text"/>
+</div>
+</div>
+<div class="absolute left-1/2 -translate-x-1/2 text-xl font-bold tracking-tighter text-cyan-400">
+            TokenRadar.ai
+        </div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-slate-400 hover:bg-slate-900/50 hover:text-cyan-300 transition-colors rounded-lg">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-slate-400 hover:bg-slate-900/50 hover:text-cyan-300 transition-colors rounded-lg">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<button class="p-2 text-slate-400 hover:bg-slate-900/50 hover:text-cyan-300 transition-colors rounded-lg">
+<span class="material-symbols-outlined">help</span>
+</button>
+<div class="ml-4 h-8 w-8 rounded-full bg-slate-800 border border-slate-700 overflow-hidden flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-400 text-lg">person</span>
+</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<nav class="bg-slate-950 text-cyan-400 font-['Space_Grotesk'] text-sm font-medium h-screen w-64 border-r border-slate-800 rounded-none flex flex-col fixed left-0 top-0 pt-16 z-40">
+<div class="p-6 pb-8 border-b border-slate-800/50">
+<div class="flex items-center gap-3">
+<div class="h-10 w-10 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+<span class="material-symbols-outlined">radar</span>
+</div>
+<div>
+<div class="text-lg font-black text-white leading-tight">TokenRadar</div>
+<div class="text-xs text-slate-400 font-medium tracking-wide">FinOps Control</div>
+</div>
+</div>
+</div>
+<div class="flex-1 py-6 px-3 flex flex-col gap-1 overflow-y-auto">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-900 hover:text-slate-100 transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-900 hover:text-slate-100 transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">receipt_long</span>
+                Token Ledger
+            </a>
+<!-- ACTIVE TAB: Projects -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-cyan-500/10 text-cyan-400 border-r-2 border-cyan-400 scale-[0.99] transition-transform opacity-80" href="#">
+<span class="material-symbols-outlined text-[20px]">account_tree</span>
+                Projects
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-900 hover:text-slate-100 transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">account_balance_wallet</span>
+                Budgets
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-900 hover:text-slate-100 transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">query_stats</span>
+                Usage Trends
+            </a>
+</div>
+<div class="p-4 mt-auto border-t border-slate-800/50 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:bg-slate-900 hover:text-slate-100 transition-all text-xs" href="#">
+<span class="material-symbols-outlined text-[16px]">history_edu</span>
+                Audit Logs
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:bg-slate-900 hover:text-slate-100 transition-all text-xs" href="#">
+<span class="material-symbols-outlined text-[16px]">vpn_key</span>
+                API Keys
+            </a>
+<div class="pt-4">
+<button class="w-full py-2.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 rounded-lg text-xs font-bold tracking-wide uppercase transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[16px]">download</span>
+                    Generate Report
+                </button>
+</div>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-section-gap px-container-margin pb-24">
+<!-- Page Header -->
+<div class="flex justify-between items-end mb-8">
+<div>
+<h1 class="font-h1 text-h1 text-on-background mb-2">Projects &amp; Budgets</h1>
+<p class="font-body-md text-body-md text-text-muted">Monitor team consumption, enforce fiscal limits, and forecast month-end token spend.</p>
+</div>
+<div class="flex gap-3">
+<button class="px-4 py-2 bg-surface border border-border-subtle rounded-lg font-body-md text-body-md text-on-surface hover:bg-surface-elevated transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+                    Filter
+                </button>
+<button class="px-4 py-2 bg-primary text-on-primary rounded-lg font-body-md text-body-md font-medium hover:bg-primary/90 transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                    New Budget
+                </button>
+</div>
+</div>
+<!-- KPI Summary Bento Grid -->
+<div class="grid grid-cols-12 gap-gutter mb-section-gap">
+<!-- Global Spend -->
+<div class="col-span-4 bg-surface border border-border-subtle rounded-xl p-card-padding flex flex-col justify-between relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-5">
+<span class="material-symbols-outlined text-[80px]">payments</span>
+</div>
+<div class="flex justify-between items-start mb-4">
+<span class="font-label-caps text-label-caps text-text-muted uppercase tracking-wider">Global MTD Spend</span>
+<span class="flex items-center gap-1 text-status-warning bg-status-warning/10 px-2 py-0.5 rounded text-xs font-medium border border-status-warning/20">
+<span class="material-symbols-outlined text-[14px]">trending_up</span>
+                        +8.4%
+                    </span>
+</div>
+<div class="font-kpi-value text-kpi-value text-on-background">
+                    $142,850.00
+                </div>
+<div class="mt-2 font-body-md text-body-md text-text-muted text-sm">
+                    Forecast: $185,000 (92% of limits)
+                </div>
+</div>
+<!-- Token Volume -->
+<div class="col-span-4 bg-surface border border-border-subtle rounded-xl p-card-padding flex flex-col justify-between relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-5">
+<span class="material-symbols-outlined text-[80px]">database</span>
+</div>
+<div class="flex justify-between items-start mb-4">
+<span class="font-label-caps text-label-caps text-text-muted uppercase tracking-wider">Total MTD Tokens</span>
+<span class="flex items-center gap-1 text-status-exceeded bg-status-exceeded/10 px-2 py-0.5 rounded text-xs font-medium border border-status-exceeded/20">
+<span class="material-symbols-outlined text-[14px]">priority_high</span>
+                        +15.2%
+                    </span>
+</div>
+<div class="font-kpi-value text-kpi-value text-on-background">
+                    3.84B
+                </div>
+<div class="mt-2 font-body-md text-body-md text-text-muted text-sm">
+                    Input: 1.2B / Output: 2.64B
+                </div>
+</div>
+<!-- Projects Status -->
+<div class="col-span-4 bg-surface border border-border-subtle rounded-xl p-card-padding flex flex-col justify-between">
+<div class="flex justify-between items-start mb-4">
+<span class="font-label-caps text-label-caps text-text-muted uppercase tracking-wider">Project Health</span>
+<span class="material-symbols-outlined text-text-muted">monitoring</span>
+</div>
+<div class="flex gap-4">
+<div class="flex-1">
+<div class="font-kpi-value text-[24px] text-on-background mb-1">18</div>
+<div class="flex items-center gap-1.5 font-label-caps text-[10px] text-status-normal uppercase">
+<div class="w-2 h-2 rounded-full bg-status-normal"></div> Normal
+                        </div>
+</div>
+<div class="w-px bg-border-subtle"></div>
+<div class="flex-1">
+<div class="font-kpi-value text-[24px] text-on-background mb-1">4</div>
+<div class="flex items-center gap-1.5 font-label-caps text-[10px] text-status-warning uppercase">
+<div class="w-2 h-2 rounded-full bg-status-warning"></div> Warning
+                        </div>
+</div>
+<div class="w-px bg-border-subtle"></div>
+<div class="flex-1">
+<div class="font-kpi-value text-[24px] text-on-background mb-1">2</div>
+<div class="flex items-center gap-1.5 font-label-caps text-[10px] text-status-exceeded uppercase">
+<div class="w-2 h-2 rounded-full bg-status-exceeded"></div> Exceeded
+                        </div>
+</div>
+</div>
+</div>
+</div>
+<!-- Data Table Container -->
+<div class="bg-surface border border-border-subtle rounded-xl overflow-hidden shadow-sm">
+<div class="px-5 py-4 border-b border-border-subtle flex justify-between items-center bg-surface-variant/30">
+<h2 class="font-h2 text-[18px] text-on-background m-0">Project Ledger</h2>
+<div class="flex gap-2">
+<button class="p-1.5 text-text-muted hover:text-on-surface transition-colors rounded">
+<span class="material-symbols-outlined text-[20px]">view_column</span>
+</button>
+<button class="p-1.5 text-text-muted hover:text-on-surface transition-colors rounded">
+<span class="material-symbols-outlined text-[20px]">download</span>
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-border-subtle bg-surface-variant/50">
+<th class="py-3 px-5 font-label-caps text-label-caps text-text-muted uppercase tracking-wider font-semibold whitespace-nowrap">Project / Team</th>
+<th class="py-3 px-5 font-label-caps text-label-caps text-text-muted uppercase tracking-wider font-semibold text-right whitespace-nowrap">MTD Tokens</th>
+<th class="py-3 px-5 font-label-caps text-label-caps text-text-muted uppercase tracking-wider font-semibold text-right whitespace-nowrap">MTD Spend</th>
+<th class="py-3 px-5 font-label-caps text-label-caps text-text-muted uppercase tracking-wider font-semibold text-right whitespace-nowrap">Monthly Budget</th>
+<th class="py-3 px-5 font-label-caps text-label-caps text-text-muted uppercase tracking-wider font-semibold whitespace-nowrap w-48">Consumption</th>
+<th class="py-3 px-5 font-label-caps text-label-caps text-text-muted uppercase tracking-wider font-semibold text-right whitespace-nowrap">Forecast</th>
+<th class="py-3 px-5 font-label-caps text-label-caps text-text-muted uppercase tracking-wider font-semibold text-center whitespace-nowrap">Status</th>
+<th class="py-3 px-3"></th>
+</tr>
+</thead>
+<tbody class="font-body-md text-[13px] text-on-surface">
+<!-- Row 1: Warning -->
+<tr class="border-b border-border-subtle/50 hover:bg-surface-elevated/50 transition-colors group">
+<td class="py-3 px-5">
+<div class="font-medium text-on-background">Copilot Alpha</div>
+<div class="text-text-muted text-[11px] mt-0.5">Core AI Engineering</div>
+</td>
+<td class="py-3 px-5 text-right font-data-mono text-data-mono">450.2M</td>
+<td class="py-3 px-5 text-right font-data-mono text-data-mono">$12,450</td>
+<td class="py-3 px-5 text-right font-data-mono text-data-mono text-text-muted">$15,000</td>
+<td class="py-3 px-5 align-middle">
+<div class="flex items-center gap-3">
+<span class="font-data-mono text-[11px] text-status-warning w-8 text-right">83%</span>
+<!-- Custom Budget Bar -->
+<div class="relative flex-1 h-1.5 bg-surface-elevated rounded-full overflow-hidden">
+<div class="absolute left-1/2 top-0 bottom-0 w-[1px] bg-border-subtle z-10"></div>
+<div class="absolute left-[80%] top-0 bottom-0 w-[1px] bg-border-subtle z-10"></div>
+<div class="absolute top-0 bottom-0 left-0 bg-status-warning rounded-full" style="width: 83%;"></div>
+</div>
+</div>
+</td>
+<td class="py-3 px-5 text-right font-data-mono text-data-mono text-status-warning">$16,200</td>
+<td class="py-3 px-5 text-center">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-status-warning/10 text-status-warning border border-status-warning/20">
+                                    Warning
+                                </span>
+</td>
+<td class="py-3 px-3 text-right">
+<button class="text-text-muted hover:text-cyan-400 opacity-0 group-hover:opacity-100 transition-all">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 2: Normal -->
+<tr class="border-b border-border-subtle/50 hover:bg-surface-elevated/50 transition-colors group">
+<td class="py-3 px-5">
+<div class="font-medium text-on-background">Search V2 indexing</div>
+<div class="text-text-muted text-[11px] mt-0.5">Product Discovery</div>
+</td>
+<td class="py-3 px-5 text-right font-data-mono text-data-mono">120.5M</td>
+<td class="py-3 px-5 text-right font-data-mono text-data-mono">$3,800</td>
+<td class="py-3 px-5 text-right font-data-mono text-data-mono text-text-muted">$10,000</td>
+<td class="py-3 px-5 align-middle">
+<div class="flex items-center gap-3">
+<span class="font-data-mono text-[11px] text-primary w-8 text-right">38%</span>
+<div class="relative flex-1 h-1.5 bg-surface-elevated rounded-full overflow-hidden">
+<div class="absolute left-1/2 top-0 bottom-0 w-[1px] bg-border-subtle z-10"></div>
+<div class="absolute left-[80%] top-0 bottom-0 w-[1px] bg-border-subtle z-10"></div>
+<div class="absolute top-0 bottom-0 left-0 bg-primary rounded-full" style="width: 38%;"></div>
+</div>
+</div>
+</td>
+<td class="py-3 px-5 text-right font-data-mono text-data-mono text-on-surface">$8,500</td>
+<td class="py-3 px-5 text-center">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-status-normal/10 text-status-normal border border-status-normal/20">
+                                    Normal
+                                </span>
+</td>
+<td class="py-3 px-3 text-right">
+<button class="text-text-muted hover:text-cyan-400 opacity-0 group-hover:opacity-100 transition-all">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 3: Exceeded -->
+<tr class="border-b border-border-subtle/50 hover:bg-surface-elevated/50 transition-colors bg-status-exceeded/5 group">
+<td class="py-3 px-5">
+<div class="font-medium text-on-background">Generative Assets</div>
+<div class="text-text-muted text-[11px] mt-0.5">Marketing Tech</div>
+</td>
+<td class="py-3 px-5 text-right font-data-mono text-data-mono">890.1M</td>
+<td class="py-3 px-5 text-right font-data-mono text-data-mono text-status-exceeded">$26,500</td>
+<td class="py-3 px-5 text-right font-data-mono text-data-mono text-text-muted">$25,000</td>
+<td class="py-3 px-5 align-middle">
+<div class="flex items-center gap-3">
+<span class="font-data-mono text-[11px] text-status-exceeded w-8 text-right">106%</span>
+<div class="relative flex-1 h-1.5 bg-surface-elevated rounded-full overflow-hidden">
+<div class="absolute left-1/2 top-0 bottom-0 w-[1px] bg-border-subtle z-10"></div>
+<div class="absolute left-[80%] top-0 bottom-0 w-[1px] bg-border-subtle z-10"></div>
+<div class="absolute top-0 bottom-0 left-0 bg-status-exceeded rounded-full" style="width: 100%;"></div>
+</div>
+</div>
+</td>
+<td class="py-3 px-5 text-right font-data-mono text-data-mono text-status-exceeded font-semibold">$31,200</td>
+<td class="py-3 px-5 text-center">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-status-exceeded/10 text-status-exceeded border border-status-exceeded/20">
+                                    Exceeded
+                                </span>
+</td>
+<td class="py-3 px-3 text-right">
+<button class="text-text-muted hover:text-cyan-400 opacity-0 group-hover:opacity-100 transition-all">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 4: Normal (Close to 50) -->
+<tr class="border-b border-border-subtle/50 hover:bg-surface-elevated/50 transition-colors group">
+<td class="py-3 px-5">
+<div class="font-medium text-on-background">Internal RAG Bot</div>
+<div class="text-text-muted text-[11px] mt-0.5">HR Operations</div>
+</td>
+<td class="py-3 px-5 text-right font-data-mono text-data-mono">45.0M</td>
+<td class="py-3 px-5 text-right font-data-mono text-data-mono">$1,200</td>
+<td class="py-3 px-5 text-right font-data-mono text-data-mono text-text-muted">$2,500</td>
+<td class="py-3 px-5 align-middle">
+<div class="flex items-center gap-3">
+<span class="font-data-mono text-[11px] text-primary w-8 text-right">48%</span>
+<div class="relative flex-1 h-1.5 bg-surface-elevated rounded-full overflow-hidden">
+<div class="absolute left-1/2 top-0 bottom-0 w-[1px] bg-border-subtle z-10"></div>
+<div class="absolute left-[80%] top-0 bottom-0 w-[1px] bg-border-subtle z-10"></div>
+<div class="absolute top-0 bottom-0 left-0 bg-primary rounded-full" style="width: 48%;"></div>
+</div>
+</div>
+</td>
+<td class="py-3 px-5 text-right font-data-mono text-data-mono text-on-surface">$2,400</td>
+<td class="py-3 px-5 text-center">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-status-normal/10 text-status-normal border border-status-normal/20">
+                                    Normal
+                                </span>
+</td>
+<td class="py-3 px-3 text-right">
+<button class="text-text-muted hover:text-cyan-400 opacity-0 group-hover:opacity-100 transition-all">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="px-5 py-3 border-t border-border-subtle bg-surface-variant/20 flex justify-between items-center">
+<span class="font-body-md text-[12px] text-text-muted">Showing 4 of 24 projects</span>
+<div class="flex gap-1">
+<button class="px-2 py-1 text-text-muted hover:bg-surface-elevated rounded disabled:opacity-50"><span class="material-symbols-outlined text-[16px]">chevron_left</span></button>
+<button class="px-2 py-1 text-text-muted hover:bg-surface-elevated rounded disabled:opacity-50"><span class="material-symbols-outlined text-[16px]">chevron_right</span></button>
+</div>
+</div>
+</div>
+</main>
+</body></html>

@@ -1,0 +1,353 @@
+// TokenRadar — AI FinOps data model
+// Tokens here = AI model consumption units (NOT crypto).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProjectStatus {
+  NORMAL
+  WARNING
+  EXCEEDED
+}
+
+enum ProviderType {
+  HOSTED
+  SELF_HOSTED
+  CUSTOM
+}
+
+enum BudgetScope {
+  ORGANIZATION
+  PROJECT
+  TEAM
+  MODEL
+}
+
+enum BudgetPeriod {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum WalletEntryType {
+  TOPUP
+  SPEND
+  TRANSFER_IN
+  TRANSFER_OUT
+  EXCHANGE_IN
+  EXCHANGE_OUT
+  REFUND
+  ADJUSTMENT
+}
+
+enum InvoiceType {
+  TOPUP
+  TRANSFER_OUT
+  EXCHANGE
+  MONTHLY_USAGE
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  handle    String   @unique // public P2P handle, e.g. @acme
+  currency  String   @default("USD")
+  createdAt DateTime @default(now())
+
+  teams               Team[]
+  projects            Project[]
+  usageEvents         UsageEvent[]
+  budgets             Budget[]
+  wallets             Wallet[]
+  invoices            Invoice[]
+  exchangeRates       ExchangeRate[]
+  counterpartyEntries WalletEntry[]        @relation("CounterpartyOrg")
+  credentials         ProviderCredential[]
+  ingestSources       IngestSource[]
+  importJobs          ImportJob[]
+  insights            Insight[]
+}
+
+model Team {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  owner          String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projects     Project[]
+  usageEvents  UsageEvent[]
+
+  @@index([organizationId])
+}
+
+model Project {
+  id             String        @id @default(cuid())
+  organizationId String
+  teamId         String?
+  name           String
+  description    String?
+  owner          String
+  monthlyBudget  Decimal       @default(0) @db.Decimal(14, 2)
+  status         ProjectStatus @default(NORMAL)
+  createdAt      DateTime      @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  team         Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  usageEvents  UsageEvent[]
+
+  @@index([organizationId])
+  @@index([teamId])
+}
+
+model Provider {
+  id        String       @id @default(cuid())
+  name      String       @unique
+  type      ProviderType @default(HOSTED)
+  createdAt DateTime     @default(now())
+
+  models       Model[]
+  usageEvents  UsageEvent[]
+  wallets      Wallet[]
+  exchangeFrom ExchangeRate[] @relation("FromProvider")
+  exchangeTo   ExchangeRate[] @relation("ToProvider")
+}
+
+model Model {
+  id                    String   @id @default(cuid())
+  providerId            String
+  name                  String
+  contextWindow         Int      @default(0)
+  inputPricePerMillion  Decimal  @default(0) @db.Decimal(12, 4)
+  outputPricePerMillion Decimal  @default(0) @db.Decimal(12, 4)
+  currency              String   @default("USD")
+  active                Boolean  @default(true)
+  createdAt             DateTime @default(now())
+
+  provider    Provider     @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  usageEvents UsageEvent[]
+
+  @@unique([providerId, name])
+  @@index([providerId])
+}
+
+model UsageEvent {
+  id                  String   @id @default(cuid())
+  organizationId      String
+  projectId           String?
+  teamId              String?
+  providerId          String
+  modelId             String
+  timestamp           DateTime
+  source              String?
+  agentName           String?
+  workflowName        String?
+  requestOwner        String?
+  inputTokens         Int      @default(0)
+  outputTokens        Int      @default(0)
+  totalTokens         Int      @default(0)
+  estimatedInputCost  Decimal  @default(0) @db.Decimal(14, 6)
+  estimatedOutputCost Decimal  @default(0) @db.Decimal(14, 6)
+  estimatedTotalCost  Decimal  @default(0) @db.Decimal(14, 6)
+  metadataJson        Json?
+  createdAt           DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  team         Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  provider     Provider     @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  model        Model        @relation(fields: [modelId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, timestamp])
+  @@index([projectId, timestamp])
+  @@index([teamId, timestamp])
+  @@index([modelId, timestamp])
+  @@index([providerId, timestamp])
+}
+
+model Budget {
+  id                          String       @id @default(cuid())
+  organizationId              String
+  scopeType                   BudgetScope
+  scopeId                     String?
+  period                      BudgetPeriod @default(MONTHLY)
+  amount                      Decimal      @db.Decimal(14, 2)
+  warningThresholdPercentage  Int          @default(80)
+  criticalThresholdPercentage Int          @default(100)
+  createdAt                   DateTime     @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([scopeType, scopeId])
+}
+
+model Wallet {
+  id             String   @id @default(cuid())
+  organizationId String
+  providerId     String
+  // Stored as raw token count using BigInt to support large balances.
+  balance        BigInt   @default(0)
+  currency       String   @default("USD")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider     Provider      @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  entries      WalletEntry[]
+
+  @@unique([organizationId, providerId])
+  @@index([organizationId])
+}
+
+model WalletEntry {
+  id                   String          @id @default(cuid())
+  walletId             String
+  type                 WalletEntryType
+  // Signed token movement: positive = credit, negative = debit
+  tokens               BigInt
+  unitCost             Decimal         @default(0) @db.Decimal(14, 8)
+  fiatAmount           Decimal         @default(0) @db.Decimal(14, 2)
+  currency             String          @default("USD")
+  counterpartyOrgId    String?
+  counterpartyWalletId String?
+  relatedEntryId       String?
+  memo                 String?
+  createdBy            String?
+  createdAt            DateTime        @default(now())
+
+  wallet          Wallet        @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  counterpartyOrg Organization? @relation("CounterpartyOrg", fields: [counterpartyOrgId], references: [id], onDelete: SetNull)
+
+  @@index([walletId, createdAt])
+  @@index([counterpartyOrgId])
+}
+
+model ExchangeRate {
+  id             String   @id @default(cuid())
+  organizationId String
+  fromProviderId String
+  toProviderId   String
+  // Tokens of `to` provider per 1 token of `from` provider
+  rate           Decimal  @db.Decimal(18, 8)
+  active         Boolean  @default(true)
+  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fromProvider Provider     @relation("FromProvider", fields: [fromProviderId], references: [id], onDelete: Cascade)
+  toProvider   Provider     @relation("ToProvider", fields: [toProviderId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, fromProviderId, toProviderId])
+  @@index([organizationId])
+}
+
+model Invoice {
+  id             String      @id @default(cuid())
+  organizationId String
+  number         String      @unique
+  type           InvoiceType
+  walletEntryId  String?
+  total          Decimal     @db.Decimal(14, 2)
+  currency       String      @default("USD")
+  issuedTo       String
+  issuedFrom     String
+  notes          String?
+  dataJson       Json
+  createdAt      DateTime    @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+}
+
+enum ImportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model ProviderCredential {
+  id             String    @id @default(cuid())
+  organizationId String
+  providerId     String
+  label          String    @default("Default")
+  // AES-GCM ciphertext (base64); IV/tag prefixed inside ciphertext format.
+  encryptedKey   String
+  // Last 4 chars of the plaintext key for UI display
+  keyHint        String    @default("")
+  active         Boolean   @default(true)
+  lastUsedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, providerId, label])
+  @@index([organizationId])
+}
+
+model IngestSource {
+  id             String    @id @default(cuid())
+  organizationId String
+  name           String
+  // Public identifier sent in the X-Ingest-Key header
+  apiKey         String    @unique
+  // HMAC secret (raw text, server-side only). Treat like a password.
+  secret         String
+  active         Boolean   @default(true)
+  lastSeenAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model ImportJob {
+  id             String       @id @default(cuid())
+  organizationId String
+  source         String // "csv" | "api" | "webhook"
+  filename       String?
+  rowsTotal      Int          @default(0)
+  rowsImported   Int          @default(0)
+  rowsFailed     Int          @default(0)
+  status         ImportStatus @default(PENDING)
+  error          String?
+  createdAt      DateTime     @default(now())
+  completedAt    DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+}
+
+enum InsightSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+model Insight {
+  id             String          @id @default(cuid())
+  organizationId String
+  kind           String // "anomaly" | "forecast" | "recommendation"
+  severity       InsightSeverity @default(INFO)
+  title          String
+  body           String
+  dataJson       Json
+  resolved       Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+}

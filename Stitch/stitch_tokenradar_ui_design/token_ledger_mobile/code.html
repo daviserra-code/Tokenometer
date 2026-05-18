@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mobile Token Ledger - TokenRadar.ai</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700&amp;family=Manrope:wght@400;600&amp;family=Space+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                            "on-tertiary-container": "#6e4600",
+                            "inverse-surface": "#dde4e5",
+                            "on-error": "#690005",
+                            "secondary-fixed-dim": "#bdc2ff",
+                            "primary-fixed-dim": "#2fd9f4",
+                            "surface-container-high": "#242b2d",
+                            "surface-variant": "#2f3638",
+                            "surface-elevated": "#334155",
+                            "on-primary-container": "#005763",
+                            "on-secondary-container": "#a8afff",
+                            "secondary-fixed": "#e0e0ff",
+                            "on-error-container": "#ffdad6",
+                            "surface": "#1E293B",
+                            "tertiary-fixed-dim": "#ffb957",
+                            "on-surface": "#dde4e5",
+                            "on-tertiary-fixed": "#2a1800",
+                            "text-muted": "#94A3B8",
+                            "status-exceeded": "#EF4444",
+                            "surface-container-low": "#161d1e",
+                            "inverse-primary": "#006877",
+                            "error-container": "#93000a",
+                            "on-primary": "#00363e",
+                            "surface-container": "#1a2122",
+                            "border-subtle": "#1E293B",
+                            "status-normal": "#10B981",
+                            "surface-container-lowest": "#090f11",
+                            "on-primary-fixed": "#001f25",
+                            "status-warning": "#F59E0B",
+                            "outline": "#859397",
+                            "error": "#ffb4ab",
+                            "primary-container": "#22d3ee",
+                            "surface-dim": "#0e1416",
+                            "surface-container-highest": "#2f3638",
+                            "on-tertiary": "#462b00",
+                            "primary": "#8aebff",
+                            "on-secondary-fixed-variant": "#2f3aa3",
+                            "on-background": "#dde4e5",
+                            "on-primary-fixed-variant": "#004e5a",
+                            "surface-bright": "#343a3c",
+                            "secondary-container": "#2f3aa3",
+                            "output-token": "#818CF8",
+                            "tertiary-container": "#ffb13b",
+                            "primary-fixed": "#a2eeff",
+                            "on-surface-variant": "#bbc9cd",
+                            "on-secondary": "#131e8c",
+                            "surface-tint": "#2fd9f4",
+                            "outline-variant": "#3c494c",
+                            "input-token": "#38BDF8",
+                            "on-secondary-fixed": "#000767",
+                            "background": "#0F172A",
+                            "tertiary-fixed": "#ffddb5",
+                            "secondary": "#bdc2ff",
+                            "on-tertiary-fixed-variant": "#643f00",
+                            "tertiary": "#ffd6a3",
+                            "inverse-on-surface": "#2b3233"
+                    },
+                    "borderRadius": {
+                            "DEFAULT": "0.125rem",
+                            "lg": "0.25rem",
+                            "xl": "0.5rem",
+                            "full": "0.75rem"
+                    },
+                    "spacing": {
+                            "container-margin": "24px",
+                            "gutter": "16px",
+                            "section-gap": "32px",
+                            "base": "4px",
+                            "card-padding": "20px"
+                    },
+                    "fontFamily": {
+                            "body-md": ["Manrope"],
+                            "data-mono": ["Inter"],
+                            "kpi-value": ["Space Grotesk"],
+                            "h2": ["Space Grotesk"],
+                            "display": ["Space Grotesk"],
+                            "body-lg": ["Manrope"],
+                            "label-caps": ["Inter"],
+                            "h1": ["Space Grotesk"]
+                    },
+                    "fontSize": {
+                            "body-md": ["14px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                            "data-mono": ["13px", { "lineHeight": "1.4", "letterSpacing": "0.02em", "fontWeight": "500" }],
+                            "kpi-value": ["28px", { "lineHeight": "1", "fontWeight": "600" }],
+                            "h2": ["24px", { "lineHeight": "1.3", "fontWeight": "600" }],
+                            "display": ["48px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                            "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                            "label-caps": ["11px", { "lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                            "h1": ["32px", { "lineHeight": "1.2", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen font-body-md text-body-md antialiased selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopAppBar (From JSON - Executing exact style_ commands) -->
+<header class="bg-slate-950/80 backdrop-blur-md text-cyan-400 font-['Space_Grotesk'] antialiased tracking-tight docked full-width top-0 sticky z-50 border-b border-slate-800/50 flex justify-between items-center px-6 h-16 w-full">
+<div class="flex items-center gap-3">
+<span class="text-xl font-bold tracking-tighter text-cyan-400">TokenRadar.ai</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-slate-400 hover:bg-slate-900/50 hover:text-cyan-300 transition-colors opacity-80 flex items-center justify-center w-8 h-8 rounded-full">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-slate-400 hover:bg-slate-900/50 hover:text-cyan-300 transition-colors opacity-80 flex items-center justify-center w-8 h-8 rounded-full">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<img alt="User Profile" class="w-8 h-8 rounded-full border border-slate-800/50" data-alt="Small circular avatar of a professional in a dark corporate setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDC6i4wKpjrkLr7nbHP0aVNZd-8LxxfZZFBdzSu9gSb2CpnbwlFtiYaw-to5FvWfpAFBEIseN6gG72iZn_BESFYIqE6hbbPtVmIEJvQET-6JwPDWmON2hil0sz_zd1k8HN1UBxH_APGyRbmXMw9IcAFU_YfaktosM7AMeFo9Jy_2nqT1kxZh2G9bO4rq_RNKDtEmZnpgsyN-FeguPKQmDjtoNH0eeXhpdqdSIX9mzMNj7umTmMLu1MMY6UoFC5sMKryvUXzSs54dkZ8"/>
+</div>
+</header>
+<!-- SideNavBar (Hidden on Mobile, flex on Web) -->
+<nav class="hidden md:flex bg-slate-950 text-cyan-400 font-['Space_Grotesk'] text-sm font-medium h-screen w-64 border-r rounded-none border-r border-slate-800 flex-col fixed left-0 top-0 pt-16 z-40">
+<!-- Content omitted for brevity as focus is Mobile Token Ledger -->
+</nav>
+<!-- Main Content Area -->
+<main class="w-full md:pl-64 flex flex-col relative min-h-screen pb-[80px]">
+<!-- Sticky Filter / Search Bar -->
+<div class="sticky top-16 z-40 bg-background/95 backdrop-blur-md px-container-margin py-4 flex flex-col gap-3 border-b border-border-subtle/50 shadow-sm">
+<div class="relative w-full group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted transition-colors group-focus-within:text-primary" data-icon="search">search</span>
+<input class="w-full bg-surface border border-border-subtle rounded-lg pl-10 pr-4 py-2.5 font-body-md text-body-md text-on-surface placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all shadow-inner" placeholder="Search events, models, providers..." type="text"/>
+</div>
+<div class="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full bg-primary-container text-on-primary-container font-label-caps text-label-caps flex items-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[14px]">filter_list</span> All Usage
+                </button>
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-on-surface hover:border-outline font-label-caps text-label-caps transition-colors">OpenAI</button>
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-on-surface hover:border-outline font-label-caps text-label-caps transition-colors">Anthropic</button>
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-on-surface hover:border-outline font-label-caps text-label-caps transition-colors flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-status-warning"></span> Warnings
+                </button>
+</div>
+</div>
+<!-- Ledger Cards List -->
+<div class="px-container-margin pt-section-gap pb-section-gap flex flex-col gap-gutter">
+<!-- Ledger Item: Expanded View (Simulated recent high cost) -->
+<div class="bg-surface border border-border-subtle rounded-lg flex flex-col overflow-hidden relative">
+<!-- Warning Accent Bar -->
+<div class="absolute top-0 left-0 w-1 h-full bg-status-warning"></div>
+<div class="p-card-padding flex flex-col gap-4 pl-[24px]">
+<!-- Header -->
+<div class="flex justify-between items-start gap-4">
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center gap-2 flex-wrap">
+<span class="font-body-md text-body-md text-on-surface font-medium">gpt-4-32k</span>
+<span class="px-1.5 py-0.5 rounded bg-surface-container-high text-text-muted font-label-caps text-label-caps border border-outline-variant">OpenAI</span>
+</div>
+<span class="font-data-mono text-data-mono text-text-muted">Today, 14:32:01.045Z</span>
+</div>
+<div class="flex flex-col items-end gap-1">
+<span class="font-data-mono text-data-mono text-on-surface">$1.2450</span>
+<span class="flex items-center gap-1 text-status-warning font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-[14px]">warning</span> High Cost
+                            </span>
+</div>
+</div>
+<!-- Details (Expanded) -->
+<div class="pt-3 border-t border-border-subtle flex flex-col gap-3">
+<div class="grid grid-cols-2 gap-4">
+<div class="flex flex-col gap-1 bg-surface-container-low p-2 rounded-DEFAULT border border-border-subtle/50">
+<span class="font-label-caps text-label-caps text-text-muted">Input Tokens</span>
+<span class="font-data-mono text-data-mono text-input-token">14,240</span>
+</div>
+<div class="flex flex-col gap-1 bg-surface-container-low p-2 rounded-DEFAULT border border-border-subtle/50">
+<span class="font-label-caps text-label-caps text-text-muted">Output Tokens</span>
+<span class="font-data-mono text-data-mono text-output-token">4,050</span>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-label-caps text-label-caps text-text-muted">Latency: 4.2s</span>
+<button class="text-text-muted hover:text-primary transition-colors flex items-center justify-center p-1">
+<span class="material-symbols-outlined">expand_less</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Ledger Item: Condensed View (Normal) -->
+<div class="bg-surface border border-border-subtle rounded-lg flex flex-col overflow-hidden relative">
+<div class="p-card-padding flex flex-col gap-0">
+<div class="flex justify-between items-center gap-4">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="font-body-md text-body-md text-on-surface">claude-3-haiku</span>
+<span class="px-1.5 py-0.5 rounded bg-surface-container-high text-text-muted font-label-caps text-label-caps border border-outline-variant">Anthropic</span>
+</div>
+<span class="font-data-mono text-data-mono text-text-muted">Today, 14:15:22.110Z</span>
+</div>
+<div class="flex flex-col items-end gap-1">
+<span class="font-data-mono text-data-mono text-on-surface">$0.0012</span>
+<span class="flex items-center gap-1 text-status-normal font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> OK
+                            </span>
+</div>
+</div>
+<!-- Tap target to expand -->
+<button class="w-full mt-3 pt-2 border-t border-border-subtle flex justify-center text-text-muted hover:text-primary transition-colors">
+<span class="material-symbols-outlined">expand_more</span>
+</button>
+</div>
+</div>
+<!-- Ledger Item: Condensed View (Normal) -->
+<div class="bg-surface border border-border-subtle rounded-lg flex flex-col overflow-hidden relative">
+<div class="p-card-padding flex flex-col gap-0">
+<div class="flex justify-between items-center gap-4">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="font-body-md text-body-md text-on-surface">gpt-3.5-turbo</span>
+<span class="px-1.5 py-0.5 rounded bg-surface-container-high text-text-muted font-label-caps text-label-caps border border-outline-variant">OpenAI</span>
+</div>
+<span class="font-data-mono text-data-mono text-text-muted">Today, 13:45:05.901Z</span>
+</div>
+<div class="flex flex-col items-end gap-1">
+<span class="font-data-mono text-data-mono text-on-surface">$0.0045</span>
+<span class="flex items-center gap-1 text-status-normal font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> OK
+                            </span>
+</div>
+</div>
+<button class="w-full mt-3 pt-2 border-t border-border-subtle flex justify-center text-text-muted hover:text-primary transition-colors">
+<span class="material-symbols-outlined">expand_more</span>
+</button>
+</div>
+</div>
+<!-- Ledger Item: Error State -->
+<div class="bg-surface border border-error-container rounded-lg flex flex-col overflow-hidden relative bg-error-container/5">
+<div class="absolute top-0 left-0 w-1 h-full bg-status-exceeded"></div>
+<div class="p-card-padding flex flex-col gap-0 pl-[24px]">
+<div class="flex justify-between items-center gap-4">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="font-body-md text-body-md text-on-surface">gemini-pro</span>
+<span class="px-1.5 py-0.5 rounded bg-surface-container-high text-text-muted font-label-caps text-label-caps border border-outline-variant">Google</span>
+</div>
+<span class="font-data-mono text-data-mono text-text-muted">Today, 12:10:00.000Z</span>
+</div>
+<div class="flex flex-col items-end gap-1">
+<span class="font-data-mono text-data-mono text-status-exceeded">Failed</span>
+<span class="flex items-center gap-1 text-status-exceeded font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-[14px]">error</span> 503 Timeout
+                            </span>
+</div>
+</div>
+<button class="w-full mt-3 pt-2 border-t border-border-subtle flex justify-center text-text-muted hover:text-primary transition-colors">
+<span class="material-symbols-outlined">expand_more</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) - Semantic mapping to Top Destinations -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full bg-surface flex justify-around items-center h-16 pb-safe z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.4)]">
+<a class="flex flex-col items-center justify-center w-full h-full gap-1 text-text-muted hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="dashboard">dashboard</span>
+<span class="font-label-caps text-label-caps">Dashboard</span>
+</a>
+<!-- Active Tab: Token Ledger -->
+<a class="flex flex-col items-center justify-center w-full h-full gap-1 text-primary relative" href="#">
+<div class="absolute top-0 w-8 h-0.5 bg-primary rounded-b-full"></div>
+<span class="material-symbols-outlined text-[24px]" data-icon="receipt_long" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
+<span class="font-label-caps text-label-caps">Token Ledger</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full h-full gap-1 text-text-muted hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="account_tree">account_tree</span>
+<span class="font-label-caps text-label-caps">Projects</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full h-full gap-1 text-text-muted hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="account_balance_wallet">account_balance_wallet</span>
+<span class="font-label-caps text-label-caps">Budgets</span>
+</a>
+</nav>
+</body></html>

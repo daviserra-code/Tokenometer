@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: tokenradar-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tokenradar
+      POSTGRES_PASSWORD: tokenradar
+      POSTGRES_DB: tokenradar
+    ports:
+      - "5433:5432"
+    volumes:
+      - tokenradar_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tokenradar -d tokenradar"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  tokenradar_pgdata:

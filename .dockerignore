@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+*.log
+.env
+.env.*
+.env.local
+.env.*.local
+coverage
+dist
+build
+Stitch

@@ -1,0 +1,6 @@
+# Run provider sync every 15 minutes.
+# Install with: crontab deploy/crontab.example
+#
+# Replace the URL and CRON_SECRET value. Keep this file out of Git if you put
+# real secrets in it.
+*/15 * * * * curl -fsS -X POST "https://your-domain.example/api/cron/sync?days=7" -H "Authorization: Bearer replace-with-32-char-random-cron-secret" >> /var/log/tokenometer-sync.log 2>&1

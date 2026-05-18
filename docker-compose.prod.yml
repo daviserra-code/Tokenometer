@@ -1,0 +1,36 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tokenometer-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://tokenradar:${POSTGRES_PASSWORD:-tokenradar}@postgres:5432/tokenradar?schema=public
+      PORT: 3000
+    ports:
+      - "${TOKENOMETER_PORT:-3100}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: tokenometer-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tokenradar
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tokenradar}
+      POSTGRES_DB: tokenradar
+    volumes:
+      - tokenometer_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tokenradar -d tokenradar"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  tokenometer_pgdata:
