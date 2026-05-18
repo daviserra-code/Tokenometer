@@ -81,6 +81,18 @@ docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" up -d postgres
 echo "Applying Prisma schema..."
 docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" run --rm app npx prisma db push
 
+ORG_COUNT="$(
+  docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" exec -T postgres \
+    psql -U tokenradar -d tokenradar -tAc 'select count(*) from "Organization";' \
+    | tr -d '[:space:]'
+)"
+if [ "${ORG_COUNT:-0}" = "0" ]; then
+  echo "Seeding first-run Tokenometer catalog and demo organization..."
+  docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" run --rm app npm run db:seed
+else
+  echo "Database already initialized with ${ORG_COUNT} organization(s); skipping seed."
+fi
+
 echo "Starting Tokenometer app..."
 docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" up -d --remove-orphans
 
