@@ -12,6 +12,7 @@ import {
 } from "@/lib/crypto";
 import { importUsageCsv } from "@/lib/ingest";
 import { syncProviderUsage } from "@/lib/provider-sync";
+import { requireAdmin } from "@/lib/auth";
 import { cookies } from "next/headers";
 
 // --- Provider credentials -------------------------------------------------
@@ -24,6 +25,7 @@ const CredSchema = z.object({
 });
 
 export async function saveCredentialAction(formData: FormData) {
+  requireAdmin();
   const parsed = CredSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
   const { organizationId, providerId, label, apiKey } = parsed.data;
@@ -51,6 +53,7 @@ export async function saveCredentialAction(formData: FormData) {
 }
 
 export async function deleteCredentialAction(formData: FormData) {
+  requireAdmin();
   const id = String(formData.get("id") ?? "");
   if (!id) throw new Error("Credential id required.");
   await prisma.providerCredential.delete({ where: { id } });
@@ -65,6 +68,7 @@ const IngestSchema = z.object({
 });
 
 export async function createIngestSourceAction(formData: FormData) {
+  requireAdmin();
   const parsed = IngestSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
   await prisma.ingestSource.create({
@@ -80,6 +84,7 @@ export async function createIngestSourceAction(formData: FormData) {
 }
 
 export async function rotateIngestSecretAction(formData: FormData) {
+  requireAdmin();
   const id = String(formData.get("id") ?? "");
   if (!id) throw new Error("id required.");
   await prisma.ingestSource.update({
@@ -90,6 +95,7 @@ export async function rotateIngestSecretAction(formData: FormData) {
 }
 
 export async function deleteIngestSourceAction(formData: FormData) {
+  requireAdmin();
   const id = String(formData.get("id") ?? "");
   if (!id) throw new Error("id required.");
   await prisma.ingestSource.delete({ where: { id } });
@@ -103,6 +109,7 @@ export type ImportActionState =
   | { ok: false; error: string };
 
 export async function importCsvAction(formData: FormData): Promise<ImportActionState> {
+  requireAdmin();
   const organizationId = String(formData.get("organizationId") ?? "");
   const file = formData.get("file");
   if (!organizationId) return { ok: false, error: "organizationId required." };
@@ -158,6 +165,7 @@ export async function importCsvAction(formData: FormData): Promise<ImportActionS
  * works end-to-end without needing a separate Admin API key.
  */
 export async function testCredentialAction(formData: FormData) {
+  requireAdmin();
   const id = String(formData.get("id") ?? "");
   if (!id) throw new Error("Credential id required.");
 
@@ -273,6 +281,7 @@ export async function testCredentialAction(formData: FormData) {
  * real data pulled from the provider's own API.
  */
 export async function wipeDemoDataAction() {
+  requireAdmin();
   await prisma.$transaction([
     prisma.insight.deleteMany(),
     prisma.invoice.deleteMany(),
@@ -306,6 +315,7 @@ export { maskKey };
 // --- Pull usage directly from provider APIs -------------------------------
 
 export async function syncCredentialAction(formData: FormData) {
+  requireAdmin();
   const id = String(formData.get("id") ?? "");
   const days = Number(formData.get("days") ?? 7);
   if (!id) throw new Error("Credential id required.");

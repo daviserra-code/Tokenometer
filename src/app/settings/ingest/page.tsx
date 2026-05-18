@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/Card";
+import { requireAdmin } from "@/lib/auth";
 import {
   createIngestSourceAction,
   rotateIngestSecretAction,
@@ -9,6 +10,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function IngestPage() {
+  requireAdmin();
   const org = await prisma.organization.findFirst();
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
 

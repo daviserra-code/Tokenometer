@@ -3,17 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
-import { NAV_ITEMS } from "./nav-items";
+import { MOBILE_NAV_ITEMS } from "./nav-items";
 
-// Mobile bottom navigation — visible below lg breakpoint.
-// Shows the 5 most-used destinations.
 export function MobileNav() {
   const pathname = usePathname();
-  const items = NAV_ITEMS.slice(0, 5);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-16 items-stretch justify-around border-t border-slate-800/80 bg-slate-950/95 backdrop-blur-md lg:hidden">
-      {items.map((item) => {
+      {MOBILE_NAV_ITEMS.map((item) => {
         const active =
           item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
         return (

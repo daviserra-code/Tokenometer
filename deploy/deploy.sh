@@ -60,6 +60,8 @@ if [ ! -f .env ]; then
 fi
 
 ensure_env_value "INGEST_ENC_KEY" "$(random_secret)"
+ensure_env_value "AUTH_SECRET" "$(random_secret)"
+ensure_env_value "ADMIN_PASSWORD" "$(random_secret)"
 ensure_env_value "CRON_SECRET" "$(random_secret)"
 ensure_env_value "POSTGRES_PASSWORD" "$(random_secret)"
 ensure_env_value "NEXT_PUBLIC_APP_URL" "$TOKENOMETER_PUBLIC_URL"
@@ -106,3 +108,4 @@ echo "Recent Tokenometer logs:"
 docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" logs --tail=80 app
 
 echo "Deployment complete. Tokenometer should be available on host port ${TOKENOMETER_PORT}."
+echo "Admin login uses ADMIN_PASSWORD from $(pwd -P)/.env."

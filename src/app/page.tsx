@@ -6,7 +6,9 @@ import { DualTrendChart, type DualPoint } from "@/components/charts/TrendChart";
 import { DataTable } from "@/components/DataTable";
 import { ProviderTag } from "@/components/ProviderChip";
 import { AutoRefresh } from "@/components/AutoRefresh";
+import { ModeSwitch } from "@/components/ModeSwitch";
 import { formatCurrency, formatDateTime, formatTokens, toNumber } from "@/lib/format";
+import { getAppMode, isAdmin, modeUsageWhere, type AppMode } from "@/lib/auth";
 import {
   daysInMonth,
   projectMonthEndSpend,
@@ -16,7 +18,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-async function getDashboardData() {
+async function getDashboardData(mode: AppMode) {
   const org = await prisma.organization.findFirst();
   if (!org) return null;
 
@@ -24,6 +26,15 @@ async function getDashboardData() {
   const monthStart = startOfMonth(now);
   const prevMonthStart = startOfPrevMonth(now);
   const last30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const orgWhere = { organizationId: org.id };
+  const usageScope = modeUsageWhere(mode);
+  const thisMonthWhere = { ...orgWhere, ...usageScope, timestamp: { gte: monthStart } };
+  const prevMonthWhere = {
+    ...orgWhere,
+    ...usageScope,
+    timestamp: { gte: prevMonthStart, lt: monthStart },
+  };
+  const last30Where = { ...orgWhere, ...usageScope, timestamp: { gte: last30 } };
 
   const [
     totalsThisMonth,
@@ -40,36 +51,27 @@ async function getDashboardData() {
     latestEvent,
   ] = await Promise.all([
     prisma.usageEvent.aggregate({
-      where: { organizationId: org.id, timestamp: { gte: monthStart } },
+      where: thisMonthWhere,
       _sum: { totalTokens: true, estimatedTotalCost: true },
     }),
     prisma.usageEvent.aggregate({
-      where: {
-        organizationId: org.id,
-        timestamp: { gte: prevMonthStart, lt: monthStart },
-      },
+      where: prevMonthWhere,
       _sum: { totalTokens: true, estimatedTotalCost: true },
     }),
     prisma.usageEvent.aggregate({
-      where: { organizationId: org.id, timestamp: { gte: monthStart } },
+      where: thisMonthWhere,
       _sum: { inputTokens: true },
     }),
     prisma.usageEvent.aggregate({
-      where: {
-        organizationId: org.id,
-        timestamp: { gte: prevMonthStart, lt: monthStart },
-      },
+      where: prevMonthWhere,
       _sum: { inputTokens: true },
     }),
     prisma.usageEvent.aggregate({
-      where: { organizationId: org.id, timestamp: { gte: monthStart } },
+      where: thisMonthWhere,
       _sum: { outputTokens: true },
     }),
     prisma.usageEvent.aggregate({
-      where: {
-        organizationId: org.id,
-        timestamp: { gte: prevMonthStart, lt: monthStart },
-      },
+      where: prevMonthWhere,
       _sum: { outputTokens: true },
     }),
     prisma.budget.findFirst({
@@ -77,7 +79,7 @@ async function getDashboardData() {
     }),
     prisma.usageEvent.groupBy({
       by: ["modelId"],
-      where: { organizationId: org.id, timestamp: { gte: monthStart } },
+      where: thisMonthWhere,
       _sum: { estimatedTotalCost: true, totalTokens: true },
       orderBy: { _sum: { estimatedTotalCost: "desc" } },
       take: 5,
@@ -85,8 +87,7 @@ async function getDashboardData() {
     prisma.usageEvent.groupBy({
       by: ["projectId"],
       where: {
-        organizationId: org.id,
-        timestamp: { gte: monthStart },
+        ...thisMonthWhere,
         projectId: { not: null },
       },
       _sum: { estimatedTotalCost: true, totalTokens: true },
@@ -94,7 +95,7 @@ async function getDashboardData() {
       take: 5,
     }),
     prisma.usageEvent.findMany({
-      where: { organizationId: org.id, timestamp: { gte: last30 } },
+      where: last30Where,
       select: {
         timestamp: true,
         inputTokens: true,
@@ -103,10 +104,10 @@ async function getDashboardData() {
       },
     }),
     prisma.usageEvent.count({
-      where: { organizationId: org.id, timestamp: { gte: monthStart } },
+      where: thisMonthWhere,
     }),
     prisma.usageEvent.findFirst({
-      where: { organizationId: org.id },
+      where: { ...orgWhere, ...usageScope },
       orderBy: { timestamp: "desc" },
       select: { timestamp: true, source: true, createdAt: true },
     }),
@@ -208,7 +209,9 @@ async function getDashboardData() {
 }
 
 export default async function DashboardPage() {
-  const data = await getDashboardData();
+  const mode = getAppMode();
+  const admin = isAdmin();
+  const data = await getDashboardData(mode);
 
   if (!data) {
     return (
@@ -233,14 +236,22 @@ export default async function DashboardPage() {
     ? (Date.now() - latestTimestamp.getTime()) / (1000 * 60 * 60)
     : null;
   const isStale = latestAgeHours == null || latestAgeHours > 24;
+  const isLive = mode === "live";
 
   return (
     <div className="space-y-section-gap">
       <PageHeader
         title="Dashboard"
-        description="Operational overview of AI token consumption, cost and budget for the current month."
+        description={
+          isLive
+            ? "Live mode shows only synced, imported, or BYOK-proxied usage."
+            : "Demo mode keeps the seeded showcase data visible while live usage is tested separately."
+        }
         action={
           <div className="flex flex-wrap items-center gap-3">
+            <div className="hidden md:block">
+              <ModeSwitch mode={mode} admin={admin} />
+            </div>
             <AutoRefresh />
             <button className="inline-flex items-center gap-2 rounded-lg border border-primary-container/40 bg-primary-container/10 px-4 py-2 font-display text-body-md font-semibold text-primary-container transition-colors hover:bg-primary-container/20">
               <span className="material-symbols-outlined text-[18px]">download</span>
@@ -249,6 +260,9 @@ export default async function DashboardPage() {
           </div>
         }
       />
+      <div className="md:hidden">
+        <ModeSwitch mode={mode} admin={admin} />
+      </div>
 
       <div
         className={`rounded-lg border px-4 py-3 ${
@@ -274,10 +288,12 @@ export default async function DashboardPage() {
               </p>
               <p className="mt-0.5 text-[12px] text-text-muted">
                 {latestTimestamp
-                  ? `Source: ${data.latestEvent?.source ?? "unknown"}. Current month events: ${data.eventCountThisMonth.toLocaleString()}.`
-                  : "Seed or ingest usage data to populate the dashboard."}
-                {isStale && latestTimestamp
-                  ? " Data is more than 24 hours old; run provider sync, use the BYOK proxy, or import current usage."
+                  ? `Mode: ${mode}. Source: ${data.latestEvent?.source ?? "unknown"}. Current month events: ${data.eventCountThisMonth.toLocaleString()}.`
+                  : isLive
+                    ? "No live usage yet. Vault a provider credential, sync, use the BYOK proxy, or import a CSV."
+                    : "Demo data is intentionally preserved for the MVP walkthrough."}
+                {isStale && latestTimestamp && isLive
+                  ? " Live data is more than 24 hours old; run provider sync, use the BYOK proxy, or import current usage."
                   : ""}
               </p>
             </div>

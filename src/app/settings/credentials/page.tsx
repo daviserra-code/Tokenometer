@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/Card";
 import { ProviderChip } from "@/components/ProviderChip";
+import { requireAdmin } from "@/lib/auth";
 import { cookies } from "next/headers";
 import {
   saveCredentialAction,
@@ -12,6 +13,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function CredentialsPage() {
+  requireAdmin();
   const org = await prisma.organization.findFirst();
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
 

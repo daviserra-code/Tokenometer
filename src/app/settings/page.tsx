@@ -2,10 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/Card";
 import Link from "next/link";
 import { wipeDemoDataAction } from "./actions";
+import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
+  requireAdmin();
   const org = await prisma.organization.findFirst();
   const providers = await prisma.provider.findMany({ orderBy: { name: "asc" } });
 
@@ -13,7 +15,7 @@ export default async function SettingsPage() {
     <div className="space-y-section-gap">
       <PageHeader
         title="Settings"
-        description="Organization-level configuration. Authentication is intentionally not enabled in this MVP."
+        description="Admin-only configuration for credentials, ingestion, imports and live-mode testing."
       />
 
       <Card title="Data ingestion" description="Feed Tokenometer with real AI usage data.">

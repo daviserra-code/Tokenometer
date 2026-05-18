@@ -4,14 +4,34 @@ import { KpiCard } from "@/components/KpiCard";
 import { DataTable, type Column } from "@/components/DataTable";
 import { HBarChart } from "@/components/charts/HBarChart";
 import { ProviderTag } from "@/components/ProviderChip";
+import { ModeSwitch } from "@/components/ModeSwitch";
 import { formatCurrency, formatTokens, toNumber } from "@/lib/format";
 import { startOfMonth } from "@/lib/calc";
+import { getAppMode, isAdmin, modeUsageWhere } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 type Row = { name: string; subname?: string; tokens: number; cost: number };
+type Period = "daily" | "weekly" | "monthly";
 
-export default async function ReportsPage() {
+function getPeriod(value?: string): Period {
+  return value === "daily" || value === "weekly" || value === "monthly"
+    ? value
+    : "monthly";
+}
+
+function getPeriodStart(period: Period) {
+  const now = new Date();
+  if (period === "daily") return new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  if (period === "weekly") return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  return startOfMonth(now);
+}
+
+export default async function ReportsPage({
+  searchParams,
+}: {
+  searchParams?: { period?: string };
+}) {
   const org = await prisma.organization.findFirst();
   if (!org) {
     return (
@@ -24,8 +44,18 @@ export default async function ReportsPage() {
     );
   }
 
-  const monthStart = startOfMonth();
-  const where = { organizationId: org.id, timestamp: { gte: monthStart } };
+  const mode = getAppMode();
+  const admin = isAdmin();
+  const period = getPeriod(searchParams?.period);
+  const periodStart = getPeriodStart(period);
+  const periodLabel =
+    period === "daily" ? "last 24 hours" : period === "weekly" ? "last 7 days" : "current month";
+  const kpiSuffix = period === "monthly" ? "MTD" : period === "weekly" ? "7D" : "24H";
+  const where = {
+    organizationId: org.id,
+    ...modeUsageWhere(mode),
+    timestamp: { gte: periodStart },
+  };
 
   const [
     byProvider,
@@ -162,33 +192,56 @@ export default async function ReportsPage() {
   return (
     <div className="space-y-section-gap">
       <PageHeader
-        title="Usage Trends"
-        description="Monthly summary of AI consumption and cost across the organization."
+        title="Spend"
+        description={`Cost breakdown for ${periodLabel}. ${
+          mode === "live"
+            ? "Live mode includes only real synced/imported/proxied usage."
+            : "Demo mode uses the seeded MVP dataset."
+        }`}
         action={
-          <button className="inline-flex items-center gap-2 rounded-lg border border-primary-container/40 bg-primary-container/10 px-4 py-2 font-display text-body-md font-semibold text-primary-container transition-colors hover:bg-primary-container/20">
-            <span className="material-symbols-outlined text-[18px]">download</span>
-            Generate Report
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <ModeSwitch mode={mode} admin={admin} compact redirectTo={`/reports?period=${period}`} />
+            <button className="inline-flex items-center gap-2 rounded-lg border border-primary-container/40 bg-primary-container/10 px-4 py-2 font-display text-body-md font-semibold text-primary-container transition-colors hover:bg-primary-container/20">
+              <span className="material-symbols-outlined text-[18px]">download</span>
+              Generate Report
+            </button>
+          </div>
         }
       />
 
+      <div className="inline-flex rounded-lg border border-border-subtle bg-surface-elevated/70 p-1 text-[12px] font-semibold">
+        {(["daily", "weekly", "monthly"] as const).map((p) => (
+          <a
+            key={p}
+            href={`/reports?period=${p}`}
+            className={`rounded-md px-3 py-1.5 capitalize transition-colors ${
+              period === p
+                ? "bg-primary text-on-primary"
+                : "text-text-muted hover:text-on-surface"
+            }`}
+          >
+            {p}
+          </a>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <KpiCard
-          label="Total Spend (MTD)"
+          label={`Total Spend (${kpiSuffix})`}
           value={formatCurrency(totalCost, org.currency)}
           icon="payments"
           tone="success"
           accent
         />
         <KpiCard
-          label="Total Tokens (MTD)"
+          label={`Total Tokens (${kpiSuffix})`}
           value={formatTokens(totalTokens)}
           icon="token"
           tone="input"
           accent
         />
         <KpiCard
-          label="Events (MTD)"
+          label={`Events (${kpiSuffix})`}
           value={totals._count.toLocaleString()}
           icon="bolt"
           tone="output"
