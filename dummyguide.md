@@ -243,6 +243,14 @@ If you prefer, you can also run it from:
 
 These are all fine.
 
+Before you run the script, set your ingest key as an environment variable.
+
+In PowerShell:
+
+```powershell
+$env:TOKENOMETER_INGEST_KEY="your_ingest_key_here"
+```
+
 ### If you choose the Python snippet
 
 1. Create a file like:
@@ -277,6 +285,12 @@ py .\test_tokenometer.py
 node .\test-tokenometer.mjs
 ```
 
+You can also use the repo's ready-made Python smoke test:
+
+```powershell
+python .\tests\test_tokenometer.py
+```
+
 ### Which one should you use?
 
 Use whichever feels easier.
@@ -305,6 +319,21 @@ If it works:
 - Tokenometer records the token usage
 - the usage appears in Live mode
 - the Gateway page shows the recent call
+
+To measure overhead, you can also run the lightweight benchmark script:
+
+```powershell
+$env:TOKENOMETER_REQUESTS="5"
+$env:TOKENOMETER_CONCURRENCY="2"
+python .\tests\benchmark_tokenometer.py
+```
+
+That benchmark prints:
+
+- how many requests succeeded
+- the wall-clock time
+- min / avg / p50 / p95 / max latency
+- the request IDs returned by Tokenometer
 
 If you are asking "can I run it from here, from PowerShell?" the answer is:
 

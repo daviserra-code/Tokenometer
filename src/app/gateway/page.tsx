@@ -14,6 +14,9 @@ type GatewayRow = {
   provider: string;
   model: string;
   source: string;
+  requestId: string;
+  latencyMs: number | null;
+  streamed: boolean;
   tokens: number;
   cost: number;
   owner: string;
@@ -25,6 +28,7 @@ const PROVIDERS = [
     endpoint: "/api/proxy/openai/chat/completions",
     historical: "Admin key",
     live: "Response usage",
+    streaming: "Yes",
     model: "gpt-4o-mini",
   },
   {
@@ -32,6 +36,7 @@ const PROVIDERS = [
     endpoint: "/api/proxy/anthropic/v1/messages",
     historical: "Admin key",
     live: "Response usage",
+    streaming: "Yes",
     model: "claude-3-5-haiku-latest",
   },
   {
@@ -39,6 +44,7 @@ const PROVIDERS = [
     endpoint: "/api/proxy/google/v1beta/models/gemini-2.0-flash:generateContent",
     historical: "No public API",
     live: "Response usage",
+    streaming: "Soon",
     model: "gemini-2.0-flash",
   },
   {
@@ -46,6 +52,7 @@ const PROVIDERS = [
     endpoint: "/api/proxy/mistral/v1/chat/completions",
     historical: "No public API",
     live: "Response usage",
+    streaming: "Yes",
     model: "mistral-small-latest",
   },
   {
@@ -53,6 +60,7 @@ const PROVIDERS = [
     endpoint: "/api/proxy/github/chat/completions",
     historical: "No public API",
     live: "Response usage",
+    streaming: "Yes",
     model: "openai/gpt-4o-mini",
   },
 ] as const;
@@ -104,16 +112,26 @@ export default async function GatewayPage() {
     take: 10,
     include: { provider: true, model: true },
   });
-  const rows: GatewayRow[] = events.map((event) => ({
-    id: event.id,
-    timestamp: event.timestamp,
-    provider: event.provider.name,
-    model: event.model.name,
-    source: event.source ?? "byok-proxy",
-    tokens: event.totalTokens,
-    cost: toNumber(event.estimatedTotalCost),
-    owner: event.requestOwner ?? "-",
-  }));
+  const rows: GatewayRow[] = events.map((event) => {
+    const metadata =
+      event.metadataJson && typeof event.metadataJson === "object"
+        ? (event.metadataJson as Record<string, unknown>)
+        : null;
+
+    return {
+      id: event.id,
+      timestamp: event.timestamp,
+      provider: event.provider.name,
+      model: event.model.name,
+      source: event.source ?? "byok-proxy",
+      requestId: typeof metadata?.requestId === "string" ? metadata.requestId : "-",
+      latencyMs: typeof metadata?.latencyMs === "number" ? metadata.latencyMs : null,
+      streamed: Boolean(metadata?.streamed),
+      tokens: event.totalTokens,
+      cost: toNumber(event.estimatedTotalCost),
+      owner: event.requestOwner ?? "-",
+    };
+  });
 
   const cols: Column<GatewayRow>[] = [
     {
@@ -128,6 +146,19 @@ export default async function GatewayPage() {
         <div className="flex items-center gap-2">
           <ProviderTag name={row.provider} />
           <span>{row.model}</span>
+        </div>
+      ),
+    },
+    {
+      key: "request",
+      header: "Request",
+      cell: (row) => (
+        <div className="space-y-1">
+          <div className="font-mono text-[12px] text-text-muted">{row.requestId}</div>
+          <div className="text-[12px] text-text-muted">
+            {row.latencyMs !== null ? `${row.latencyMs} ms` : "Latency n/a"}
+            {row.streamed ? " | stream" : ""}
+          </div>
         </div>
       ),
     },
@@ -184,6 +215,7 @@ export default async function GatewayPage() {
                 <th className="px-4 py-3 text-left">Vault</th>
                 <th className="px-4 py-3 text-left">Historical sync</th>
                 <th className="px-4 py-3 text-left">Live metering</th>
+                <th className="px-4 py-3 text-left">Streaming</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">
@@ -202,6 +234,7 @@ export default async function GatewayPage() {
                     </td>
                     <td className="px-4 py-3 text-text-muted">{provider.historical}</td>
                     <td className="px-4 py-3 text-status-normal">{provider.live}</td>
+                    <td className="px-4 py-3 text-text-muted">{provider.streaming}</td>
                   </tr>
                 );
               })}
@@ -213,11 +246,11 @@ export default async function GatewayPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <SnippetCard
           title="Node.js: OpenAI through Tokenometer"
-          code={nodeSnippet(appUrl, ingest?.apiKey ?? "<create-ingest-source-first>")}
+          code={nodeSnippet(appUrl)}
         />
         <SnippetCard
           title="Python: OpenAI through Tokenometer"
-          code={pythonSnippet(appUrl, ingest?.apiKey ?? "<create-ingest-source-first>")}
+          code={pythonSnippet(appUrl)}
         />
       </div>
 
@@ -259,41 +292,56 @@ function SnippetCard({ title, code }: { title: string; code: string }) {
   );
 }
 
-function nodeSnippet(appUrl: string, ingestKey: string) {
-  return `const res = await fetch("${appUrl}/api/proxy/openai/chat/completions", {
+function nodeSnippet(appUrl: string) {
+  return `const ingestKey = process.env.TOKENOMETER_INGEST_KEY;
+if (!ingestKey) throw new Error("Set TOKENOMETER_INGEST_KEY first.");
+
+const res = await fetch("${appUrl}/api/proxy/openai/chat/completions", {
   method: "POST",
   headers: {
     "content-type": "application/json",
-    "x-ingest-key": "${ingestKey}",
+    "x-ingest-key": ingestKey,
     "x-project": "My App",
-    "x-agent": "support-bot"
+    "x-agent": "support-bot",
+    "x-request-id": crypto.randomUUID()
   },
   body: JSON.stringify({
     model: "gpt-4o-mini",
+    stream: true,
     messages: [{ role: "user", content: "Hello from Tokenometer" }]
   })
 });
 
-const json = await res.json();
-console.log(json);`;
+console.log(res.headers.get("x-request-id"));
+console.log(await res.text());`;
 }
 
-function pythonSnippet(appUrl: string, ingestKey: string) {
-  return `import requests
+function pythonSnippet(appUrl: string) {
+  return `import os
+import uuid
+
+import requests
+
+ingest_key = os.environ.get("TOKENOMETER_INGEST_KEY")
+if not ingest_key:
+    raise RuntimeError("Set TOKENOMETER_INGEST_KEY first.")
 
 res = requests.post(
     "${appUrl}/api/proxy/openai/chat/completions",
     headers={
         "content-type": "application/json",
-        "x-ingest-key": "${ingestKey}",
+        "x-ingest-key": ingest_key,
         "x-project": "My App",
         "x-agent": "support-bot",
+        "x-request-id": str(uuid.uuid4()),
     },
     json={
         "model": "gpt-4o-mini",
+        "stream": False,
         "messages": [{"role": "user", "content": "Hello from Tokenometer"}],
     },
 )
 
+print(res.headers.get("x-request-id"))
 print(res.json())`;
 }

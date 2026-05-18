@@ -169,6 +169,9 @@ The Gateway page includes:
 - recent live gateway calls
 - Node.js copy-paste snippet
 - Python copy-paste snippet
+- request IDs on recent calls
+- latency metadata on recent calls
+- streaming support visibility per provider
 
 Current gateway providers:
 
@@ -179,6 +182,17 @@ Current gateway providers:
 - GitHub Models
 
 The Gateway is now the product center for real token measurement.
+
+## Latest Hardening Pass
+
+The proxy layer now includes:
+
+- request IDs exposed as `X-Request-Id`
+- response-time reporting via `Server-Timing`
+- async metering writes so the database write does not sit on the hot response path
+- streaming support for OpenAI, Anthropic, Mistral, and GitHub Models
+- improved ingest-source last-seen tracking
+- local smoke and benchmark scripts using `TOKENOMETER_INGEST_KEY` from environment variables
 
 ## Current Admin Login
 
@@ -202,20 +216,18 @@ Tokenometer should focus next on making it extremely easy for a developer to rou
 
 ## Suggested Next Steps
 
-1. Polish OpenAI Gateway flow end-to-end.
-2. Add streaming support where providers expose usage during streams.
-3. Add SDK-style wrappers for Node and Python.
-4. Add a guided onboarding checklist:
+1. Add SDK-style wrappers for Node and Python.
+2. Add a guided onboarding checklist:
    - vault key
    - create ingest source
    - run test call
    - switch to live mode
    - view spend
-5. Add clearer provider capability labels:
+3. Add clearer provider capability labels:
    - live metering supported
    - historical sync supported
    - admin key required
    - billing export only
-6. Add token estimation fallback only when provider response usage is unavailable.
-7. Add production-grade external KMS/Vault backend.
-
+4. Add richer gateway dashboards for latency, request tracing, and streaming diagnostics.
+5. Add token estimation fallback only when provider response usage is unavailable.
+6. Add production-grade external KMS/Vault backend.

@@ -101,7 +101,7 @@ export async function GET(req: Request) {
         post: {
           summary: "BYOK proxy for OpenAI chat completions",
           description:
-            "Forwards to OpenAI using the vaulted org credential and meters tokens automatically. Set X-Project / X-Agent for attribution.",
+            "Forwards to OpenAI using the vaulted org credential and meters tokens automatically. Set X-Project / X-Agent for attribution. Streaming is supported and responses expose X-Request-Id for tracing.",
           security: [{ IngestKey: [] }],
           requestBody: {
             required: true,
@@ -122,7 +122,7 @@ export async function GET(req: Request) {
         post: {
           summary: "BYOK proxy for Anthropic Messages API",
           description:
-            "Forwards to api.anthropic.com using the vaulted Anthropic credential and meters tokens automatically.",
+            "Forwards to api.anthropic.com using the vaulted Anthropic credential and meters tokens automatically. Streaming is supported and responses expose X-Request-Id for tracing.",
           security: [{ IngestKey: [] }],
           requestBody: {
             required: true,
@@ -139,7 +139,7 @@ export async function GET(req: Request) {
         post: {
           summary: "BYOK proxy for Google Generative Language API (Gemini)",
           description:
-            "Path segment must be of the form `<model>:<action>` e.g. `gemini-2.0-flash:generateContent`. Forwards to generativelanguage.googleapis.com using the vaulted Google credential.",
+            "Path segment must be of the form `<model>:<action>` e.g. `gemini-2.0-flash:generateContent`. Forwards to generativelanguage.googleapis.com using the vaulted Google credential. Responses expose X-Request-Id for tracing.",
           security: [{ IngestKey: [] }],
           parameters: [
             {
@@ -164,7 +164,7 @@ export async function GET(req: Request) {
         post: {
           summary: "BYOK proxy for Mistral chat completions",
           description:
-            "Forwards to api.mistral.ai using the vaulted Mistral credential. OpenAI-compatible request shape.",
+            "Forwards to api.mistral.ai using the vaulted Mistral credential. OpenAI-compatible request shape. Streaming is supported and responses expose X-Request-Id for tracing.",
           security: [{ IngestKey: [] }],
           requestBody: {
             required: true,
@@ -181,7 +181,7 @@ export async function GET(req: Request) {
         post: {
           summary: "BYOK proxy for GitHub Models",
           description:
-            "Forwards to models.github.ai/inference using a vaulted GitHub PAT (`models:read` scope). OpenAI-compatible. Model names use `<publisher>/<model>` form, e.g. `openai/gpt-4o-mini`.",
+            "Forwards to models.github.ai/inference using a vaulted GitHub PAT (`models:read` scope). OpenAI-compatible. Model names use `<publisher>/<model>` form, e.g. `openai/gpt-4o-mini`. Streaming is supported and responses expose X-Request-Id for tracing.",
           security: [{ IngestKey: [] }],
           requestBody: {
             required: true,

@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authProxy, meterUsage } from "@/lib/byok";
+import { authProxy } from "@/lib/byok";
+import {
+  attachProxyHeaders,
+  createProxyState,
+  createSseProxyResponse,
+  createTextProxyResponse,
+  enrichMeteringMetadata,
+  extractAnthropicUsage,
+  jsonProxyError,
+  queueMetering,
+} from "@/lib/proxy-runtime";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -7,44 +17,108 @@ export const runtime = "nodejs";
 const UPSTREAM = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 
-/**
- * BYOK proxy for Anthropic Messages API.
- *
- * POST /api/proxy/anthropic/v1/messages
- *   X-Ingest-Key: <ingest source api key>
- *   X-Project / X-Agent: optional attribution
- *   body: standard Anthropic Messages JSON
- */
-export async function POST(req: NextRequest) {
-  const auth = await authProxy(req, "Anthropic");
-  if (auth instanceof NextResponse) return auth;
+type AnthropicBody = {
+  model?: string;
+  stream?: boolean;
+};
 
+export async function POST(req: NextRequest) {
   const rawBody = await req.text();
-  let body: { model?: string; stream?: boolean };
+  let body: AnthropicBody;
   try {
     body = JSON.parse(rawBody);
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
-  if (body.stream) {
-    return NextResponse.json(
-      { error: "Streaming not yet supported by Tokenometer proxy. Set stream:false." },
-      { status: 400 }
-    );
-  }
-  if (!body.model) {
-    return NextResponse.json({ error: "model required." }, { status: 400 });
+    const state = createProxyState(req, "Anthropic", "/api/proxy/anthropic/v1/messages");
+    return jsonProxyError(state, 400, "Invalid JSON body.");
   }
 
-  const upstreamRes = await fetch(UPSTREAM, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": auth.plaintextKey,
-      "anthropic-version": ANTHROPIC_VERSION,
-    },
-    body: rawBody,
-  });
+  const state = createProxyState(
+    req,
+    "Anthropic",
+    "/api/proxy/anthropic/v1/messages",
+    Boolean(body.stream)
+  );
+  const auth = await authProxy(req, "Anthropic");
+  if (auth instanceof NextResponse) {
+    return attachProxyHeaders(auth, state);
+  }
+  if (!body.model) {
+    return jsonProxyError(state, 400, "model required.");
+  }
+
+  let upstreamRes: Response;
+  try {
+    upstreamRes = await fetch(UPSTREAM, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": auth.plaintextKey,
+        "anthropic-version": ANTHROPIC_VERSION,
+      },
+      body: rawBody,
+    });
+  } catch (error) {
+    return jsonProxyError(state, 502, "Anthropic upstream request failed.", {
+      upstreamError: error instanceof Error ? error.message : "Unknown fetch error",
+    });
+  }
+
+  if (body.stream) {
+    if (!upstreamRes.ok || !upstreamRes.body) {
+      const responseText = await upstreamRes.text();
+      return createTextProxyResponse(upstreamRes, responseText, state, {
+        upstreamStatus: upstreamRes.status,
+      });
+    }
+
+    const usage = {
+      inputTokens: 0,
+      outputTokens: 0,
+      messageId: undefined as string | undefined,
+      stopReason: undefined as string | undefined,
+    };
+
+    return createSseProxyResponse({
+      upstreamRes,
+      state,
+      onJson(payload) {
+        const parsed = extractAnthropicUsage(payload);
+        if (!parsed) {
+          return;
+        }
+        if (parsed.messageId) {
+          usage.messageId = parsed.messageId;
+        }
+        if (parsed.inputTokens) {
+          usage.inputTokens = parsed.inputTokens;
+        }
+        if (parsed.outputTokens) {
+          usage.outputTokens = parsed.outputTokens;
+        }
+        if (parsed.stopReason) {
+          usage.stopReason = parsed.stopReason;
+        }
+      },
+      onComplete() {
+        if (usage.inputTokens === 0 && usage.outputTokens === 0) {
+          return;
+        }
+        queueMetering({
+          ctx: auth,
+          modelName: body.model!,
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+          project: state.project,
+          agent: state.agent,
+          metadata: enrichMeteringMetadata(state, {
+            messageId: usage.messageId,
+            stopReason: usage.stopReason,
+            upstreamStatus: upstreamRes.status,
+          }),
+        });
+      },
+    });
+  }
 
   const responseText = await upstreamRes.text();
 
@@ -52,26 +126,27 @@ export async function POST(req: NextRequest) {
     try {
       const json = JSON.parse(responseText);
       const usage = json.usage ?? {};
-      const inT: number = usage.input_tokens ?? 0;
-      const outT: number = usage.output_tokens ?? 0;
-      await meterUsage({
+      const inputTokens: number = usage.input_tokens ?? 0;
+      const outputTokens: number = usage.output_tokens ?? 0;
+      queueMetering({
         ctx: auth,
         modelName: body.model,
-        inputTokens: inT,
-        outputTokens: outT,
-        project: req.headers.get("x-project"),
-        agent: req.headers.get("x-agent"),
-        metadata: { messageId: json.id, stopReason: json.stop_reason },
+        inputTokens,
+        outputTokens,
+        project: state.project,
+        agent: state.agent,
+        metadata: enrichMeteringMetadata(state, {
+          messageId: json.id,
+          stopReason: json.stop_reason,
+          upstreamStatus: upstreamRes.status,
+        }),
       });
-    } catch (e) {
-      console.error("Anthropic metering failed:", e);
+    } catch (error) {
+      console.error("Anthropic metering failed:", error);
     }
   }
 
-  return new NextResponse(responseText, {
-    status: upstreamRes.status,
-    headers: {
-      "content-type": upstreamRes.headers.get("content-type") ?? "application/json",
-    },
+  return createTextProxyResponse(upstreamRes, responseText, state, {
+    upstreamStatus: upstreamRes.status,
   });
 }

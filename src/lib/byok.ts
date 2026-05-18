@@ -30,6 +30,14 @@ export async function authProxy(
   if (!source || !source.active) {
     return NextResponse.json({ error: "Invalid API key." }, { status: 401 });
   }
+  void prisma.ingestSource
+    .update({
+      where: { id: source.id },
+      data: { lastSeenAt: new Date() },
+    })
+    .catch((error) => {
+      console.error("Failed to update ingest source lastSeenAt:", error);
+    });
 
   const provider = await prisma.provider.findUnique({ where: { name: providerName } });
   if (!provider) {
