@@ -11,7 +11,7 @@ services:
       DATABASE_URL: postgresql://tokenradar:${POSTGRES_PASSWORD:-tokenradar}@postgres:5432/tokenradar?schema=public
       PORT: 3000
     ports:
-      - "${TOKENOMETER_PORT:-3100}:3000"
+      - "127.0.0.1:${TOKENOMETER_PORT:-3100}:3000"
     depends_on:
       postgres:
         condition: service_healthy
