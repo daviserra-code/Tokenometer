@@ -17,6 +17,7 @@ param(
     [string]$Branch = "main",
     [string]$Remote = "origin",
     [string]$TokenometerPort = "3100",
+    [string]$PublicUrl = "",
     [string]$IdentityFile = ""
 )
 
@@ -56,6 +57,10 @@ Write-Host "Preparing Tokenometer deployment to Hetzner..." -ForegroundColor Cya
 Write-Host "Server: ${ServerUser}@${ServerIp}" -ForegroundColor DarkCyan
 Write-Host "Remote path: $ProjectPath" -ForegroundColor DarkCyan
 Write-Host "Host port: $TokenometerPort" -ForegroundColor DarkCyan
+if ([string]::IsNullOrWhiteSpace($PublicUrl)) {
+    $PublicUrl = "http://${ServerIp}:${TokenometerPort}"
+}
+Write-Host "Public URL: $PublicUrl" -ForegroundColor DarkCyan
 
 if ($CommitAndPush) {
     Write-Host "`nAdding, committing and pushing local changes..." -ForegroundColor Yellow
@@ -92,6 +97,8 @@ PROJECT_PATH='$ProjectPath'
 BRANCH='$Branch'
 REPO_URL='$repoUrl'
 TOKENOMETER_PORT='$TokenometerPort'
+TOKENOMETER_PUBLIC_URL='$PublicUrl'
+SERVER_ACTION_ALLOWED_ORIGINS='${ServerIp}:${TokenometerPort}'
 
 case "`$PROJECT_PATH" in
   *ai-radar*|/opt/ai-radar|/opt/ai-radar/*)
@@ -120,7 +127,7 @@ fi
 
 touch .tokenometer-root
 chmod +x deploy/deploy.sh
-TOKENOMETER_PORT="`$TOKENOMETER_PORT" BRANCH="`$BRANCH" ./deploy/deploy.sh
+TOKENOMETER_PORT="`$TOKENOMETER_PORT" TOKENOMETER_PUBLIC_URL="`$TOKENOMETER_PUBLIC_URL" SERVER_ACTION_ALLOWED_ORIGINS="`$SERVER_ACTION_ALLOWED_ORIGINS" BRANCH="`$BRANCH" ./deploy/deploy.sh
 "@
 
 $remoteScript = $remoteScript -replace "`r", ""
@@ -132,4 +139,4 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "`nTokenometer deployment completed." -ForegroundColor Green
-Write-Host "Expected URL before reverse proxy: http://${ServerIp}:${TokenometerPort}" -ForegroundColor Cyan
+Write-Host "Expected URL before reverse proxy: $PublicUrl" -ForegroundColor Cyan

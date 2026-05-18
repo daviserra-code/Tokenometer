@@ -12,6 +12,9 @@ BRANCH="${BRANCH:-main}"
 COMPOSE_PROJECT="${COMPOSE_PROJECT:-tokenometer}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
 EXPECTED_APP_NAME='"name": "tokenradar"'
+TOKENOMETER_PORT="${TOKENOMETER_PORT:-3100}"
+TOKENOMETER_PUBLIC_URL="${TOKENOMETER_PUBLIC_URL:-http://localhost:${TOKENOMETER_PORT}}"
+SERVER_ACTION_ALLOWED_ORIGINS="${SERVER_ACTION_ALLOWED_ORIGINS:-localhost:${TOKENOMETER_PORT}}"
 
 echo "Starting Tokenometer deployment..."
 
@@ -34,6 +37,33 @@ if [ ! -f "$COMPOSE_FILE" ]; then
 fi
 
 touch .tokenometer-root
+
+random_secret() {
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -base64 32 | tr '+/' '-_' | tr -d '='
+  else
+    date +%s%N | sha256sum | awk '{print $1}'
+  fi
+}
+
+ensure_env_value() {
+  local key="$1"
+  local value="$2"
+  if ! grep -q "^${key}=" .env; then
+    printf '%s="%s"\n' "$key" "$value" >> .env
+  fi
+}
+
+if [ ! -f .env ]; then
+  echo "Creating isolated Tokenometer .env..."
+  : > .env
+fi
+
+ensure_env_value "INGEST_ENC_KEY" "$(random_secret)"
+ensure_env_value "CRON_SECRET" "$(random_secret)"
+ensure_env_value "POSTGRES_PASSWORD" "$(random_secret)"
+ensure_env_value "NEXT_PUBLIC_APP_URL" "$TOKENOMETER_PUBLIC_URL"
+ensure_env_value "SERVER_ACTION_ALLOWED_ORIGINS" "$SERVER_ACTION_ALLOWED_ORIGINS"
 
 echo "Fetching latest code..."
 git fetch origin "$BRANCH"
@@ -63,4 +93,4 @@ docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" ps
 echo "Recent Tokenometer logs:"
 docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" logs --tail=80 app
 
-echo "Deployment complete. Tokenometer should be available on host port ${TOKENOMETER_PORT:-3100}."
+echo "Deployment complete. Tokenometer should be available on host port ${TOKENOMETER_PORT}."
