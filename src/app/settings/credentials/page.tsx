@@ -188,7 +188,9 @@ export default async function CredentialsPage() {
           <li>
             <strong className="text-on-surface">OpenAI Sync</strong> — pulls daily totals from
             <code className="mx-1 rounded bg-surface-2 px-1">/v1/organization/usage/completions</code>.
-            Requires an <strong>Admin API key</strong> (<code>sk-admin-…</code>). A normal <code>sk-…</code> key returns 401.
+            Requires an <strong>Admin API key</strong> (<code>sk-admin-…</code>). With a normal
+            <code className="mx-1 rounded bg-surface-2 px-1">sk-...</code> project key, Tokenometer falls back to
+            one tiny live ping and meters that call.
           </li>
           <li>
             <strong className="text-on-surface">Anthropic Sync</strong> — pulls from

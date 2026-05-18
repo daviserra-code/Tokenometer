@@ -106,6 +106,16 @@ async function syncOpenAI(
   });
   if (!res.ok) {
     const body = await res.text();
+    if (res.status === 401 || res.status === 403) {
+      return pingOpenAI(
+        credentialId,
+        label,
+        organizationId,
+        providerId,
+        apiKey,
+        "OpenAI historical usage sync needs an Organization Admin API key, so Tokenometer sent one tiny real call instead."
+      );
+    }
     return {
       ok: false,
       provider: "OpenAI",
@@ -113,10 +123,7 @@ async function syncOpenAI(
       label,
       inserted: 0,
       skipped: 0,
-      error:
-        res.status === 401
-          ? "OpenAI rejected the key. The /usage endpoint requires an Admin API key (sk-admin-...)."
-          : `OpenAI ${res.status}: ${body.slice(0, 200)}`,
+      error: `OpenAI ${res.status}: ${body.slice(0, 200)}`,
     };
   }
   const json = (await res.json()) as { data?: OpenAIUsageBucket[] };
@@ -356,6 +363,86 @@ async function upsertSyncedUsage(args: {
 // For providers without a usage API (Google, Mistral): send one tiny call
 // against the upstream and meter the resulting tokens. Gives users immediate
 // real data the same way the BYOK proxy would.
+
+async function pingOpenAI(
+  credentialId: string,
+  label: string,
+  organizationId: string,
+  providerId: string,
+  apiKey: string,
+  prefixMessage: string
+): Promise<SyncResult> {
+  const modelName = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: modelName,
+        max_tokens: 5,
+        messages: [{ role: "user", content: "ping" }],
+      }),
+    });
+    const json = (await res.json()) as {
+      usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+      error?: { message?: string } | string;
+    };
+    if (!res.ok) {
+      const errMsg =
+        typeof json.error === "string"
+          ? json.error
+          : json.error?.message ?? "rejected the call";
+      return {
+        ok: false,
+        provider: "OpenAI",
+        credentialId,
+        label,
+        inserted: 0,
+        skipped: 0,
+        error: `OpenAI ${res.status}: ${errMsg}`,
+      };
+    }
+
+    const inT = json.usage?.prompt_tokens ?? 1;
+    const outT = json.usage?.completion_tokens ?? 1;
+    const written = await upsertSyncedUsage({
+      organizationId,
+      providerId,
+      modelName,
+      timestamp: new Date(),
+      source: "provider-sync:openai-ping",
+      inputTokens: inT,
+      outputTokens: outT,
+      requests: 1,
+    });
+    await prisma.providerCredential.update({
+      where: { id: credentialId },
+      data: { lastUsedAt: new Date() },
+    });
+    return {
+      ok: true,
+      provider: "OpenAI",
+      credentialId,
+      label,
+      inserted: written ? 1 : 0,
+      skipped: written ? 0 : 1,
+      message: `${prefixMessage} Metered ${inT}+${outT} tokens on ${modelName}. For daily historical usage, create an OpenAI Admin API key in the organization settings.`,
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      provider: "OpenAI",
+      credentialId,
+      label,
+      inserted: 0,
+      skipped: 0,
+      error: `OpenAI ping failed: ${(e as Error).message}`,
+    };
+  }
+}
 
 async function pingGoogle(
   credentialId: string,
