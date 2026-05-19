@@ -1,249 +1,229 @@
 # Tokenometer Dummy Guide
 
-This guide explains how to use Tokenometer in the new metering-oriented way.
+This is the plain-English guide for using Tokenometer as it exists now.
 
-No shame in the word "dummy" here. The goal is to make the product usable without remembering API jargon.
+No jargon points awarded here. The goal is simple:
+
+> help you understand what to click, why it matters, and what each part is for.
 
 ## The Big Idea
 
-Tokenometer measures AI token usage.
+Tokenometer works best when it sits between your app and the AI provider.
 
-The most reliable way to measure tokens is not to ask providers later.
+That means:
 
-The most reliable way is:
-
-1. Your app sends the AI request to Tokenometer.
-2. Tokenometer forwards the request to OpenAI, Anthropic, Google, Mistral, or GitHub Models.
-3. The provider sends the answer back.
-4. Tokenometer reads the token usage from that answer.
-5. Tokenometer records the usage and cost immediately.
+1. your app sends the request to Tokenometer
+2. Tokenometer forwards it to OpenAI, Anthropic, Google, Mistral, or GitHub Models
+3. the provider answers
+4. Tokenometer reads token usage and cost
+5. Tokenometer records it immediately
 
 This is called **live metering**.
 
-In simple words:
+That is the heart of the product.
 
-> Tokenometer must sit between your app and the AI provider.
+## The Three Important Keys
 
-## Important Words
+### 1. Provider API key
 
-### API Key
+This is the real provider key, like:
 
-An API key is a password that lets software call an AI provider.
+- OpenAI `sk-...`
+- Anthropic key
+- Google key
+
+This lets Tokenometer call the provider on your behalf.
+
+### 2. Provider admin key
+
+This is only needed for some historical sync features.
 
 Example:
 
-- OpenAI normal key: `sk-...`
-- OpenAI admin key: `sk-admin-...`
+- OpenAI `sk-admin-...`
 
-### Normal Provider Key
+You do **not** need this for normal live metering.
 
-This is the key your app uses to call models.
+### 3. Tokenometer ingest key
 
-For example, a normal OpenAI `sk-...` key can call `gpt-4o-mini`.
+This is a Tokenometer key, not a provider key.
 
-This is enough for live metering.
+Your test script or app sends it to Tokenometer so Tokenometer knows which source is generating usage.
 
-### Admin Provider Key
+## What the Main Areas Do
 
-This is a special key that can read historical organization usage.
+### Credentials
 
-For OpenAI, this usually starts with:
+Page:
 
-- `sk-admin-...`
+`https://www.tokenometer.cloud/settings/credentials`
 
-You do not need this to test live metering.
+Use this page to:
 
-You only need this if you want Tokenometer to import historical OpenAI usage directly from OpenAI's organization usage API.
+- vault provider API keys
+- test whether a provider key can actually call a model
+- run historical sync when the provider supports it
 
-### Ingest Key
+Think of this as:
 
-This is a Tokenometer key.
+> "Can Tokenometer safely hold and use my provider keys?"
 
-Your app sends it to Tokenometer so Tokenometer knows which workspace/source is sending usage.
+### Gateway
 
-You will see it on the Metering Gateway page.
+Page:
 
-### Vaulted Key
+`https://www.tokenometer.cloud/gateway`
 
-This is a provider API key stored inside Tokenometer.
+Use this page to:
 
-Tokenometer stores it encrypted.
+- see the live metering routes
+- copy test snippets
+- view recent gateway calls
+- check request IDs and latency
+- confirm which providers are wired
 
-When your app calls Tokenometer, Tokenometer uses the vaulted provider key to call the provider.
+Think of this as:
+
+> "This is the engine room."
+
+### Wallet
+
+Page:
+
+`https://www.tokenometer.cloud/wallet`
+
+Use this page to:
+
+- see provider balances
+- see reserved and spendable capacity
+- top up, transfer, or exchange balances
+- watch budget guardrails
+- see allocation and chargeback snapshots
+
+Think of this as:
+
+> "Where AI spending becomes governable."
+
+### Wallet Allocations
+
+Page:
+
+`https://www.tokenometer.cloud/wallet/allocations`
+
+Use this page to:
+
+- assign provider wallet capacity to projects
+- assign provider wallet capacity to teams
+- reserve tokens for downstream scopes
+- remove allocations when they are no longer needed
+
+Think of this as:
+
+> "Who gets to spend from which provider pool?"
+
+### Wallet Chargeback
+
+Page:
+
+`https://www.tokenometer.cloud/wallet/chargeback`
+
+Use this page to:
+
+- view current month chargeback base
+- issue internal monthly usage statements
+- print those statements later from invoices
+
+Think of this as:
+
+> "Who should be billed internally for AI usage?"
 
 ## The Correct Workflow
 
-For MVP testing, use this order.
+If you want to test Tokenometer properly, do it in this order.
 
-## Step 1: Log In as Admin
+## Step 1: Log In
 
 Open:
 
 `https://www.tokenometer.cloud/login`
 
-Use your admin username and password.
+Use your admin credentials.
 
-If 2FA is enabled, also enter the 6-digit code from your iPhone authenticator app.
+If 2FA is enabled, also use the 6-digit code from your authenticator app.
 
-## Step 2: Vault a Provider Key
+## Step 2: Vault a Real Provider Key
 
 Go to:
-
-`https://www.tokenometer.cloud/settings/credentials`
-
-Click or fill the form:
-
-- Provider: choose `OpenAI` first
-- Label: use something like `Default`
-- API key: paste your normal OpenAI key, for example `sk-...`
-
-Click:
-
-**Vault credential**
-
-What this means:
-
-Tokenometer now has an encrypted copy of your provider key.
-
-## Step 3: Test the Provider Key
-
-Still on:
 
 `/settings/credentials`
 
-Find the stored key and click:
+Add a provider key, usually OpenAI first.
 
-**Test**
+This means Tokenometer stores the key encrypted and can use it for real proxy calls.
 
-What this does:
+## Step 3: Test the Key
 
-- Sends a tiny real AI request through Tokenometer
-- Uses your vaulted provider key
-- Proves the key can call the provider
-- Records a tiny usage event if successful
+Still on the credentials page, click **Test**.
 
-If this fails, the key itself may be invalid, expired, restricted, or missing provider/model access.
+This answers:
 
-## Step 4: Understand Sync vs Metering
+> "Can this key actually call the provider?"
 
-This is the part that caused confusion.
+This is different from historical sync.
+
+## Step 4: Understand Test vs Sync vs Gateway
 
 ### Test
 
-Use **Test** to check:
+Checks whether the provider key works for real calls.
 
-> Can this key call the provider?
+### Sync now
 
-### Sync Now
+Tries to import historical provider usage, when supported.
 
-Use **Sync now** to check:
+This is optional and often needs admin-level provider keys.
 
-> Can Tokenometer import historical usage from the provider?
+### Gateway
 
-For OpenAI, historical sync needs an admin key:
+This is the real product path.
 
-`sk-admin-...`
+It measures live calls as they happen.
 
-If you use a normal `sk-...` key, Tokenometer now falls back to one tiny live ping.
-
-### Metering Gateway
-
-Use **Metering Gateway** for the real product:
-
-> Can Tokenometer measure my app's AI calls as they happen?
-
-This is the main path.
-
-## Step 5: Open the Metering Gateway
+## Step 5: Open the Gateway
 
 Go to:
 
-`https://www.tokenometer.cloud/gateway`
+`/gateway`
 
-You will see:
+Here you will see:
 
-- Gateway status
-- Provider routes
-- Active ingest source
-- Vaulted provider status
-- Node.js example
-- Python example
-- Recent gateway calls
+- the URL to call
+- the ingest key pattern
+- sample Node.js code
+- sample Python code
+- recent live requests
 
-This page is admin-only because it shows the ingest key.
+## Step 6: Run a Test Script From Your Own Machine
 
-## Step 6: Copy a Code Example
+This is the part people often overcomplicate, so here is the simple answer:
 
-On the Gateway page, copy the Node.js or Python example.
+Yes, you run the sample script from **your own machine**.
 
-The example calls:
+Best options:
 
-`/api/proxy/openai/chat/completions`
-
-Instead of calling OpenAI directly, your app calls Tokenometer.
-
-Tokenometer then calls OpenAI.
-
-## Step 7: What Changes in Your App
-
-Normally your app might call:
-
-`https://api.openai.com/v1/chat/completions`
-
-With Tokenometer, your app calls:
-
-`https://www.tokenometer.cloud/api/proxy/openai/chat/completions`
-
-Your app includes:
-
-- `x-ingest-key`
-- optional `x-project`
-- optional `x-agent`
-
-Example headers:
-
-```txt
-content-type: application/json
-x-ingest-key: your-tokenometer-ingest-key
-x-project: My App
-x-agent: support-bot
-```
-
-Your app does not need to send the OpenAI API key directly.
-
-Tokenometer uses the vaulted key.
-
-What this means in real life:
-
-- if you already have an app, you change the API URL in that app
-- if you do not have an app yet, you can use the sample snippet as a temporary test script
-- the snippet is not something you run "inside Tokenometer"
-- the snippet is something you run on your own machine, in your own terminal
-
-The easiest mental model is:
-
-- Tokenometer is the server
-- your test script is the client
-
-## Step 7.5: Where Do I Run the Snippet?
-
-Run the Node.js or Python snippet on your own computer.
-
-The easiest place is:
-
-- open your project in VS Code
-- open the VS Code terminal
-- run the script there
-
-If you prefer, you can also run it from:
-
+- VS Code terminal
 - PowerShell
 - Windows Terminal
-- Command Prompt
 
-These are all fine.
+All of those are fine.
 
-Before you run the script, set your ingest key as an environment variable.
+Tokenometer is the server.
+
+Your script is the client.
+
+## Step 7: Set the Ingest Key
+
+Before running the test script, set the Tokenometer ingest key in your terminal.
 
 In PowerShell:
 
@@ -251,266 +231,130 @@ In PowerShell:
 $env:TOKENOMETER_INGEST_KEY="your_ingest_key_here"
 ```
 
-### If you choose the Python snippet
+## Step 8: Run the Test Script
 
-1. Create a file like:
+### Python
 
-`test_tokenometer.py`
+You can use the ready-made file in this repo:
 
-2. Paste the Python example into that file.
+[tests/test_tokenometer.py](C:\Users\Davide\VS-Code Solutions\Tokenometer\tests\test_tokenometer.py)
 
-3. In VS Code terminal or PowerShell, run:
-
-```powershell
-python .\test_tokenometer.py
-```
-
-If `python` does not work, try:
-
-```powershell
-py .\test_tokenometer.py
-```
-
-### If you choose the Node.js snippet
-
-1. Create a file like:
-
-`test-tokenometer.mjs`
-
-2. Paste the Node.js example into that file.
-
-3. In VS Code terminal or PowerShell, run:
-
-```powershell
-node .\test-tokenometer.mjs
-```
-
-You can also use the repo's ready-made Python smoke test:
+Run:
 
 ```powershell
 python .\tests\test_tokenometer.py
 ```
 
-### Which one should you use?
-
-Use whichever feels easier.
-
-- If you already use Python sometimes, use Python.
-- If you already use Node.js / JavaScript, use Node.js.
-
-For your first proof that Tokenometer works, either one is perfectly fine.
-
-## Step 8: Run One Real Test Call
-
-Use the copied snippet.
-
-Run it locally from your machine as a small test script.
-
-The simplest setup is:
-
-- open VS Code
-- open terminal
-- save the snippet to a `.py` or `.mjs` file
-- run it from that terminal
-
-If it works:
-
-- you get an AI response
-- Tokenometer records the token usage
-- the usage appears in Live mode
-- the Gateway page shows the recent call
-
-To measure overhead, you can also run the lightweight benchmark script:
+If needed:
 
 ```powershell
-$env:TOKENOMETER_REQUESTS="5"
-$env:TOKENOMETER_CONCURRENCY="2"
-python .\tests\benchmark_tokenometer.py
+py .\tests\test_tokenometer.py
 ```
 
-That benchmark prints:
+### Node.js
 
-- how many requests succeeded
-- the wall-clock time
-- min / avg / p50 / p95 / max latency
-- the request IDs returned by Tokenometer
+If you prefer Node, use the sample from the Gateway page and run it from your terminal with:
 
-If you are asking "can I run it from here, from PowerShell?" the answer is:
+```powershell
+node .\your-test-file.mjs
+```
 
-**Yes. PowerShell is a perfectly correct place to run it.**
+## Step 9: Verify That Live Metering Worked
 
-## Step 9: Switch to Live Mode
+After a successful test call:
 
-Go to the dashboard:
+- the provider should answer normally
+- Tokenometer should create a usage event
+- the Gateway page should show a recent call
+- Live mode reports should reflect the usage
+- wallet and project-level views can begin using that data
 
-`https://www.tokenometer.cloud`
+## Step 10: Start Using Wallet Controls
 
-Switch from:
+Once live metering is working, the next useful pieces are not abstract anymore.
 
-**Demo**
+You can now:
+
+- top up provider balances
+- transfer balances
+- exchange between providers
+- request approvals
+- allocate provider balance to projects
+- allocate provider balance to teams
+- issue internal chargeback statements
+
+This is the shift from:
+
+> "I can see usage"
 
 to:
 
-**Live**
+> "I can govern usage"
 
-Now the dashboard shows real usage only:
+## What the Budget Guardrail Does
 
-- gateway-metered calls
-- provider-sync calls
-- CSV/imported usage
+The budget guardrail watches the monthly organization budget.
 
-Demo data is still preserved.
+Depending on state:
 
-## Step 10: Check Spend
+- in healthy mode, direct wallet actions stay open
+- in critical mode, transfers may require approval
+- in exceeded mode, wallet actions are restricted and auto-lock behavior can kick in
 
-Go to:
+So this is not just a warning banner. It now affects behavior.
 
-`https://www.tokenometer.cloud/reports`
+## What Allocations Mean
 
-Use:
+An allocation means:
 
-- Daily
-- Weekly
-- Monthly
+> "reserve part of a provider wallet for a specific project or team."
 
-This lets you check real spend by period.
+Example:
 
-## What Key Do I Need?
+- OpenAI wallet has 10M tokens
+- you allocate 2M to Project A
+- you allocate 1M to Team B
 
-### To test live metering with OpenAI
+Those allocations are now visible downstream and reduce freely spendable balance.
 
-You can use a normal OpenAI key:
+## What Chargeback Means
 
-`sk-...`
+Chargeback means:
 
-This is enough.
+> "create internal statements showing which project or team consumed AI value."
 
-### To import old OpenAI usage history
+This is for internal accountability, not external payment processing.
 
-You need an OpenAI admin key:
+It helps answer:
 
-`sk-admin-...`
+- who used what
+- which provider it came from
+- what it cost this month
 
-This is different from a normal key.
+## If Something Still Feels Confusing
 
-### To test the product today
+Use this mental model:
 
-Use a normal key first.
+- **Credentials** = store provider keys
+- **Gateway** = meter live calls
+- **Wallet** = manage provider balances
+- **Allocations** = reserve balance for projects or teams
+- **Chargeback** = generate internal usage statements
+- **Budgets** = decide when the system should get stricter
 
-The best first test is:
+## Where We Are in the Product Journey
 
-1. Vault normal OpenAI key
-2. Click Test
-3. Open Gateway
-4. Run Node.js or Python snippet
-5. Switch dashboard to Live
-6. Confirm tokens appear
+Right now, Tokenometer is in:
 
-## Why Provider Sync Is Not Enough
+**late Phase 2, with the first slice of Phase 5**
 
-Provider sync sounds nice, but it is unreliable as the main product engine.
+In normal words:
 
-Reasons:
+- live metering works
+- wallet controls work
+- allocations work
+- internal chargeback has begun
+- provider-normalized exchange intelligence is still ahead
+- policy-based smart routing is still ahead
 
-- Some providers require admin keys.
-- Some providers do not expose historical usage APIs.
-- Some dashboards update late.
-- Some billing exports are not per-request.
-- Some providers show costs but not enough model/project detail.
-
-So Tokenometer should not depend only on provider sync.
-
-Tokenometer should meter live traffic directly.
-
-## What Each Button Means
-
-### Vault credential
-
-Stores your provider API key in encrypted form.
-
-### Test
-
-Sends one tiny live model call to make sure the key works.
-
-### Sync now
-
-Tries to import historical usage from the provider.
-
-This may require admin keys.
-
-### Open gateway
-
-Shows how to route real app calls through Tokenometer.
-
-This is the important one for accurate token measurement.
-
-## Is My Provider Key Exposed?
-
-The intended flow is:
-
-- You paste the provider key once into Tokenometer.
-- Tokenometer encrypts it.
-- Your app sends requests to Tokenometer with an ingest key.
-- Your app does not need to know the provider key anymore.
-
-This reduces key spread.
-
-But remember:
-
-- If someone fully controls the VPS, they can still access server secrets.
-- This is why 2FA, HTTPS, audit logs, and future external Vault/KMS matter.
-
-## What To Do If Nothing Appears in Live Mode
-
-Check these in order:
-
-1. Are you logged in as admin?
-2. Is the dashboard switched to **Live**?
-3. Did you vault a provider key?
-4. Did you create or have an active ingest source?
-5. Did your code call the Tokenometer URL, not the provider URL?
-6. Did your request include `x-ingest-key`?
-7. Did the provider response succeed?
-8. Does `/gateway` show the call in recent gateway calls?
-
-## First Recommended Test
-
-Use OpenAI first.
-
-Why:
-
-- normal `sk-...` keys can call models
-- OpenAI responses include token usage
-- Tokenometer can meter the response immediately
-
-Recommended first model:
-
-`gpt-4o-mini`
-
-Recommended first project name:
-
-`Tokenometer Test`
-
-Recommended first agent name:
-
-`manual-test`
-
-## Mental Model
-
-Think of Tokenometer like a smart toll booth.
-
-Without Tokenometer:
-
-```txt
-Your App -> OpenAI
-```
-
-With Tokenometer:
-
-```txt
-Your App -> Tokenometer -> OpenAI
-```
-
-Because traffic passes through Tokenometer, Tokenometer can count it.
-
-That is the whole product.
+So the app is already beyond "just a dashboard," but it is not yet the full AI financial network vision.

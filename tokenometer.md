@@ -1,50 +1,51 @@
 # Tokenometer Product Brief
 
-## Nature of the Product
+## What Tokenometer Is
 
-Tokenometer is an AI FinOps and live metering platform for tracking token usage, model spend, provider costs, and budget exposure across AI providers.
+Tokenometer is an AI FinOps platform centered on one core idea:
 
-The core product idea is simple:
+> measure AI usage at call time, not only after the fact.
 
-- AI model calls cost money.
-- Provider dashboards are inconsistent and often delayed.
-- Some providers expose historical usage APIs only to admin keys.
-- Some providers do not expose useful historical usage APIs at all.
-- Therefore, Tokenometer should measure live usage directly as calls happen.
+It sits between an application and model providers, meters real requests, estimates cost, and then organizes that data into wallets, budgets, allocations, approvals, and internal settlement views.
 
-Tokenometer is not a crypto product. Its "wallet" and "tokens" language refers to AI model consumption units, provider balances, usage drawdown, and financial governance.
+Tokenometer is not a crypto app. In this product, "tokens" means AI model consumption units and provider balances.
 
 ## Product Positioning
 
-Tokenometer is best understood as a lightweight AI spend gateway:
+Today, Tokenometer is best described as:
 
-> Put Tokenometer between your app and model providers, and it meters every token in real time.
+- a live metering gateway
+- an AI spend ledger
+- a wallet and controls layer for provider balances
+- an internal AI chargeback system in progress
 
-The dashboard and demo data show the product potential, but the real engine is the Metering Gateway.
+The dashboard matters, but the real product center is the gateway plus the wallet logic behind it.
 
-## Data Modes
+## Demo and Live Modes
 
-Tokenometer now has two clear data modes:
+Tokenometer intentionally keeps both modes:
 
-- **Demo Mode**
-  - Keeps realistic seeded demo data visible.
-  - Useful for showcasing the MVP to visitors, investors, and early users.
-  - Does not require admin login.
+- **Demo mode**
+  - shows realistic seeded data
+  - stays public and useful for product storytelling
+  - lets people understand the shape of the app without needing credentials
 
-- **Live Mode**
-  - Shows real synced, imported, or gateway-metered usage.
-  - Requires admin login.
-  - Intended for testing real provider keys and actual AI spend.
+- **Live mode**
+  - shows real metered, synced, or imported data
+  - is admin-oriented
+  - is the correct mode for testing real keys and real spend
 
-## Measurement Strategy
+The demo data remains part of the MVP by design.
 
-Tokenometer uses three measurement paths.
+## How Tokenometer Measures Usage
+
+Tokenometer now works through three paths.
 
 ### 1. Live Metering Gateway
 
-This is the primary product path.
+This is the primary path.
 
-Your application sends model requests through Tokenometer proxy endpoints instead of directly calling the provider. Tokenometer forwards the call to the provider, reads the provider response usage, and records:
+Applications send requests to Tokenometer proxy endpoints instead of calling providers directly. Tokenometer forwards the call, reads usage from the provider response, and records:
 
 - provider
 - model
@@ -53,181 +54,176 @@ Your application sends model requests through Tokenometer proxy endpoints instea
 - total tokens
 - estimated cost
 - project
+- team
 - agent
 - source
 - timestamp
 
-This works with normal provider API keys when the provider response includes token usage.
+This is the most reliable path for the product.
 
 ### 2. Historical Provider Sync
 
-This is a secondary reconciliation path.
+This is secondary and best understood as reconciliation.
 
-Some providers expose historical organization usage APIs, but usually only with admin keys.
+Some providers expose historical usage APIs only with elevated admin keys.
 
-- OpenAI historical usage requires an OpenAI organization Admin API key.
-- Anthropic historical usage requires an Anthropic Admin API key.
-- Google, Mistral, and GitHub Models do not currently provide the same kind of reliable historical per-model usage API for this MVP path.
+- OpenAI org usage requires an admin key
+- Anthropic usage reports require an admin key
+- other providers are weaker or more inconsistent for this path
 
-When an OpenAI normal project key is used, Tokenometer now falls back to a tiny live ping and meters that call instead of failing with only an admin-key message.
+Tokenometer still supports sync where possible, but sync is not the foundation of the product.
 
-### 3. CSV / Billing Import
+### 3. CSV and Billing Import
 
-CSV import remains available for historical backfill, invoices, exports, and manual reconciliation.
+This remains useful for:
 
-## Recent Product Changes
+- historical backfill
+- provider exports
+- invoice reconciliation
+- manual migration into the platform
 
-### Deployment and Domain
+## Security and Admin Foundations
 
-- Deployed Tokenometer to the Hetzner VPS in an isolated `/opt/tokenometer` path.
-- Preserved the hard rule not to touch or interfere with the existing production `ai-radar` app.
-- Added Docker Compose isolation with project name `tokenometer`.
-- Bound the production app port to `127.0.0.1:3100` so it is reachable only through Nginx.
-- Configured Nginx for:
+The current production build includes:
+
+- database-backed admin user
+- hashed password storage
+- login rate limiting
+- optional TOTP 2FA
+- encrypted provider vault entries
+- encrypted ingest secrets
+- audit logging for sensitive admin actions
+- HTTPS via Nginx and Let's Encrypt
+- app container bound to `127.0.0.1:3100` behind reverse proxy
+
+This is solid MVP-grade protection for testing real keys, while still leaving room for future enterprise hardening such as external KMS/Vault backends and richer auth models.
+
+## Gateway Status
+
+The admin-only Gateway page is now a real operational surface, not just a concept.
+
+It includes:
+
+- provider route matrix
+- ingest source status
+- vaulted provider status
+- recent gateway calls
+- request IDs
+- latency metadata
+- streaming support visibility
+- Node.js and Python examples
+- benchmark guidance
+
+Gateway hardening already includes:
+
+- `X-Request-Id`
+- `Server-Timing`
+- async metering writes
+- streaming support across the supported proxy routes
+
+## Wallet System Status
+
+The wallet system has moved beyond simple balances.
+
+Current wallet capabilities include:
+
+- provider balances
+- reserve floors
+- reserved balances
+- direct top-ups
+- transfers
+- provider exchange
+- approval requests
+- budget-aware action gating
+- automatic wallet locking when the monthly org budget is exceeded
+
+This means the wallet has become a policy surface, not just a display.
+
+## New Allocation and Chargeback Capabilities
+
+Tokenometer now supports the first real internal AI wallet economy features.
+
+### Project and Team Allocations
+
+Admin users can allocate provider wallet capacity to:
+
+- projects
+- teams
+
+Allocations reserve spendable balance and expose a simple downstream view of who has been assigned what.
+
+### Internal Chargeback Statements
+
+Tokenometer can now issue internal monthly usage statements based on:
+
+- allocation scope
+- provider
+- actual scoped usage
+
+Chargeback issuance is idempotent for the period, so repeated clicks do not create duplicate monthly statements for the same scope/provider/month combination.
+
+### Project Visibility
+
+Projects now surface:
+
+- allocated balance
+- remaining balance
+- chargeback amount
+
+This makes project pages feel more like operating views and less like passive reports.
+
+## Current Roadmap Phase
+
+Tokenometer is currently in:
+
+**late Phase 2, with an early foothold in Phase 5**
+
+What that means in plain terms:
+
+- **Phase 1 is real**: live metering gateway, vaulting, ledger, budgets, spend views
+- **Phase 2 is substantially underway**: wallet semantics, approvals, reserves, allocations, budget locks
+- **Phase 5 has started in a narrow internal form**: chargeback statements and internal invoice-like settlement artifacts
+
+What is **not** built yet:
+
+- provider-normalized exchange intelligence as a serious engine
+- policy-based model routing
+- external credit marketplace or exchange
+
+So the honest answer is:
+
+> Tokenometer is no longer just in the "metering MVP" phase. It is now in the internal wallet-economy phase, with the first settlement mechanics already live.
+
+## Production Notes
+
+Production deployment currently runs:
+
+- on the Hetzner VPS
+- in isolated path `/opt/tokenometer`
+- with isolated Docker Compose project `tokenometer`
+- under:
   - `https://tokenometer.cloud`
   - `https://www.tokenometer.cloud`
-- Added Let's Encrypt HTTPS certificate.
-- Updated production app URL and allowed server action origins for the new domain.
 
-### Admin and Security
+`ai-radar` remains separate and untouched.
 
-- Replaced env-only admin login with database-backed admin users.
-- Added hashed admin password storage using PBKDF2-SHA256.
-- Added login attempt tracking and rate limiting.
-- Added optional TOTP 2FA setup.
-- Added `/settings/security` page for:
-  - admin user status
-  - 2FA setup
-  - recent audit log
-- Rotated the plaintext bootstrap admin password in production after creating the hashed admin user.
+## Best Next Steps
 
-### Vault and Secrets
+The strongest next product moves are:
 
-- Provider API keys are vaulted encrypted with AES-256-GCM.
-- Ingest secrets are now encrypted instead of stored as raw text.
-- Added a secret-store adapter boundary for future external KMS/Vault integration.
-- Current provider is local envelope encryption using `INGEST_ENC_KEY`.
-- Future providers can include AWS KMS, GCP KMS, Azure Key Vault, HashiCorp Vault, or another managed secret store.
+1. project/team sub-wallet UX polish
+2. cost center mapping for chargeback
+3. provider-normalized value models
+4. policy-based routing
+5. richer financial statements and export workflows
+6. optional external KMS/Vault backend
 
-### Audit Logging
-
-Added audit log support for sensitive admin actions, including:
-
-- credential create/update
-- credential delete
-- credential test
-- credential sync
-- ingest source create
-- ingest source secret rotation
-- ingest source delete
-- CSV import
-- demo data wipe
-- 2FA setup and enable/disable actions
-
-### Demo / Live UX
-
-- Added explicit Demo / Live mode switch.
-- Anonymous users are effectively limited to demo data.
-- Admin users can switch into Live mode.
-- Dashboard and reports now filter usage based on selected mode.
-- Demo data is preserved and remains valuable for MVP storytelling.
-
-### Spend Views
-
-- Renamed reports experience toward **Spend**.
-- Added daily, weekly, and monthly period controls.
-- Cost/tokens/events now adapt to the selected period.
-
-### Mobile Direction
-
-- Added mobile-first navigation:
-  - Home
-  - Spend
-  - Meter
-  - Wallet
-  - Settings
-- Created a mobile design brief at:
-  - `Stitch/tokenometer_mobile_mvp_design/DESIGN.md`
-- Incorporated Stitch mobile concepts into the product direction:
-  - compact operational dashboard
-  - mode switch
-  - freshness status
-  - spend period controls
-  - wallet/provider balances
-  - sync/setup visibility
-
-### Metering Gateway
-
-Added admin-only `/gateway` page.
-
-The Gateway page includes:
-
-- explanation of live metering as the reliable path
-- provider route matrix
-- active ingest source status
-- vaulted provider status
-- recent live gateway calls
-- Node.js copy-paste snippet
-- Python copy-paste snippet
-- request IDs on recent calls
-- latency metadata on recent calls
-- streaming support visibility per provider
-
-Current gateway providers:
-
-- OpenAI
-- Anthropic
-- Google Gemini
-- Mistral
-- GitHub Models
-
-The Gateway is now the product center for real token measurement.
-
-## Latest Hardening Pass
-
-The proxy layer now includes:
-
-- request IDs exposed as `X-Request-Id`
-- response-time reporting via `Server-Timing`
-- async metering writes so the database write does not sit on the hot response path
-- streaming support for OpenAI, Anthropic, Mistral, and GitHub Models
-- improved ingest-source last-seen tracking
-- local smoke and benchmark scripts using `TOKENOMETER_INGEST_KEY` from environment variables
-
-## Current Admin Login
-
-Production admin login uses:
-
-- URL: `https://www.tokenometer.cloud/login`
-- username: `admin`
-- password: stored as a hash in the database
-
-2FA can be enabled from:
-
-- `https://www.tokenometer.cloud/settings/security`
-
-## Current Key Principle
+## Core Principle
 
 Provider sync is optional reconciliation.
 
 Live metering is the engine.
 
-Tokenometer should focus next on making it extremely easy for a developer to route their app's AI calls through the Metering Gateway and immediately see accurate token and cost records in Live Mode.
+Wallet controls make the engine governable.
 
-## Suggested Next Steps
-
-1. Add SDK-style wrappers for Node and Python.
-2. Add a guided onboarding checklist:
-   - vault key
-   - create ingest source
-   - run test call
-   - switch to live mode
-   - view spend
-3. Add clearer provider capability labels:
-   - live metering supported
-   - historical sync supported
-   - admin key required
-   - billing export only
-4. Add richer gateway dashboards for latency, request tracing, and streaming diagnostics.
-5. Add token estimation fallback only when provider response usage is unavailable.
-6. Add production-grade external KMS/Vault backend.
+Chargeback begins turning it into infrastructure.

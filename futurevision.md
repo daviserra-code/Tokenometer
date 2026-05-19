@@ -4,312 +4,266 @@
 
 Tokenometer should evolve from an AI usage dashboard into a financial operating system for AI consumption.
 
-Today it measures usage and cost.
+That evolution now has real traction because the product is no longer only about observation. It already includes:
 
-Tomorrow it can help organizations:
+- live metering
+- wallets
+- approvals
+- allocations
+- budget-aware controls
+- internal chargeback beginnings
 
-- allocate AI budgets
-- fund wallets
-- meter spend in real time
-- transfer balances between teams and projects
-- compare value across providers
-- route usage according to cost and policy
-- settle AI spend internally
+So this document is no longer purely speculative. Parts of the roadmap are already underway.
 
-The long-term ambition is not just "analytics for tokens."
+## Strategic Direction
 
-It is:
+The instinct behind "PayPal for AI tokens" is genuinely interesting, but the right way to build toward it is in layers.
 
-> Tokenometer becomes the ledger, wallet, routing, and settlement layer for AI usage.
+Tokenometer should first become:
 
-## The Big Idea
+- the meter
+- the ledger
+- the wallet
+- the controls surface
+- the internal settlement layer
 
-The instinct behind "PayPal for AI tokens" is strong, but the best way to build it is in stages.
+Only later should it move toward external exchange or marketplace behavior.
 
-At first, Tokenometer should not behave like a literal money-transfer network.
+## Why This Direction Matters
 
-It should behave like:
+Organizations increasingly need to answer:
 
-- a metering gateway
-- an AI wallet system
-- a spend orchestration engine
-- a chargeback and settlement layer
+- which team consumed what
+- which project is burning budget
+- which provider is getting the spend
+- how to allocate usage fairly
+- how to route usage more intelligently
+- how to reconcile AI consumption internally
 
-Only later, if legally and commercially viable, should it move toward external exchange or marketplace behavior.
+Most tools can show charts.
 
-## Why This Direction Is Strong
+Far fewer can become the operating layer that governs AI consumption before, during, and after the call.
 
-AI usage is becoming operational infrastructure.
+That is the real opportunity.
 
-Companies already need to answer questions like:
-
-- Who is consuming what?
-- Which model is burning the budget?
-- Which team should pay for shared usage?
-- Can we move budget from one provider to another?
-- Can we route requests to a cheaper model without breaking quality?
-- Can unused balances be reallocated?
-
-Most tools only answer part of this.
-
-Tokenometer can own the whole lifecycle:
-
-1. observe usage
-2. price it
-3. attribute it
-4. fund it
-5. control it
-6. optimize it
-7. settle it
-
-That is much more defensible than being a reporting dashboard alone.
-
-## The Important Caveat
-
-"AI tokens" are not a clean universal asset.
-
-Different providers have:
-
-- different pricing
-- different tokenization methods
-- different billing rules
-- different credit systems
-- different terms on transfer, resale, and account usage
-
-So Tokenometer should not initially pretend that one provider token is directly exchangeable with another in a pure asset sense.
-
-The practical bridge is not token identity.
-
-The practical bridge is:
-
-- normalized value
-- wallet balances
-- provider capacity
-- internal settlement logic
-
-In short:
-
-Tokenometer should first exchange *value* across AI systems, not necessarily raw provider-native tokens.
-
-## Recommended Positioning
-
-Short version:
-
-> Tokenometer is the wallet and settlement layer for AI usage.
-
-Longer version:
-
-> Tokenometer helps organizations meter, fund, route, govern, and reconcile AI consumption across providers, teams, and projects.
-
-This is stronger and safer than saying "we are a PayPal for AI tokens" too early.
-
-That bolder phrase can still describe the vision internally, but the market-facing message should stay grounded in a real operational problem.
-
-## Product Evolution
+## Product Evolution Phases
 
 ### Phase 1: Real-Time AI Spend OS
 
-This is the current foundation and near-term focus.
+**Status: substantially complete as MVP foundation**
 
-Capabilities:
+Shipped or materially present:
 
 - live metering gateway
-- provider key vault
+- provider vaulting
 - usage ledger
-- project and team attribution
-- budgets and alerts
-- wallet balances
-- top-ups and debits
-- daily / weekly / monthly spend visibility
+- live/demo split
+- budget visibility
+- spend views
+- gateway tracing and latency metadata
 
-Goal:
-
-Make Tokenometer the most trustworthy place to understand AI usage in real time.
+Phase 1 is no longer the main question. It exists.
 
 ### Phase 2: Internal AI Wallet Economy
 
-This is where the app becomes more than observability.
+**Status: actively underway**
 
-Capabilities:
+Shipped or materially present:
 
-- allocate wallet balances to teams
-- transfer balances between projects
-- approval flows for top-ups
-- department-level AI budgets
-- shared-provider spend split across teams
-- internal chargeback
+- provider wallets
+- top-ups
+- transfers
+- exchange flows
+- approval requests
+- reserve floors
+- reserved balances
+- budget-aware wallet guardrails
+- project/team allocations
+- auto-lock behavior tied to org budget state
 
-Goal:
+What still remains inside Phase 2:
 
-Let organizations treat AI spend like a controllable operating budget, not an opaque invoice.
+- better sub-wallet UX
+- stronger cost-center semantics
+- richer allocation policies
+- more polished admin workflows
 
-### Phase 3: Provider-Normalized Exchange Engine
+This is the current center of gravity for the product.
 
-This is the bridge toward "PayPal-like" behavior.
+### Phase 3: Provider-Normalized Value Engine
 
-Capabilities:
+**Status: not started in a serious way**
 
-- normalized unit of AI value
-- exchange rates across providers based on price and effective capacity
-- wallet conversion simulations
-- advisory swapping: "move workload from provider A to provider B"
-- model equivalence layers for specific task categories
+This is where Tokenometer starts reasoning across providers in economic terms, not just raw balances.
 
-Goal:
+Future capabilities:
 
-Allow users to reason about AI balances as portable value, even when the raw provider units differ.
+- normalized AI value unit
+- provider comparison models
+- exchange simulations
+- capacity conversion heuristics
+- recommendation engine for reallocating spend
 
-Important note:
-
-This should begin as a pricing and allocation engine, not as a literal tradable token market.
+This is important, but still ahead of us.
 
 ### Phase 4: Policy-Based Routing and Execution
 
-This is where Tokenometer becomes a decision engine.
+**Status: conceptually aligned, not yet implemented**
 
-Capabilities:
+Future capabilities:
 
+- route by budget
 - route by cheapest acceptable model
-- route by latency threshold
-- route by team budget
-- fallback to alternative providers when limits are hit
-- preferred provider policies
+- route by latency policy
+- fallback provider policies
 - quality/cost routing profiles
 
-Goal:
-
-Turn Tokenometer from "system of record" into "system of control."
+This is where Tokenometer moves from "record system" to "control plane."
 
 ### Phase 5: Internal Settlement Network
 
-This makes the product financially useful even without an external marketplace.
+**Status: early foothold started**
 
-Capabilities:
+Shipped or materially present:
 
-- monthly AI statements
-- provider-level reconciliation
-- project-level invoices
-- inter-team chargeback
-- executive reporting
-- cost center mapping
+- invoice-like internal artifacts
+- chargeback statement generation
+- monthly usage statement logic
 
-Goal:
+Not yet complete:
 
-Become the accounting layer for enterprise AI consumption.
+- proper cost-center mapping
+- executive settlement packs
+- export/accounting workflows
+- reconciliation flows at enterprise depth
+
+So Phase 5 has begun, but only in a narrow internal form.
 
 ### Phase 6: External Exchange or Marketplace
 
-This is the ambitious frontier, but it should come last.
+**Status: still future vision**
 
-Possible capabilities:
+Possible future capabilities:
 
-- brokered transfer of unused balances
-- marketplace for spare provider credits
-- provider-compliant exchange rails
-- organization-to-organization settlement
-- escrow-style transfers
+- provider-compliant credit transfer
+- brokered spare-balance exchange
+- org-to-org settlement
+- escrow-style workflows
 
-This phase only makes sense if:
+This phase should wait until the internal operating system is mature and the legal path is clear.
 
-- provider terms allow it
-- the legal structure is clean
-- the demand is strong
-- Tokenometer already owns the workflow inside organizations
+## Where We Are Now
 
-## Strategic Moat
+The honest product answer is:
 
-The moat is not just "we show charts."
+> Tokenometer is in late Phase 2, with the first slice of Phase 5 already visible.
 
-The moat could come from combining:
+That means:
 
-- real-time gateway metering
-- a unified AI spend ledger
-- provider-aware wallet logic
-- policy routing
-- normalized AI value models
-- internal settlement workflows
+- we are beyond pure metering MVP
+- we are building the internal wallet economy
+- we have started internal settlement mechanics
+- we have not yet entered the serious normalized-value or routing phases
 
-If Tokenometer becomes embedded between customer applications and model providers, it becomes hard to replace.
+## What Was Recently Completed
 
-That position is strategically much stronger than a read-only dashboard.
+The most recent completed product steps were:
 
-## Main Risks
+1. strengthen wallet semantics
+   - approvals
+   - reserves
+   - guardrails
+   - auto-locks
 
-### 1. Legal and compliance risk
+2. build project/team allocations
+   - downstream reservations
+   - allocation visibility
+   - project-level surfaced values
 
-Anything that resembles stored value, resale, money movement, or financial intermediation can trigger serious obligations.
+3. build internal chargeback statements
+   - monthly usage statement issuance
+   - invoice-style records
+   - duplicate prevention for same period/scope/provider
 
-### 2. Provider terms risk
-
-Some providers may restrict transfer, resale, or multi-tenant usage patterns.
-
-### 3. Product complexity risk
-
-If Tokenometer tries to become exchange, routing, analytics, governance, billing, and marketplace all at once, it may lose clarity.
-
-### 4. False equivalence risk
-
-Not all tokens are economically or functionally interchangeable.
-
-### 5. Trust risk
-
-As soon as money, balances, or chargeback are involved, accuracy and auditability become mission-critical.
-
-## Recommended Principle
-
-Build the ledger first.
-
-Then the wallets.
-
-Then the routing.
-
-Then the settlement.
-
-Only after that, consider the market.
+Those three steps materially changed the product from "dashboard plus gateway" into "gateway plus operating budget system."
 
 ## Concrete Next Product Steps
 
-1. Make the metering gateway rock solid.
-   - latency and request tracing
-   - streaming support
-   - provider coverage
-   - benchmark tooling
+### Next Step A: deepen Phase 2
 
-2. Strengthen wallet semantics.
-   - cleaner transfers
-   - reserved balances
-   - budget locks
-   - approval flows
+- team/project sub-wallet UX polish
+- cost center fields and mapping
+- more expressive allocation policies
+- approval and allocation history views
 
-3. Build internal chargeback.
-   - project statements
-   - monthly summaries
-   - cost center mapping
+### Next Step B: deepen Phase 5
 
-4. Add provider-normalized value models.
-   - pricing comparators
-   - capacity conversion heuristics
-   - recommendation engine
+- better statement formatting
+- finance-friendly exports
+- monthly internal reconciliation bundles
+- chargeback rollups by team, project, and provider
 
-5. Add policy routing.
-   - budget-aware routing
-   - fallback providers
-   - cost ceilings
+### Next Step C: begin Phase 3
 
-6. Explore legal feasibility of external exchange later.
+- provider-normalized value models
+- comparison engine
+- capacity conversion heuristics
+- recommendation layer
 
-## Final Opinion
+My recommendation remains:
 
-Yes, this is a serious and promising direction.
+> finish the internal economy before trying to become the exchange.
 
-In fact, it may be the most differentiated future for Tokenometer.
+## Moat
 
-But the winning path is probably not:
+The moat is not a charting layer.
 
-> "Let us immediately create a PayPal for AI tokens."
+The moat emerges if Tokenometer becomes all of these at once:
 
-It is:
+- the real-time metering gateway
+- the canonical usage ledger
+- the wallet controller
+- the budget guardrail engine
+- the allocation system
+- the internal settlement layer
 
-> "Let us become the financial infrastructure for AI consumption, and earn the right to become the exchange layer later."
+Once customer traffic and financial semantics both depend on Tokenometer, it becomes much harder to replace.
 
-That is ambitious, credible, and strategically strong.
+## Main Risks
+
+### 1. Legal risk
+
+Anything that looks like stored value, financial intermediation, or marketplace settlement can trigger regulation.
+
+### 2. Provider terms risk
+
+Some provider ecosystems may not tolerate resale or exchange-like usage.
+
+### 3. Product complexity risk
+
+If Tokenometer tries to become dashboard, proxy, wallet, billing tool, policy router, and market all at once, clarity can suffer.
+
+### 4. Accuracy risk
+
+The closer the product gets to budget control and settlement, the less room there is for ambiguity.
+
+### 5. Trust risk
+
+Users will only trust financial workflows if logs, statements, and controls feel dependable and explainable.
+
+## Final View
+
+Tokenometer should absolutely keep the bigger ambition alive.
+
+But the right order is still:
+
+1. meter
+2. ledger
+3. wallet
+4. allocate
+5. settle internally
+6. normalize value
+7. route intelligently
+8. only then explore market behavior
+
+That path is ambitious without becoming sloppy.
