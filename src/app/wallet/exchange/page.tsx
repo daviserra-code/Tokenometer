@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/Card";
 import { requireAdmin } from "@/lib/auth";
+import { formatCurrency } from "@/lib/format";
+import { getOrganizationWalletGuardrail } from "@/lib/wallet-guardrails";
 import { exchangeAction } from "../actions";
 import { SubmitMessage } from "../_components/SubmitMessage";
 import { formatTokenBalance } from "@/lib/wallet";
@@ -11,6 +13,7 @@ export default async function ExchangePage() {
   requireAdmin();
   const org = await prisma.organization.findFirst({ orderBy: { createdAt: "asc" } });
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
+  const guardrail = await getOrganizationWalletGuardrail(org.id);
 
   const wallets = await prisma.wallet.findMany({
     where: { organizationId: org.id },
@@ -27,6 +30,14 @@ export default async function ExchangePage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Exchange tokens" description="Swap tokens across providers using configured rates." />
+
+      <Card title="Budget policy" description="Exchanges stay open longer than transfers so you can rebalance providers when budgets get tight.">
+        <p className="font-display text-body-md font-semibold text-on-surface">{guardrail.message}</p>
+        <p className="mt-2 text-[12px] text-text-muted">
+          Budget {formatCurrency(guardrail.budget, org.currency)} · Spend {formatCurrency(guardrail.spend, org.currency)} ·
+          Projection {formatCurrency(guardrail.projection, org.currency)}
+        </p>
+      </Card>
 
       <Card>
         <form action={exchangeAction} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -62,12 +73,18 @@ export default async function ExchangePage() {
           </Field>
           <div className="sm:col-span-2 flex items-center justify-between gap-3">
             <SubmitMessage />
-            <button
-              type="submit"
-              className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-slate-900 hover:bg-primary-container"
-            >
-              Execute exchange
-            </button>
+            {guardrail.allowsDirectExchange ? (
+              <button
+                type="submit"
+                className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-slate-900 hover:bg-primary-container"
+              >
+                Execute exchange
+              </button>
+            ) : (
+              <span className="rounded-lg bg-status-exceeded/10 px-4 py-2 text-sm font-semibold text-status-exceeded">
+                Exchanges paused by budget policy
+              </span>
+            )}
           </div>
         </form>
       </Card>

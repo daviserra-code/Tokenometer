@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/Card";
 import { requireAdmin } from "@/lib/auth";
+import { formatCurrency } from "@/lib/format";
+import { getOrganizationWalletGuardrail } from "@/lib/wallet-guardrails";
 import { topupAction } from "../actions";
 import { SubmitMessage } from "../_components/SubmitMessage";
 
@@ -11,10 +13,18 @@ export default async function TopupPage() {
   const org = await prisma.organization.findFirst({ orderBy: { createdAt: "asc" } });
   const providers = await prisma.provider.findMany({ orderBy: { name: "asc" } });
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
+  const guardrail = await getOrganizationWalletGuardrail(org.id);
 
   return (
     <div className="space-y-6">
       <PageHeader title="Top up wallet" description={`Organization: ${org.name} (${org.handle})`} />
+      <Card title="Budget context" description="Top-ups stay open even when outgoing moves are restricted.">
+        <p className="font-display text-body-md font-semibold text-on-surface">{guardrail.message}</p>
+        <p className="mt-2 text-[12px] text-text-muted">
+          Budget {formatCurrency(guardrail.budget, org.currency)} · Spend {formatCurrency(guardrail.spend, org.currency)} ·
+          Projection {formatCurrency(guardrail.projection, org.currency)}
+        </p>
+      </Card>
       <Card>
         <form action={topupAction} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <input type="hidden" name="organizationId" value={org.id} />

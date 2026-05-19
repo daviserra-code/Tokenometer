@@ -13,6 +13,7 @@ import {
   walletSpendableBalance,
 } from "@/lib/wallet";
 import { formatCurrency } from "@/lib/format";
+import { getOrganizationWalletGuardrail, type WalletBudgetGuardrail } from "@/lib/wallet-guardrails";
 import {
   approveWalletApprovalAction,
   rejectWalletApprovalAction,
@@ -59,7 +60,7 @@ export default async function WalletPage() {
   }
 
   const admin = isAdmin();
-  const [wallets, entries, last30Topups, pendingApprovals, organizations] = await Promise.all([
+  const [wallets, entries, last30Topups, pendingApprovals, organizations, guardrail] = await Promise.all([
     prisma.wallet.findMany({
       where: { organizationId: org.id },
       include: { provider: true },
@@ -86,6 +87,7 @@ export default async function WalletPage() {
     prisma.organization.findMany({
       where: { OR: [{ id: org.id }, { id: { in: [] } }] },
     }),
+    getOrganizationWalletGuardrail(org.id),
   ]);
 
   const orgNames = new Map(
@@ -217,6 +219,43 @@ export default async function WalletPage() {
           tone={pendingApprovals.length > 0 ? "warning" : "default"}
         />
       </div>
+
+      <Card
+        title="Budget guardrail"
+        description="Direct wallet actions now respond to the monthly organization budget."
+        className={guardrailCardClass(guardrail)}
+      >
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.3fr_1fr]">
+          <div>
+            <p className="font-display text-body-lg font-semibold text-on-surface">
+              {guardrail.message}
+            </p>
+            <p className="mt-2 text-[12px] text-text-muted">
+              Budget {formatCurrency(guardrail.budget, org.currency)} · Spend{" "}
+              {formatCurrency(guardrail.spend, org.currency)} · Projection{" "}
+              {formatCurrency(guardrail.projection, org.currency)}
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-[12px]">
+            <GuardrailMetric label="State" value={guardrail.state.toUpperCase()} tone={guardrail.state} />
+            <GuardrailMetric
+              label="Transfers"
+              value={guardrail.allowsDirectTransfer ? "Direct" : "Approval"}
+              tone={guardrail.allowsDirectTransfer ? "normal" : "critical"}
+            />
+            <GuardrailMetric
+              label="Exchanges"
+              value={guardrail.allowsDirectExchange ? "Direct" : "Paused"}
+              tone={guardrail.allowsDirectExchange ? "normal" : "exceeded"}
+            />
+            <GuardrailMetric
+              label="Budget"
+              value={guardrail.enabled ? "Active" : "Not set"}
+              tone={guardrail.enabled ? "warning" : "normal"}
+            />
+          </div>
+        </div>
+      </Card>
 
       <Card title="Balances by provider" description="Spendable reflects reservations and reserve floors.">
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -369,6 +408,45 @@ function PolicyField({ label, children }: { label: string; children: React.React
       {children}
     </label>
   );
+}
+
+function GuardrailMetric({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: WalletBudgetGuardrail["state"];
+}) {
+  const toneClass =
+    tone === "exceeded"
+      ? "text-status-exceeded"
+      : tone === "critical"
+      ? "text-status-warning"
+      : tone === "warning"
+      ? "text-input-token"
+      : "text-status-normal";
+
+  return (
+    <div className="rounded-lg border border-border-subtle bg-background px-3 py-2">
+      <p className="text-[11px] uppercase tracking-wider text-text-muted">{label}</p>
+      <p className={`mt-1 font-mono text-sm ${toneClass}`}>{value}</p>
+    </div>
+  );
+}
+
+function guardrailCardClass(guardrail: WalletBudgetGuardrail) {
+  if (guardrail.state === "exceeded") {
+    return "border-status-exceeded/40";
+  }
+  if (guardrail.state === "critical") {
+    return "border-status-warning/40";
+  }
+  if (guardrail.state === "warning") {
+    return "border-input-token/40";
+  }
+  return "border-status-normal/30";
 }
 
 const inputCls =

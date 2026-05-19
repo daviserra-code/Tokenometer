@@ -6,6 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auditLog } from "@/lib/audit";
 import { currentAdminUserId, requireAdmin } from "@/lib/auth";
+import { getOrganizationWalletGuardrail } from "@/lib/wallet-guardrails";
 import {
   approveWalletApprovalRequest,
   createTopupApprovalRequest,
@@ -127,6 +128,7 @@ export async function transferAction(formData: FormData) {
     toOrganizationId = dest.id;
   }
 
+  const guardrail = await getOrganizationWalletGuardrail(parsed.data.fromOrganizationId);
   const userId = currentAdminUserId();
   if (parsed.data.submitMode === "request") {
     const request = await createTransferApprovalRequest({
@@ -151,6 +153,9 @@ export async function transferAction(formData: FormData) {
       },
     });
   } else {
+    if (!guardrail.allowsDirectTransfer) {
+      throw new Error(guardrail.message);
+    }
     const result = await postTransfer({
       fromOrganizationId: parsed.data.fromOrganizationId,
       toOrganizationId,
@@ -206,6 +211,11 @@ export async function exchangeAction(formData: FormData) {
   });
   if (!rateRow || !rateRow.active) {
     throw new Error("No active exchange rate for that pair.");
+  }
+
+  const guardrail = await getOrganizationWalletGuardrail(parsed.data.organizationId);
+  if (!guardrail.allowsDirectExchange) {
+    throw new Error(guardrail.message);
   }
 
   const result = await postExchange({
