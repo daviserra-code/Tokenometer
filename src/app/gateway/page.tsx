@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Card, PageHeader } from "@/components/Card";
+import { KpiCard } from "@/components/KpiCard";
 import { DataTable, type Column } from "@/components/DataTable";
 import { ProviderTag } from "@/components/ProviderChip";
 import { prisma } from "@/lib/prisma";
@@ -133,6 +134,24 @@ export default async function GatewayPage() {
     };
   });
 
+  const latencySamples = rows
+    .map((row) => row.latencyMs)
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  const avgLatencyMs = latencySamples.length
+    ? Math.round(latencySamples.reduce((sum, value) => sum + value, 0) / latencySamples.length)
+    : null;
+  const p95LatencyMs = latencySamples.length
+    ? latencySamples
+        .slice()
+        .sort((a, b) => a - b)[Math.min(latencySamples.length - 1, Math.floor(latencySamples.length * 0.95))]
+    : null;
+  const streamedRows = rows.filter((row) => row.streamed).length;
+  const providerCounts = new Map<string, number>();
+  rows.forEach((row) => {
+    providerCounts.set(row.provider, (providerCounts.get(row.provider) ?? 0) + 1);
+  });
+  const busiestProvider = Array.from(providerCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "-";
+
   const cols: Column<GatewayRow>[] = [
     {
       key: "when",
@@ -205,6 +224,36 @@ export default async function GatewayPage() {
         </Card>
       </div>
 
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          label="Recent calls"
+          value={String(rows.length)}
+          hint="latest live traces"
+          icon="quick_reference"
+        />
+        <KpiCard
+          label="Average latency"
+          value={avgLatencyMs !== null ? `${avgLatencyMs} ms` : "n/a"}
+          hint={p95LatencyMs !== null ? `p95 ${p95LatencyMs} ms` : "p95 n/a"}
+          icon="timer"
+          tone={avgLatencyMs !== null && avgLatencyMs > 2500 ? "warning" : "success"}
+          accent
+        />
+        <KpiCard
+          label="Streamed calls"
+          value={String(streamedRows)}
+          hint={`${rows.length ? Math.round((streamedRows / rows.length) * 100) : 0}% of recent traffic`}
+          icon="waterfall_chart"
+          tone="input"
+        />
+        <KpiCard
+          label="Busiest provider"
+          value={busiestProvider}
+          hint="from recent traces"
+          icon="hub"
+        />
+      </div>
+
       <Card title="Provider routes" description="Historical sync is optional; live metering works when responses include usage data." noPadding>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
@@ -253,6 +302,10 @@ export default async function GatewayPage() {
           code={pythonSnippet(appUrl)}
         />
       </div>
+
+      <Card title="Benchmark from your machine" description="Use the local script to get a first read on gateway overhead.">
+        <pre className="overflow-auto rounded-lg border border-border-subtle bg-background p-4 font-mono text-[12px] leading-relaxed text-text-muted">{benchmarkSnippet()}</pre>
+      </Card>
 
       <Card title="Recent gateway calls" description="Only live metered BYOK proxy calls, not demo data." noPadding>
         <DataTable columns={cols} rows={rows} rowKey={(row) => row.id} />
@@ -344,4 +397,11 @@ res = requests.post(
 
 print(res.headers.get("x-request-id"))
 print(res.json())`;
+}
+
+function benchmarkSnippet() {
+  return `$env:TOKENOMETER_INGEST_KEY="your_ingest_key"
+$env:TOKENOMETER_REQUESTS="5"
+$env:TOKENOMETER_CONCURRENCY="2"
+python .\\tests\\benchmark_tokenometer.py`;
 }

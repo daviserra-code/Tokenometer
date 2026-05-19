@@ -6,7 +6,7 @@ export function SubmitMessage() {
   const { pending } = useFormStatus();
   return (
     <span className="text-[12px] text-text-muted">
-      {pending ? "Submitting…" : "All amounts are in raw tokens."}
+      {pending ? "Submitting..." : "All amounts are raw provider tokens."}
     </span>
   );
 }

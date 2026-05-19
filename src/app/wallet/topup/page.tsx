@@ -1,11 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/Card";
+import { requireAdmin } from "@/lib/auth";
 import { topupAction } from "../actions";
 import { SubmitMessage } from "../_components/SubmitMessage";
 
 export const dynamic = "force-dynamic";
 
 export default async function TopupPage() {
+  requireAdmin();
   const org = await prisma.organization.findFirst({ orderBy: { createdAt: "asc" } });
   const providers = await prisma.provider.findMany({ orderBy: { name: "asc" } });
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
@@ -49,12 +51,24 @@ export default async function TopupPage() {
           </Field>
           <div className="sm:col-span-2 flex items-center justify-between gap-3">
             <SubmitMessage />
-            <button
-              type="submit"
-              className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-slate-900 hover:bg-primary-container"
-            >
-              Credit wallet
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="submit"
+                name="submitMode"
+                value="request"
+                className="rounded-lg border border-border-subtle bg-surface px-5 py-2.5 text-sm font-semibold text-on-surface hover:border-primary"
+              >
+                Request approval
+              </button>
+              <button
+                type="submit"
+                name="submitMode"
+                value="execute"
+                className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-slate-900 hover:bg-primary-container"
+              >
+                Credit wallet now
+              </button>
+            </div>
           </div>
         </form>
       </Card>

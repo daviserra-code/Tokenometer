@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/Card";
+import { requireAdmin } from "@/lib/auth";
 import { exchangeAction } from "../actions";
 import { SubmitMessage } from "../_components/SubmitMessage";
 import { formatTokenBalance } from "@/lib/wallet";
@@ -7,6 +8,7 @@ import { formatTokenBalance } from "@/lib/wallet";
 export const dynamic = "force-dynamic";
 
 export default async function ExchangePage() {
+  requireAdmin();
   const org = await prisma.organization.findFirst({ orderBy: { createdAt: "asc" } });
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
 

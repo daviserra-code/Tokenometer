@@ -4,7 +4,18 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { postTopup, postTransfer, postExchange } from "@/lib/wallet";
+import { auditLog } from "@/lib/audit";
+import { currentAdminUserId, requireAdmin } from "@/lib/auth";
+import {
+  approveWalletApprovalRequest,
+  createTopupApprovalRequest,
+  createTransferApprovalRequest,
+  postExchange,
+  postTopup,
+  postTransfer,
+  rejectWalletApprovalRequest,
+  updateWalletPolicy,
+} from "@/lib/wallet";
 
 const bigintFromString = z
   .string()
@@ -12,6 +23,16 @@ const bigintFromString = z
   .transform((s) => {
     const cleaned = s.replace(/[,\s_]/g, "");
     if (!/^\d+$/.test(cleaned)) throw new Error("Tokens must be a positive integer.");
+    return BigInt(cleaned);
+  });
+
+const reserveBigintFromString = z
+  .string()
+  .default("0")
+  .transform((s) => {
+    const cleaned = s.replace(/[,\s_]/g, "");
+    if (!cleaned) return 0n;
+    if (!/^\d+$/.test(cleaned)) throw new Error("Reserve floor must be a non-negative integer.");
     return BigInt(cleaned);
   });
 
@@ -23,19 +44,57 @@ const TopupSchema = z.object({
   tokens: bigintFromString,
   unitCost: z.coerce.number().min(0),
   memo: z.string().optional(),
+  submitMode: z.enum(["execute", "request"]).default("execute"),
 });
 
 export async function topupAction(formData: FormData) {
+  requireAdmin();
   const parsed = TopupSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
-  await postTopup({
-    organizationId: parsed.data.organizationId,
-    providerId: parsed.data.providerId,
-    tokens: parsed.data.tokens,
-    unitCost: parsed.data.unitCost,
-    memo: parsed.data.memo,
-    createdBy: "ui",
-  });
+
+  const userId = currentAdminUserId();
+  if (parsed.data.submitMode === "request") {
+    const request = await createTopupApprovalRequest({
+      organizationId: parsed.data.organizationId,
+      providerId: parsed.data.providerId,
+      tokens: parsed.data.tokens,
+      unitCost: parsed.data.unitCost,
+      memo: parsed.data.memo,
+      createdBy: userId ?? "ui",
+    });
+    await auditLog({
+      action: "wallet_approval.requested",
+      organizationId: parsed.data.organizationId,
+      targetType: "WalletApprovalRequest",
+      targetId: request.id,
+      metadata: {
+        kind: "TOPUP",
+        tokens: parsed.data.tokens.toString(),
+        unitCost: parsed.data.unitCost,
+      },
+    });
+  } else {
+    const result = await postTopup({
+      organizationId: parsed.data.organizationId,
+      providerId: parsed.data.providerId,
+      tokens: parsed.data.tokens,
+      unitCost: parsed.data.unitCost,
+      memo: parsed.data.memo,
+      createdBy: userId ?? "ui",
+    });
+    await auditLog({
+      action: "wallet_topup.created",
+      organizationId: parsed.data.organizationId,
+      targetType: "WalletEntry",
+      targetId: result.entry.id,
+      metadata: {
+        tokens: parsed.data.tokens.toString(),
+        unitCost: parsed.data.unitCost,
+        invoiceId: result.invoice.id,
+      },
+    });
+  }
+
   revalidatePath("/wallet");
   redirect("/wallet");
 }
@@ -50,9 +109,11 @@ const TransferSchema = z.object({
   mode: z.enum(["internal", "p2p"]),
   toHandle: z.string().optional(),
   toOrganizationId: z.string().optional(),
+  submitMode: z.enum(["execute", "request"]).default("request"),
 });
 
 export async function transferAction(formData: FormData) {
+  requireAdmin();
   const parsed = TransferSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
 
@@ -60,20 +121,57 @@ export async function transferAction(formData: FormData) {
   if (parsed.data.mode === "p2p") {
     const handle = (parsed.data.toHandle ?? "").trim();
     if (!handle) throw new Error("Target @handle required.");
-    const normalized = handle.startsWith("@") ? handle : "@" + handle;
+    const normalized = handle.startsWith("@") ? handle : `@${handle}`;
     const dest = await prisma.organization.findUnique({ where: { handle: normalized } });
     if (!dest) throw new Error(`No organization with handle ${normalized}.`);
     toOrganizationId = dest.id;
   }
 
-  await postTransfer({
-    fromOrganizationId: parsed.data.fromOrganizationId,
-    toOrganizationId,
-    providerId: parsed.data.providerId,
-    tokens: parsed.data.tokens,
-    memo: parsed.data.memo,
-    createdBy: "ui",
-  });
+  const userId = currentAdminUserId();
+  if (parsed.data.submitMode === "request") {
+    const request = await createTransferApprovalRequest({
+      fromOrganizationId: parsed.data.fromOrganizationId,
+      toOrganizationId,
+      providerId: parsed.data.providerId,
+      tokens: parsed.data.tokens,
+      memo: parsed.data.memo,
+      createdBy: userId ?? "ui",
+      internalNote: parsed.data.mode,
+    });
+    await auditLog({
+      action: "wallet_approval.requested",
+      organizationId: parsed.data.fromOrganizationId,
+      targetType: "WalletApprovalRequest",
+      targetId: request.id,
+      metadata: {
+        kind: "TRANSFER",
+        mode: parsed.data.mode,
+        tokens: parsed.data.tokens.toString(),
+        toOrganizationId,
+      },
+    });
+  } else {
+    const result = await postTransfer({
+      fromOrganizationId: parsed.data.fromOrganizationId,
+      toOrganizationId,
+      providerId: parsed.data.providerId,
+      tokens: parsed.data.tokens,
+      memo: parsed.data.memo,
+      createdBy: userId ?? "ui",
+    });
+    await auditLog({
+      action: "wallet_transfer.created",
+      organizationId: parsed.data.fromOrganizationId,
+      targetType: "WalletEntry",
+      targetId: result.outEntry.id,
+      metadata: {
+        mode: parsed.data.mode,
+        tokens: parsed.data.tokens.toString(),
+        invoiceId: result.invoice?.id ?? null,
+      },
+    });
+  }
+
   revalidatePath("/wallet");
   redirect("/wallet");
 }
@@ -89,6 +187,7 @@ const ExchangeSchema = z.object({
 });
 
 export async function exchangeAction(formData: FormData) {
+  requireAdmin();
   const parsed = ExchangeSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
 
@@ -109,15 +208,126 @@ export async function exchangeAction(formData: FormData) {
     throw new Error("No active exchange rate for that pair.");
   }
 
-  await postExchange({
+  const result = await postExchange({
     organizationId: parsed.data.organizationId,
     fromProviderId: parsed.data.fromProviderId,
     toProviderId: parsed.data.toProviderId,
     fromTokens: parsed.data.fromTokens,
     rate: Number(rateRow.rate),
     memo: parsed.data.memo,
-    createdBy: "ui",
+    createdBy: currentAdminUserId() ?? "ui",
   });
+  await auditLog({
+    action: "wallet_exchange.created",
+    organizationId: parsed.data.organizationId,
+    targetType: "WalletEntry",
+    targetId: result.outEntry.id,
+    metadata: {
+      fromTokens: parsed.data.fromTokens.toString(),
+      toTokens: result.toTokens.toString(),
+      rate: Number(rateRow.rate),
+    },
+  });
+
+  revalidatePath("/wallet");
+  redirect("/wallet");
+}
+
+// --- Policy -----------------------------------------------------------------
+
+const WalletPolicySchema = z.object({
+  walletId: z.string().min(1),
+  reserveFloor: reserveBigintFromString,
+  outgoingLocked: z.enum(["true", "false"]).transform((value) => value === "true"),
+  lockReason: z.string().optional(),
+});
+
+export async function updateWalletPolicyAction(formData: FormData) {
+  requireAdmin();
+  const parsed = WalletPolicySchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+
+  const wallet = await updateWalletPolicy({
+    walletId: parsed.data.walletId,
+    reserveFloor: parsed.data.reserveFloor,
+    outgoingLocked: parsed.data.outgoingLocked,
+    lockReason: parsed.data.lockReason,
+  });
+
+  await auditLog({
+    action: "wallet_policy.updated",
+    organizationId: wallet.organizationId,
+    targetType: "Wallet",
+    targetId: wallet.id,
+    metadata: {
+      reserveFloor: parsed.data.reserveFloor.toString(),
+      outgoingLocked: parsed.data.outgoingLocked,
+      lockReason: parsed.data.lockReason ?? null,
+    },
+  });
+
+  revalidatePath("/wallet");
+  redirect("/wallet");
+}
+
+// --- Approvals --------------------------------------------------------------
+
+const ApprovalSchema = z.object({
+  requestId: z.string().min(1),
+});
+
+export async function approveWalletApprovalAction(formData: FormData) {
+  requireAdmin();
+  const parsed = ApprovalSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+
+  const request = await approveWalletApprovalRequest(
+    parsed.data.requestId,
+    currentAdminUserId() ?? "admin"
+  );
+
+  await auditLog({
+    action: "wallet_approval.approved",
+    organizationId: request.organizationId,
+    targetType: "WalletApprovalRequest",
+    targetId: request.id,
+    metadata: {
+      kind: request.kind,
+      tokens: request.tokens.toString(),
+    },
+  });
+
+  revalidatePath("/wallet");
+  redirect("/wallet");
+}
+
+const RejectApprovalSchema = z.object({
+  requestId: z.string().min(1),
+  reason: z.string().optional(),
+});
+
+export async function rejectWalletApprovalAction(formData: FormData) {
+  requireAdmin();
+  const parsed = RejectApprovalSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+
+  const request = await rejectWalletApprovalRequest(
+    parsed.data.requestId,
+    currentAdminUserId() ?? "admin",
+    parsed.data.reason
+  );
+
+  await auditLog({
+    action: "wallet_approval.rejected",
+    organizationId: request.organizationId,
+    targetType: "WalletApprovalRequest",
+    targetId: request.id,
+    metadata: {
+      kind: request.kind,
+      reason: parsed.data.reason ?? null,
+    },
+  });
+
   revalidatePath("/wallet");
   redirect("/wallet");
 }

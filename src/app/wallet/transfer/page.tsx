@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/Card";
+import { requireAdmin } from "@/lib/auth";
 import { transferAction } from "../actions";
 import { SubmitMessage } from "../_components/SubmitMessage";
 import { formatTokenBalance } from "@/lib/wallet";
@@ -7,6 +8,7 @@ import { formatTokenBalance } from "@/lib/wallet";
 export const dynamic = "force-dynamic";
 
 export default async function TransferPage() {
+  requireAdmin();
   const org = await prisma.organization.findFirst({ orderBy: { createdAt: "asc" } });
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
   const wallets = await prisma.wallet.findMany({
@@ -23,7 +25,7 @@ export default async function TransferPage() {
     <div className="space-y-6">
       <PageHeader
         title="Transfer tokens"
-        description="Move tokens between wallets in your org or to a partner organization."
+        description="Move tokens between wallets in your org or to a partner organization. Approval requests reserve tokens until they are approved or rejected."
       />
 
       <Card title="Cross-organization (P2P)">
@@ -69,12 +71,24 @@ export default async function TransferPage() {
           </Field>
           <div className="sm:col-span-2 flex items-center justify-between gap-3">
             <SubmitMessage />
-            <button
-              type="submit"
-              className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-slate-900 hover:bg-primary-container"
-            >
-              Send tokens
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="submit"
+                name="submitMode"
+                value="request"
+                className="rounded-lg border border-border-subtle bg-surface px-5 py-2.5 text-sm font-semibold text-on-surface hover:border-primary"
+              >
+                Request approval
+              </button>
+              <button
+                type="submit"
+                name="submitMode"
+                value="execute"
+                className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-slate-900 hover:bg-primary-container"
+              >
+                Send now
+              </button>
+            </div>
           </div>
         </form>
       </Card>
@@ -116,12 +130,24 @@ export default async function TransferPage() {
           </Field>
           <div className="sm:col-span-2 flex items-center justify-between gap-3">
             <SubmitMessage />
-            <button
-              type="submit"
-              className="rounded-lg border border-border-subtle bg-surface px-5 py-2.5 text-sm font-semibold text-on-surface hover:border-primary"
-            >
-              Move tokens
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="submit"
+                name="submitMode"
+                value="request"
+                className="rounded-lg border border-border-subtle bg-surface px-5 py-2.5 text-sm font-semibold text-on-surface hover:border-primary"
+              >
+                Request approval
+              </button>
+              <button
+                type="submit"
+                name="submitMode"
+                value="execute"
+                className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-slate-900 hover:bg-primary-container"
+              >
+                Move now
+              </button>
+            </div>
           </div>
         </form>
       </Card>

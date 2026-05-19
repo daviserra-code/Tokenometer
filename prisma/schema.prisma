@@ -53,6 +53,18 @@ enum InvoiceType {
   MONTHLY_USAGE
 }
 
+enum WalletApprovalKind {
+  TOPUP
+  TRANSFER
+}
+
+enum WalletApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELED
+}
+
 model Organization {
   id        String   @id @default(cuid())
   name      String
@@ -74,6 +86,7 @@ model Organization {
   insights            Insight[]
   adminUsers          AdminUser[]
   auditLogs           AuditLog[]
+  walletApprovals     WalletApprovalRequest[]
 }
 
 model Team {
@@ -118,6 +131,7 @@ model Provider {
   models       Model[]
   usageEvents  UsageEvent[]
   wallets      Wallet[]
+  walletApprovals WalletApprovalRequest[]
   exchangeFrom ExchangeRate[] @relation("FromProvider")
   exchangeTo   ExchangeRate[] @relation("ToProvider")
 }
@@ -197,13 +211,18 @@ model Wallet {
   providerId     String
   // Stored as raw token count using BigInt to support large balances.
   balance        BigInt   @default(0)
+  reservedBalance BigInt  @default(0)
+  reserveFloor    BigInt  @default(0)
+  outgoingLocked  Boolean @default(false)
+  lockReason      String?
   currency       String   @default("USD")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  provider     Provider      @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  entries      WalletEntry[]
+  organization     Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider         Provider                @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  entries          WalletEntry[]
+  approvalRequests WalletApprovalRequest[] @relation("WalletApprovalSource")
 
   @@unique([organizationId, providerId])
   @@index([organizationId])
@@ -230,6 +249,33 @@ model WalletEntry {
 
   @@index([walletId, createdAt])
   @@index([counterpartyOrgId])
+}
+
+model WalletApprovalRequest {
+  id                 String               @id @default(cuid())
+  organizationId     String
+  providerId         String
+  sourceWalletId     String?
+  targetOrganizationId String?
+  kind               WalletApprovalKind
+  status             WalletApprovalStatus @default(PENDING)
+  tokens             BigInt
+  reserveTokens      BigInt               @default(0)
+  unitCost           Decimal              @default(0) @db.Decimal(14, 8)
+  memo               String?
+  requestedBy        String?
+  resolvedByAdminUserId String?
+  resolvedAt         DateTime?
+  metadataJson       Json?
+  createdAt          DateTime             @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider     Provider     @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  sourceWallet Wallet?      @relation("WalletApprovalSource", fields: [sourceWalletId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status, createdAt])
+  @@index([sourceWalletId, status])
+  @@index([providerId, createdAt])
 }
 
 model ExchangeRate {
