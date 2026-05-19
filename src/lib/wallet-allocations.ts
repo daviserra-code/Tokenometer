@@ -14,6 +14,8 @@ export type WalletAllocationSummary = {
   scope: "PROJECT" | "TEAM";
   scopeId: string;
   scopeName: string;
+  costCenterCode: string | null;
+  costCenterName: string | null;
   allocatedTokens: bigint;
   usedTokens: bigint;
   remainingTokens: bigint;
@@ -165,7 +167,11 @@ export async function listWalletAllocationSummaries(
     include: {
       provider: true,
       wallet: true,
-      project: true,
+      project: {
+        include: {
+          team: true,
+        },
+      },
       team: true,
     },
     orderBy: [{ scope: "asc" }, { name: "asc" }],
@@ -213,6 +219,14 @@ export async function listWalletAllocationSummaries(
 
   return allocations.map((allocation) => {
     const scopeId = allocation.scope === "PROJECT" ? allocation.projectId! : allocation.teamId!;
+    const costCenterCode =
+      allocation.scope === "PROJECT"
+        ? allocation.project?.costCenterCode ?? allocation.project?.team?.costCenterCode ?? null
+        : allocation.team?.costCenterCode ?? null;
+    const costCenterName =
+      allocation.scope === "PROJECT"
+        ? allocation.project?.costCenterName ?? allocation.project?.team?.costCenterName ?? null
+        : allocation.team?.costCenterName ?? null;
     const usage = usageMap.get(`${allocation.scope}:${allocation.providerId}:${scopeId}`) ?? {
       tokens: 0n,
       cost: 0,
@@ -231,6 +245,8 @@ export async function listWalletAllocationSummaries(
       scope: allocation.scope,
       scopeId,
       scopeName: allocation.name,
+      costCenterCode,
+      costCenterName,
       allocatedTokens: allocation.allocatedTokens,
       usedTokens: usage.tokens,
       remainingTokens: remaining,
@@ -294,13 +310,17 @@ export async function issueChargebackInvoices(
           type: "MONTHLY_USAGE",
           total: new Prisma.Decimal(summary.spendCost.toFixed(2)),
           currency: organization.currency,
-          issuedTo: summary.scopeName,
+          issuedTo: summary.costCenterCode
+            ? `${summary.scopeName} (${summary.costCenterCode})`
+            : summary.scopeName,
           issuedFrom: `Tokenometer Chargeback - ${summary.providerName}`,
           notes: `Internal ${summary.scope.toLowerCase()} chargeback statement`,
           dataJson: {
             scope: summary.scope,
             scopeId: summary.scopeId,
             provider: summary.providerName,
+            costCenterCode: summary.costCenterCode,
+            costCenterName: summary.costCenterName,
             allocatedTokens: summary.allocatedTokens.toString(),
             usedTokens: summary.usedTokens.toString(),
             remainingTokens: summary.remainingTokens.toString(),

@@ -394,6 +394,66 @@ export async function issueChargebackStatementsAction(formData: FormData) {
   redirect("/wallet/chargeback");
 }
 
+// --- Cost centers ----------------------------------------------------------
+
+const nullableTrimmed = z
+  .string()
+  .optional()
+  .transform((value) => {
+    const trimmed = value?.trim() ?? "";
+    return trimmed.length ? trimmed : null;
+  });
+
+const CostCenterSchema = z.object({
+  organizationId: z.string().min(1),
+  scope: z.enum(["PROJECT", "TEAM"]),
+  scopeId: z.string().min(1),
+  costCenterCode: nullableTrimmed,
+  costCenterName: nullableTrimmed,
+});
+
+export async function updateCostCenterMappingAction(formData: FormData) {
+  requireAdmin();
+  const parsed = CostCenterSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+
+  const normalizedCode = parsed.data.costCenterCode?.toUpperCase() ?? null;
+  const target =
+    parsed.data.scope === "PROJECT"
+      ? await prisma.project.update({
+          where: { id: parsed.data.scopeId },
+          data: {
+            costCenterCode: normalizedCode,
+            costCenterName: parsed.data.costCenterName,
+          },
+        })
+      : await prisma.team.update({
+          where: { id: parsed.data.scopeId },
+          data: {
+            costCenterCode: normalizedCode,
+            costCenterName: parsed.data.costCenterName,
+          },
+        });
+
+  await auditLog({
+    action: "cost_center.updated",
+    organizationId: parsed.data.organizationId,
+    targetType: parsed.data.scope,
+    targetId: parsed.data.scopeId,
+    metadata: {
+      costCenterCode: normalizedCode,
+      costCenterName: parsed.data.costCenterName,
+      scopeName: "name" in target ? target.name : null,
+    },
+  });
+
+  revalidatePath("/projects");
+  revalidatePath("/wallet");
+  revalidatePath("/wallet/allocations");
+  revalidatePath("/wallet/chargeback");
+  redirect("/wallet/allocations");
+}
+
 // --- Approvals --------------------------------------------------------------
 
 const ApprovalSchema = z.object({

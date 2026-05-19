@@ -15,6 +15,8 @@ type ChargebackRow = {
   id: string;
   scope: string;
   name: string;
+  costCenterCode: string | null;
+  costCenterName: string | null;
   provider: string;
   allocated: bigint;
   used: bigint;
@@ -41,6 +43,8 @@ export default async function ChargebackPage() {
     id: summary.id,
     scope: summary.scope,
     name: summary.scopeName,
+    costCenterCode: summary.costCenterCode,
+    costCenterName: summary.costCenterName,
     provider: summary.providerName,
     allocated: summary.allocatedTokens,
     used: summary.usedTokens,
@@ -54,6 +58,11 @@ export default async function ChargebackPage() {
   const columns: Column<ChargebackRow>[] = [
     { key: "scope", header: "Scope", cell: (row) => row.scope },
     { key: "name", header: "Name", cell: (row) => row.name },
+    {
+      key: "costCenter",
+      header: "Cost center",
+      cell: (row) => <CostCenterCell code={row.costCenterCode} name={row.costCenterName} />,
+    },
     {
       key: "provider",
       header: "Provider",
@@ -110,11 +119,17 @@ export default async function ChargebackPage() {
         }
       />
 
-      <Card title="Month-to-date statement base" description={`Current internal chargeback pool: ${formatCurrency(totalSpend, org.currency)}`}>
+      <Card
+        title="Month-to-date statement base"
+        description={`Current internal chargeback pool: ${formatCurrency(totalSpend, org.currency)}`}
+      >
         <DataTable columns={columns} rows={rows} rowKey={(row) => row.id} />
       </Card>
 
-      <Card title="Recent issued statements" description="Generated as internal monthly usage invoices.">
+      <Card
+        title="Recent issued statements"
+        description="Generated as internal monthly usage invoices."
+      >
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="text-[12px] uppercase tracking-wider text-text-muted">
@@ -122,33 +137,47 @@ export default async function ChargebackPage() {
                 <th className="px-3 py-2 text-left">Number</th>
                 <th className="px-3 py-2 text-left">Date</th>
                 <th className="px-3 py-2 text-left">Issued to</th>
+                <th className="px-3 py-2 text-left">Cost center</th>
                 <th className="px-3 py-2 text-left">Issued by</th>
                 <th className="px-3 py-2 text-right">Total</th>
                 <th className="px-3 py-2 text-right"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">
-              {recentInvoices.map((invoice) => (
-                <tr key={invoice.id}>
-                  <td className="px-3 py-2 font-mono">{invoice.number}</td>
-                  <td className="px-3 py-2">{new Date(invoice.createdAt).toLocaleString()}</td>
-                  <td className="px-3 py-2">{invoice.issuedTo}</td>
-                  <td className="px-3 py-2">{invoice.issuedFrom}</td>
-                  <td className="px-3 py-2 text-right font-mono">{formatCurrency(Number(invoice.total), org.currency)}</td>
-                  <td className="px-3 py-2 text-right">
-                    <Link
-                      href={`/wallet/invoices/${invoice.id}/print`}
-                      target="_blank"
-                      className="text-primary hover:underline"
-                    >
-                      Print
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+              {recentInvoices.map((invoice) => {
+                const data =
+                  invoice.dataJson && typeof invoice.dataJson === "object"
+                    ? (invoice.dataJson as Record<string, unknown>)
+                    : {};
+                const code = typeof data.costCenterCode === "string" ? data.costCenterCode : null;
+                const name = typeof data.costCenterName === "string" ? data.costCenterName : null;
+                return (
+                  <tr key={invoice.id}>
+                    <td className="px-3 py-2 font-mono">{invoice.number}</td>
+                    <td className="px-3 py-2">{new Date(invoice.createdAt).toLocaleString()}</td>
+                    <td className="px-3 py-2">{invoice.issuedTo}</td>
+                    <td className="px-3 py-2">
+                      <CostCenterCell code={code} name={name} />
+                    </td>
+                    <td className="px-3 py-2">{invoice.issuedFrom}</td>
+                    <td className="px-3 py-2 text-right font-mono">
+                      {formatCurrency(Number(invoice.total), org.currency)}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <Link
+                        href={`/wallet/invoices/${invoice.id}/print`}
+                        target="_blank"
+                        className="text-primary hover:underline"
+                      >
+                        Print
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
               {recentInvoices.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-text-muted">
+                  <td colSpan={7} className="px-3 py-6 text-center text-text-muted">
                     No chargeback statements issued yet.
                   </td>
                 </tr>
@@ -157,6 +186,24 @@ export default async function ChargebackPage() {
           </table>
         </div>
       </Card>
+    </div>
+  );
+}
+
+function CostCenterCell({
+  code,
+  name,
+}: {
+  code: string | null;
+  name: string | null;
+}) {
+  if (!code && !name) {
+    return <span className="text-text-muted">Unmapped</span>;
+  }
+  return (
+    <div>
+      <div className="font-mono text-[12px] font-semibold text-on-surface">{code ?? "Mapped"}</div>
+      {name ? <div className="text-[12px] text-text-muted">{name}</div> : null}
     </div>
   );
 }

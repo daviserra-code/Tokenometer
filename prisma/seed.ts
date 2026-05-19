@@ -50,11 +50,11 @@ async function main() {
 
   console.log("👥 Creating teams…");
   const teamsData = [
-    { name: "Customer Support", owner: "Maria Rossi" },
-    { name: "Product Engineering", owner: "John Doe" },
-    { name: "Data & Analytics", owner: "Lin Wei" },
-    { name: "Marketing Ops", owner: "Sara Bianchi" },
-    { name: "Internal Tools", owner: "Ahmed Khan" },
+    { name: "Customer Support", owner: "Maria Rossi", costCenterCode: "SUP-OPS", costCenterName: "Support Operations" },
+    { name: "Product Engineering", owner: "John Doe", costCenterCode: "ENG-PLATFORM", costCenterName: "Engineering Platform" },
+    { name: "Data & Analytics", owner: "Lin Wei", costCenterCode: "DATA-OPS", costCenterName: "Data and Analytics" },
+    { name: "Marketing Ops", owner: "Sara Bianchi", costCenterCode: "MKT-OPS", costCenterName: "Marketing Operations" },
+    { name: "Internal Tools", owner: "Ahmed Khan", costCenterCode: "INT-OPS", costCenterName: "Internal Operations" },
   ];
   const teams = await Promise.all(
     teamsData.map((t) =>
@@ -64,16 +64,16 @@ async function main() {
 
   console.log("📁 Creating projects…");
   const projectsData = [
-    { name: "Support Copilot",        team: 0, owner: "Maria Rossi",  budget: 4500 },
+    { name: "Support Copilot",        team: 0, owner: "Maria Rossi",  budget: 4500, costCenterCode: "SUP-COPILOT", costCenterName: "Support Copilot Program" },
     { name: "Ticket Auto-Triage",     team: 0, owner: "Maria Rossi",  budget: 1800 },
-    { name: "Code Review Assistant",  team: 1, owner: "John Doe",     budget: 6000 },
+    { name: "Code Review Assistant",  team: 1, owner: "John Doe",     budget: 6000, costCenterCode: "ENG-CODE-QUAL", costCenterName: "Engineering Code Quality" },
     { name: "Spec → Code Generator",  team: 1, owner: "John Doe",     budget: 3500 },
-    { name: "Sales Insights Engine",  team: 2, owner: "Lin Wei",      budget: 5000 },
+    { name: "Sales Insights Engine",  team: 2, owner: "Lin Wei",      budget: 5000, costCenterCode: "DATA-SALES", costCenterName: "Sales Intelligence" },
     { name: "Document Summarizer",    team: 2, owner: "Lin Wei",      budget: 2500 },
-    { name: "Campaign Copy Studio",   team: 3, owner: "Sara Bianchi", budget: 2200 },
+    { name: "Campaign Copy Studio",   team: 3, owner: "Sara Bianchi", budget: 2200, costCenterCode: "MKT-CAMPAIGN", costCenterName: "Campaign Studio" },
     { name: "SEO Content Pipeline",   team: 3, owner: "Sara Bianchi", budget: 1500 },
     { name: "Internal HR Bot",        team: 4, owner: "Ahmed Khan",   budget: 800  },
-    { name: "DevOps Incident Agent",  team: 4, owner: "Ahmed Khan",   budget: 1200 },
+    { name: "DevOps Incident Agent",  team: 4, owner: "Ahmed Khan",   budget: 1200, costCenterCode: "INT-SRE", costCenterName: "Site Reliability and Ops" },
   ];
   const projects = await Promise.all(
     projectsData.map((p) =>
@@ -83,6 +83,8 @@ async function main() {
           teamId: teams[p.team].id,
           name: p.name,
           owner: p.owner,
+          costCenterCode: p.costCenterCode,
+          costCenterName: p.costCenterName,
           monthlyBudget: new Prisma.Decimal(p.budget),
           status: ProjectStatus.NORMAL,
         },

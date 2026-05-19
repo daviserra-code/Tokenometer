@@ -6,7 +6,11 @@ import { ProviderChip } from "@/components/ProviderChip";
 import { formatCurrency } from "@/lib/format";
 import { formatTokenBalance } from "@/lib/wallet";
 import { listWalletAllocationSummaries } from "@/lib/wallet-allocations";
-import { deleteWalletAllocationAction, saveWalletAllocationAction } from "../actions";
+import {
+  deleteWalletAllocationAction,
+  saveWalletAllocationAction,
+  updateCostCenterMappingAction,
+} from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +19,8 @@ type AllocationRow = {
   provider: string;
   scope: string;
   name: string;
+  costCenterCode: string | null;
+  costCenterName: string | null;
   allocated: bigint;
   used: bigint;
   remaining: bigint;
@@ -35,6 +41,7 @@ export default async function WalletAllocationsPage() {
     }),
     prisma.project.findMany({
       where: { organizationId: org.id },
+      include: { team: true },
       orderBy: { name: "asc" },
     }),
     prisma.team.findMany({
@@ -49,6 +56,8 @@ export default async function WalletAllocationsPage() {
     provider: summary.providerName,
     scope: summary.scope,
     name: summary.scopeName,
+    costCenterCode: summary.costCenterCode,
+    costCenterName: summary.costCenterName,
     allocated: summary.allocatedTokens,
     used: summary.usedTokens,
     remaining: summary.remainingTokens,
@@ -64,6 +73,11 @@ export default async function WalletAllocationsPage() {
     },
     { key: "scope", header: "Scope", cell: (row) => row.scope },
     { key: "name", header: "Name", cell: (row) => row.name },
+    {
+      key: "costCenter",
+      header: "Cost center",
+      cell: (row) => <CostCenterCell code={row.costCenterCode} name={row.costCenterName} />,
+    },
     {
       key: "allocated",
       header: "Allocated",
@@ -128,7 +142,7 @@ export default async function WalletAllocationsPage() {
               <select name="walletId" required className={inputCls}>
                 {wallets.map((wallet) => (
                   <option key={wallet.id} value={wallet.id}>
-                    {wallet.provider.name} · {formatTokenBalance(wallet.balance)}
+                    {wallet.provider.name} - {formatTokenBalance(wallet.balance)}
                   </option>
                 ))}
               </select>
@@ -171,7 +185,7 @@ export default async function WalletAllocationsPage() {
               <select name="walletId" required className={inputCls}>
                 {wallets.map((wallet) => (
                   <option key={wallet.id} value={wallet.id}>
-                    {wallet.provider.name} · {formatTokenBalance(wallet.balance)}
+                    {wallet.provider.name} - {formatTokenBalance(wallet.balance)}
                   </option>
                 ))}
               </select>
@@ -207,6 +221,104 @@ export default async function WalletAllocationsPage() {
         </Card>
       </div>
 
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <Card
+          title="Map project cost center"
+          description="Projects can override the team-level billing identity for chargeback and reporting."
+        >
+          <form action={updateCostCenterMappingAction} className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <input type="hidden" name="organizationId" value={org.id} />
+            <input type="hidden" name="scope" value="PROJECT" />
+            <Field label="Project">
+              <select name="scopeId" required className={inputCls}>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Current team fallback">
+              <div className="rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text-muted">
+                Project chargeback falls back to the owning team when no project-specific cost center is set.
+              </div>
+            </Field>
+            <Field label="Cost center code">
+              <input
+                type="text"
+                name="costCenterCode"
+                placeholder="ENG-PLATFORM"
+                className={inputCls}
+              />
+            </Field>
+            <Field label="Cost center name">
+              <input
+                type="text"
+                name="costCenterName"
+                placeholder="Engineering Platform"
+                className={inputCls}
+              />
+            </Field>
+            <div className="md:col-span-2 flex justify-end">
+              <button
+                type="submit"
+                className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-slate-900 hover:bg-primary-container"
+              >
+                Save project mapping
+              </button>
+            </div>
+          </form>
+        </Card>
+
+        <Card
+          title="Map team cost center"
+          description="Team mappings act as the default billing identity for team allocations and project fallback."
+        >
+          <form action={updateCostCenterMappingAction} className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <input type="hidden" name="organizationId" value={org.id} />
+            <input type="hidden" name="scope" value="TEAM" />
+            <Field label="Team">
+              <select name="scopeId" required className={inputCls}>
+                {teams.map((team) => (
+                  <option key={team.id} value={team.id}>
+                    {team.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Use case">
+              <div className="rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text-muted">
+                Useful when several projects roll up to the same finance owner or operating budget.
+              </div>
+            </Field>
+            <Field label="Cost center code">
+              <input
+                type="text"
+                name="costCenterCode"
+                placeholder="MKT-OPS"
+                className={inputCls}
+              />
+            </Field>
+            <Field label="Cost center name">
+              <input
+                type="text"
+                name="costCenterName"
+                placeholder="Marketing Operations"
+                className={inputCls}
+              />
+            </Field>
+            <div className="md:col-span-2 flex justify-end">
+              <button
+                type="submit"
+                className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-slate-900 hover:bg-primary-container"
+              >
+                Save team mapping
+              </button>
+            </div>
+          </form>
+        </Card>
+      </div>
+
       <Card
         title="Active allocations"
         description="These commitments reserve tokens from the provider wallets immediately."
@@ -225,6 +337,24 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       </span>
       {children}
     </label>
+  );
+}
+
+function CostCenterCell({
+  code,
+  name,
+}: {
+  code: string | null;
+  name: string | null;
+}) {
+  if (!code && !name) {
+    return <span className="text-text-muted">Unmapped</span>;
+  }
+  return (
+    <div>
+      <div className="font-mono text-[12px] font-semibold text-on-surface">{code ?? "Mapped"}</div>
+      {name ? <div className="text-[12px] text-text-muted">{name}</div> : null}
+    </div>
   );
 }
 

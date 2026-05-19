@@ -100,6 +100,8 @@ model Team {
   organizationId String
   name           String
   owner          String
+  costCenterCode String?
+  costCenterName String?
   createdAt      DateTime @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -117,6 +119,8 @@ model Project {
   name           String
   description    String?
   owner          String
+  costCenterCode String?
+  costCenterName String?
   monthlyBudget  Decimal       @default(0) @db.Decimal(14, 2)
   status         ProjectStatus @default(NORMAL)
   createdAt      DateTime      @default(now())

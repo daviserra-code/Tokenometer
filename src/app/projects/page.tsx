@@ -31,7 +31,15 @@ export default async function ProjectsPage() {
   const [projects, agg, totals, allocations] = await Promise.all([
     prisma.project.findMany({
       where: { organizationId: org.id },
-      include: { team: { select: { name: true } } },
+      include: {
+        team: {
+          select: {
+            name: true,
+            costCenterCode: true,
+            costCenterName: true,
+          },
+        },
+      },
       orderBy: { name: "asc" },
     }),
     prisma.usageEvent.groupBy({
@@ -65,6 +73,8 @@ export default async function ProjectsPage() {
     allocatedTokens: bigint;
     remainingTokens: bigint;
     chargeback: number;
+    effectiveCostCenterCode: string | null;
+    effectiveCostCenterName: string | null;
   };
   const projectAllocationMap = new Map(
     allocations
@@ -83,10 +93,11 @@ export default async function ProjectsPage() {
       allocatedTokens: allocation?.allocatedTokens ?? 0n,
       remainingTokens: allocation?.remainingTokens ?? 0n,
       chargeback: allocation?.spendCost ?? 0,
+      effectiveCostCenterCode: p.costCenterCode ?? p.team?.costCenterCode ?? null,
+      effectiveCostCenterName: p.costCenterName ?? p.team?.costCenterName ?? null,
     };
   });
 
-  // Project Health counts
   const health = { NORMAL: 0, WARNING: 0, EXCEEDED: 0 } as Record<string, number>;
   for (const p of projects) health[p.status] = (health[p.status] ?? 0) + 1;
 
@@ -99,16 +110,23 @@ export default async function ProjectsPage() {
       header: "Project",
       cell: (r) => (
         <div>
-          <div className="font-display text-body-md font-semibold text-on-surface">
-            {r.name}
-          </div>
-          <div className="font-mono text-[11px] text-text-muted">
-            Owner: {r.owner}
-          </div>
+          <div className="font-display text-body-md font-semibold text-on-surface">{r.name}</div>
+          <div className="font-mono text-[11px] text-text-muted">Owner: {r.owner}</div>
         </div>
       ),
     },
-    { key: "team", header: "Team", cell: (r) => r.team?.name ?? "—" },
+    { key: "team", header: "Team", cell: (r) => r.team?.name ?? "-" },
+    {
+      key: "costCenter",
+      header: "Cost center",
+      cell: (r) => (
+        <CostCenterCell
+          code={r.effectiveCostCenterCode}
+          name={r.effectiveCostCenterName}
+          inherited={!r.costCenterCode && !!r.team?.costCenterCode}
+        />
+      ),
+    },
     {
       key: "tokens",
       header: "Tokens (MTD)",
@@ -167,17 +185,13 @@ export default async function ProjectsPage() {
   ];
 
   const rowTone = (r: Row): RowTone =>
-    r.status === "EXCEEDED"
-      ? "exceeded"
-      : r.status === "WARNING"
-      ? "warning"
-      : "default";
+    r.status === "EXCEEDED" ? "exceeded" : r.status === "WARNING" ? "warning" : "default";
 
   return (
     <div className="space-y-section-gap">
       <PageHeader
         title="Projects"
-        description="AI projects, monthly budgets and current spend."
+        description="AI projects, monthly budgets, billing identity, and current spend."
         action={
           <button className="inline-flex items-center gap-2 rounded-lg bg-primary-container px-4 py-2 font-display text-body-md font-semibold text-on-primary transition-colors hover:bg-primary">
             <span className="material-symbols-outlined text-[18px]">add</span>
@@ -203,35 +217,15 @@ export default async function ProjectsPage() {
         />
         <Card title="Project Health" className="lg:col-span-1">
           <div className="grid grid-cols-3 gap-2 text-center">
-            <HealthChip
-              label="Normal"
-              count={health.NORMAL ?? 0}
-              tone="success"
-              icon="check_circle"
-            />
-            <HealthChip
-              label="Warning"
-              count={health.WARNING ?? 0}
-              tone="warning"
-              icon="warning"
-            />
-            <HealthChip
-              label="Exceeded"
-              count={health.EXCEEDED ?? 0}
-              tone="danger"
-              icon="error"
-            />
+            <HealthChip label="Normal" count={health.NORMAL ?? 0} tone="success" icon="check_circle" />
+            <HealthChip label="Warning" count={health.WARNING ?? 0} tone="warning" icon="warning" />
+            <HealthChip label="Exceeded" count={health.EXCEEDED ?? 0} tone="danger" icon="error" />
           </div>
         </Card>
       </div>
 
       <Card noPadding>
-        <DataTable
-          columns={columns}
-          rows={rows}
-          rowKey={(r) => r.id}
-          rowTone={rowTone}
-        />
+        <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} rowTone={rowTone} />
       </Card>
     </div>
   );
@@ -259,6 +253,27 @@ function HealthChip({
       <span className="material-symbols-outlined text-[22px]">{icon}</span>
       <span className="font-display text-h2">{count}</span>
       <span className="font-mono text-caps">{label}</span>
+    </div>
+  );
+}
+
+function CostCenterCell({
+  code,
+  name,
+  inherited = false,
+}: {
+  code: string | null;
+  name: string | null;
+  inherited?: boolean;
+}) {
+  if (!code && !name) {
+    return <span className="text-text-muted">Unmapped</span>;
+  }
+  return (
+    <div>
+      <div className="font-mono text-[12px] font-semibold text-on-surface">{code ?? "Mapped"}</div>
+      {name ? <div className="text-[12px] text-text-muted">{name}</div> : null}
+      {inherited ? <div className="text-[11px] text-text-muted">Inherited from team</div> : null}
     </div>
   );
 }
