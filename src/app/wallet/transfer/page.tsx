@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/Card";
 import { requireAdmin } from "@/lib/auth";
 import { formatCurrency } from "@/lib/format";
-import { getOrganizationWalletGuardrail } from "@/lib/wallet-guardrails";
+import { getOrganizationWalletGuardrail, syncOrganizationBudgetLocks } from "@/lib/wallet-guardrails";
 import { transferAction } from "../actions";
 import { SubmitMessage } from "../_components/SubmitMessage";
 import { formatTokenBalance } from "@/lib/wallet";
@@ -13,6 +13,7 @@ export default async function TransferPage() {
   requireAdmin();
   const org = await prisma.organization.findFirst({ orderBy: { createdAt: "asc" } });
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
+  await syncOrganizationBudgetLocks(org.id);
   const guardrail = await getOrganizationWalletGuardrail(org.id);
   const wallets = await prisma.wallet.findMany({
     where: { organizationId: org.id },

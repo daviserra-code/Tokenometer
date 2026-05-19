@@ -6,7 +6,12 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auditLog } from "@/lib/audit";
 import { currentAdminUserId, requireAdmin } from "@/lib/auth";
-import { getOrganizationWalletGuardrail } from "@/lib/wallet-guardrails";
+import { getOrganizationWalletGuardrail, syncOrganizationBudgetLocks } from "@/lib/wallet-guardrails";
+import {
+  createOrUpdateWalletAllocation,
+  deleteWalletAllocation,
+  issueChargebackInvoices,
+} from "@/lib/wallet-allocations";
 import {
   approveWalletApprovalRequest,
   createTopupApprovalRequest,
@@ -52,6 +57,7 @@ export async function topupAction(formData: FormData) {
   requireAdmin();
   const parsed = TopupSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+  await syncOrganizationBudgetLocks(parsed.data.organizationId);
 
   const userId = currentAdminUserId();
   if (parsed.data.submitMode === "request") {
@@ -117,6 +123,7 @@ export async function transferAction(formData: FormData) {
   requireAdmin();
   const parsed = TransferSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+  await syncOrganizationBudgetLocks(parsed.data.fromOrganizationId);
 
   let toOrganizationId = parsed.data.toOrganizationId ?? parsed.data.fromOrganizationId;
   if (parsed.data.mode === "p2p") {
@@ -195,6 +202,7 @@ export async function exchangeAction(formData: FormData) {
   requireAdmin();
   const parsed = ExchangeSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+  await syncOrganizationBudgetLocks(parsed.data.organizationId);
 
   if (parsed.data.fromProviderId === parsed.data.toProviderId) {
     throw new Error("Cannot exchange a provider with itself.");
@@ -278,6 +286,112 @@ export async function updateWalletPolicyAction(formData: FormData) {
 
   revalidatePath("/wallet");
   redirect("/wallet");
+}
+
+// --- Allocations ------------------------------------------------------------
+
+const AllocationSchema = z.object({
+  organizationId: z.string().min(1),
+  walletId: z.string().min(1),
+  scope: z.enum(["PROJECT", "TEAM"]),
+  scopeId: z.string().min(1),
+  allocatedTokens: bigintFromString,
+});
+
+export async function saveWalletAllocationAction(formData: FormData) {
+  requireAdmin();
+  const parsed = AllocationSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+  await syncOrganizationBudgetLocks(parsed.data.organizationId);
+
+  const allocation = await createOrUpdateWalletAllocation({
+    organizationId: parsed.data.organizationId,
+    walletId: parsed.data.walletId,
+    scope: parsed.data.scope,
+    scopeId: parsed.data.scopeId,
+    allocatedTokens: parsed.data.allocatedTokens,
+    createdBy: currentAdminUserId() ?? "admin",
+  });
+
+  await auditLog({
+    action: "wallet_allocation.saved",
+    organizationId: parsed.data.organizationId,
+    targetType: "WalletAllocation",
+    targetId: allocation.id,
+    metadata: {
+      scope: allocation.scope,
+      scopeName: allocation.name,
+      allocatedTokens: allocation.allocatedTokens.toString(),
+      providerId: allocation.providerId,
+    },
+  });
+
+  revalidatePath("/wallet");
+  revalidatePath("/wallet/allocations");
+  revalidatePath("/wallet/chargeback");
+  revalidatePath("/projects");
+  redirect("/wallet/allocations");
+}
+
+const DeleteAllocationSchema = z.object({
+  allocationId: z.string().min(1),
+});
+
+export async function deleteWalletAllocationAction(formData: FormData) {
+  requireAdmin();
+  const parsed = DeleteAllocationSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+
+  const allocation = await deleteWalletAllocation(parsed.data.allocationId);
+  await auditLog({
+    action: "wallet_allocation.deleted",
+    organizationId: allocation.organizationId,
+    targetType: "WalletAllocation",
+    targetId: allocation.id,
+    metadata: {
+      scope: allocation.scope,
+      allocatedTokens: allocation.allocatedTokens.toString(),
+    },
+  });
+
+  revalidatePath("/wallet");
+  revalidatePath("/wallet/allocations");
+  revalidatePath("/wallet/chargeback");
+  revalidatePath("/projects");
+  redirect("/wallet/allocations");
+}
+
+// --- Chargeback -------------------------------------------------------------
+
+const ChargebackSchema = z.object({
+  organizationId: z.string().min(1),
+});
+
+export async function issueChargebackStatementsAction(formData: FormData) {
+  requireAdmin();
+  const parsed = ChargebackSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+
+  const invoices = await issueChargebackInvoices(
+    parsed.data.organizationId,
+    currentAdminUserId() ?? "admin"
+  );
+
+  await auditLog({
+    action: "wallet_chargeback.issued",
+    organizationId: parsed.data.organizationId,
+    targetType: "Invoice",
+    metadata: {
+      invoicesIssued: invoices.length,
+      invoiceIds: invoices.map((invoice) => invoice.id),
+    },
+  });
+
+  revalidatePath("/wallet/chargeback");
+  revalidatePath("/wallet/invoices");
+  revalidatePath("/wallet");
+  revalidatePath("/projects");
+  redirect("/wallet/chargeback");
 }
 
 // --- Approvals --------------------------------------------------------------

@@ -65,6 +65,11 @@ enum WalletApprovalStatus {
   CANCELED
 }
 
+enum WalletAllocationScope {
+  PROJECT
+  TEAM
+}
+
 model Organization {
   id        String   @id @default(cuid())
   name      String
@@ -87,6 +92,7 @@ model Organization {
   adminUsers          AdminUser[]
   auditLogs           AuditLog[]
   walletApprovals     WalletApprovalRequest[]
+  walletAllocations   WalletAllocation[]
 }
 
 model Team {
@@ -99,6 +105,7 @@ model Team {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   projects     Project[]
   usageEvents  UsageEvent[]
+  walletAllocations WalletAllocation[]
 
   @@index([organizationId])
 }
@@ -117,6 +124,7 @@ model Project {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   team         Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
   usageEvents  UsageEvent[]
+  walletAllocations WalletAllocation[]
 
   @@index([organizationId])
   @@index([teamId])
@@ -132,6 +140,7 @@ model Provider {
   usageEvents  UsageEvent[]
   wallets      Wallet[]
   walletApprovals WalletApprovalRequest[]
+  walletAllocations WalletAllocation[]
   exchangeFrom ExchangeRate[] @relation("FromProvider")
   exchangeTo   ExchangeRate[] @relation("ToProvider")
 }
@@ -223,6 +232,7 @@ model Wallet {
   provider         Provider                @relation(fields: [providerId], references: [id], onDelete: Cascade)
   entries          WalletEntry[]
   approvalRequests WalletApprovalRequest[] @relation("WalletApprovalSource")
+  allocations      WalletAllocation[]
 
   @@unique([organizationId, providerId])
   @@index([organizationId])
@@ -276,6 +286,33 @@ model WalletApprovalRequest {
   @@index([organizationId, status, createdAt])
   @@index([sourceWalletId, status])
   @@index([providerId, createdAt])
+}
+
+model WalletAllocation {
+  id             String              @id @default(cuid())
+  organizationId String
+  walletId       String
+  providerId     String
+  scope          WalletAllocationScope
+  projectId      String?
+  teamId         String?
+  name           String
+  allocatedTokens BigInt
+  active         Boolean             @default(true)
+  metadataJson   Json?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  wallet       Wallet       @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  provider     Provider     @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  project      Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team         Team?        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, scope, active])
+  @@index([walletId, active])
+  @@index([projectId, active])
+  @@index([teamId, active])
 }
 
 model ExchangeRate {

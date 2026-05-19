@@ -6,6 +6,9 @@ import { BudgetBar } from "@/components/BudgetBar";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatCurrency, formatTokens, toNumber } from "@/lib/format";
 import { startOfMonth } from "@/lib/calc";
+import { listWalletAllocationSummaries } from "@/lib/wallet-allocations";
+import { formatTokenBalance } from "@/lib/wallet";
+import { syncOrganizationBudgetLocks } from "@/lib/wallet-guardrails";
 
 export const dynamic = "force-dynamic";
 
@@ -21,10 +24,11 @@ export default async function ProjectsPage() {
       </div>
     );
   }
+  await syncOrganizationBudgetLocks(org.id);
 
   const monthStart = startOfMonth();
 
-  const [projects, agg, totals] = await Promise.all([
+  const [projects, agg, totals, allocations] = await Promise.all([
     prisma.project.findMany({
       where: { organizationId: org.id },
       include: { team: { select: { name: true } } },
@@ -43,6 +47,7 @@ export default async function ProjectsPage() {
       where: { organizationId: org.id, timestamp: { gte: monthStart } },
       _sum: { totalTokens: true, estimatedTotalCost: true },
     }),
+    listWalletAllocationSummaries(org.id),
   ]);
 
   const aggMap = new Map<string, { cost: number; tokens: number }>();
@@ -57,15 +62,27 @@ export default async function ProjectsPage() {
     spend: number;
     tokens: number;
     pct: number;
+    allocatedTokens: bigint;
+    remainingTokens: bigint;
+    chargeback: number;
   };
+  const projectAllocationMap = new Map(
+    allocations
+      .filter((allocation) => allocation.scope === "PROJECT")
+      .map((allocation) => [allocation.scopeId, allocation])
+  );
   const rows: Row[] = projects.map((p) => {
     const a = aggMap.get(p.id) ?? { cost: 0, tokens: 0 };
     const budget = toNumber(p.monthlyBudget);
+    const allocation = projectAllocationMap.get(p.id);
     return {
       ...p,
       spend: a.cost,
       tokens: a.tokens,
       pct: budget > 0 ? (a.cost / budget) * 100 : 0,
+      allocatedTokens: allocation?.allocatedTokens ?? 0n,
+      remainingTokens: allocation?.remainingTokens ?? 0n,
+      chargeback: allocation?.spendCost ?? 0,
     };
   });
 
@@ -111,6 +128,18 @@ export default async function ProjectsPage() {
       cell: (r) => formatCurrency(toNumber(r.monthlyBudget), org.currency),
     },
     {
+      key: "allocated",
+      header: "Allocated",
+      align: "right",
+      cell: (r) => formatTokenBalance(r.allocatedTokens),
+    },
+    {
+      key: "remaining",
+      header: "Remaining",
+      align: "right",
+      cell: (r) => formatTokenBalance(r.remainingTokens),
+    },
+    {
       key: "usage",
       header: "Consumption",
       cell: (r) => (
@@ -128,6 +157,12 @@ export default async function ProjectsPage() {
       key: "status",
       header: "Status",
       cell: (r) => <StatusBadge status={r.status} />,
+    },
+    {
+      key: "chargeback",
+      header: "Chargeback",
+      align: "right",
+      cell: (r) => formatCurrency(r.chargeback, org.currency),
     },
   ];
 

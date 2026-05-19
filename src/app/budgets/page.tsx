@@ -5,6 +5,7 @@ import { DataTable, type Column, type RowTone } from "@/components/DataTable";
 import { BudgetBar } from "@/components/BudgetBar";
 import { formatCurrency, toNumber } from "@/lib/format";
 import { daysInMonth, projectMonthEndSpend, startOfMonth } from "@/lib/calc";
+import { syncOrganizationBudgetLocks } from "@/lib/wallet-guardrails";
 import clsx from "clsx";
 
 export const dynamic = "force-dynamic";
@@ -40,6 +41,7 @@ export default async function BudgetsPage() {
       </div>
     );
   }
+  await syncOrganizationBudgetLocks(org.id);
 
   const monthStart = startOfMonth();
   const now = new Date();

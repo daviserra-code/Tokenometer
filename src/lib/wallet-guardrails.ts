@@ -147,6 +147,45 @@ export async function getOrganizationWalletGuardrail(
     allowsDirectTransfer: true,
     allowsDirectExchange: true,
     requiresTransferApproval: false,
-    message: "Monthly organization budget is healthy. Direct moves and exchanges are open.",
+      message: "Monthly organization budget is healthy. Direct moves and exchanges are open.",
   };
+}
+
+const AUTO_LOCK_REASON = "Auto-lock: monthly organization budget exceeded.";
+
+export async function syncOrganizationBudgetLocks(organizationId: string) {
+  const guardrail = await getOrganizationWalletGuardrail(organizationId);
+
+  if (!guardrail.enabled) return guardrail;
+
+  if (guardrail.state === "exceeded") {
+    await prisma.wallet.updateMany({
+      where: {
+        organizationId,
+        OR: [
+          { outgoingLocked: false },
+          { lockReason: AUTO_LOCK_REASON },
+        ],
+      },
+      data: {
+        outgoingLocked: true,
+        lockReason: AUTO_LOCK_REASON,
+      },
+    });
+    return guardrail;
+  }
+
+  await prisma.wallet.updateMany({
+    where: {
+      organizationId,
+      outgoingLocked: true,
+      lockReason: AUTO_LOCK_REASON,
+    },
+    data: {
+      outgoingLocked: false,
+      lockReason: null,
+    },
+  });
+
+  return guardrail;
 }

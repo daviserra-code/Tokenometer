@@ -13,7 +13,8 @@ import {
   walletSpendableBalance,
 } from "@/lib/wallet";
 import { formatCurrency } from "@/lib/format";
-import { getOrganizationWalletGuardrail, type WalletBudgetGuardrail } from "@/lib/wallet-guardrails";
+import { getOrganizationWalletGuardrail, syncOrganizationBudgetLocks, type WalletBudgetGuardrail } from "@/lib/wallet-guardrails";
+import { listWalletAllocationSummaries } from "@/lib/wallet-allocations";
 import {
   approveWalletApprovalAction,
   rejectWalletApprovalAction,
@@ -60,7 +61,8 @@ export default async function WalletPage() {
   }
 
   const admin = isAdmin();
-  const [wallets, entries, last30Topups, pendingApprovals, organizations, guardrail] = await Promise.all([
+  await syncOrganizationBudgetLocks(org.id);
+  const [wallets, entries, last30Topups, pendingApprovals, organizations, guardrail, allocationSummaries] = await Promise.all([
     prisma.wallet.findMany({
       where: { organizationId: org.id },
       include: { provider: true },
@@ -88,6 +90,7 @@ export default async function WalletPage() {
       where: { OR: [{ id: org.id }, { id: { in: [] } }] },
     }),
     getOrganizationWalletGuardrail(org.id),
+    listWalletAllocationSummaries(org.id),
   ]);
 
   const orgNames = new Map(
@@ -117,6 +120,11 @@ export default async function WalletPage() {
     (acc, wallet) => acc + walletAvailableBalance(wallet),
     0n
   );
+  const allocatedTokens = allocationSummaries.reduce(
+    (acc, allocation) => acc + allocation.allocatedTokens,
+    0n
+  );
+  const chargebackPool = allocationSummaries.reduce((sum, allocation) => sum + allocation.spendCost, 0);
 
   const rows: EntryRow[] = entries.map((entry) => ({
     id: entry.id,
@@ -179,6 +187,20 @@ export default async function WalletPage() {
                   <span className="material-symbols-outlined text-[18px]">swap_horiz</span>
                   Exchange
                 </Link>
+                <Link
+                  href="/wallet/allocations"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface px-4 py-2 text-sm font-semibold text-on-surface hover:border-primary"
+                >
+                  <span className="material-symbols-outlined text-[18px]">account_tree</span>
+                  Allocations
+                </Link>
+                <Link
+                  href="/wallet/chargeback"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface px-4 py-2 text-sm font-semibold text-on-surface hover:border-primary"
+                >
+                  <span className="material-symbols-outlined text-[18px]">request_quote</span>
+                  Chargeback
+                </Link>
               </>
             ) : (
               <span className="rounded-lg border border-border-subtle bg-surface px-4 py-2 text-sm text-text-muted">
@@ -212,12 +234,41 @@ export default async function WalletPage() {
           tone={reservedTokens > 0n ? "warning" : "default"}
         />
         <KpiCard
-          label="Pending approvals"
-          value={String(pendingApprovals.length)}
-          hint={`${wallets.filter((wallet) => wallet.outgoingLocked).length} wallet locks`}
-          icon="approval"
-          tone={pendingApprovals.length > 0 ? "warning" : "default"}
+          label="Committed downstream"
+          value={formatTokenBalance(allocatedTokens)}
+          hint={`${allocationSummaries.length} active allocations`}
+          icon="account_tree"
+          tone={allocatedTokens > 0n ? "input" : "default"}
         />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card title="Allocation snapshot" description="Reserved by provider allocations for projects and teams.">
+          <div className="grid grid-cols-2 gap-3">
+            <Metric label="Active allocations" value={String(allocationSummaries.length)} />
+            <Metric label="Allocated tokens" value={formatTokenBalance(allocatedTokens)} />
+            <Metric label="Pending approvals" value={String(pendingApprovals.length)} muted={pendingApprovals.length > 0} />
+            <Metric label="Wallet locks" value={String(wallets.filter((wallet) => wallet.outgoingLocked).length)} muted={wallets.some((wallet) => wallet.outgoingLocked)} />
+          </div>
+        </Card>
+        <Card title="Chargeback snapshot" description="Month-to-date internal settlement base from allocations plus real usage.">
+          <div className="grid grid-cols-2 gap-3">
+            <Metric label="Chargeback pool" value={formatCurrency(chargebackPool, org.currency)} />
+            <Metric
+              label="Top-up volume (30d)"
+              value={formatCurrency(Number(last30Topups._sum.fiatAmount ?? 0), org.currency)}
+            />
+            <Metric
+              label="Allocations with usage"
+              value={String(allocationSummaries.filter((allocation) => allocation.usedTokens > 0n).length)}
+            />
+            <Metric
+              label="Over-allocated scopes"
+              value={String(allocationSummaries.filter((allocation) => allocation.remainingTokens < 0n).length)}
+              muted={allocationSummaries.some((allocation) => allocation.remainingTokens < 0n)}
+            />
+          </div>
+        </Card>
       </div>
 
       <Card
