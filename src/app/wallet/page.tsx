@@ -201,6 +201,20 @@ export default async function WalletPage() {
                   <span className="material-symbols-outlined text-[18px]">request_quote</span>
                   Chargeback
                 </Link>
+                <Link
+                  href="/wallet/reconciliation"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface px-4 py-2 text-sm font-semibold text-on-surface hover:border-primary"
+                >
+                  <span className="material-symbols-outlined text-[18px]">finance_mode</span>
+                  Reconciliation
+                </Link>
+                <Link
+                  href="/wallet/history"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface px-4 py-2 text-sm font-semibold text-on-surface hover:border-primary"
+                >
+                  <span className="material-symbols-outlined text-[18px]">history</span>
+                  History
+                </Link>
               </>
             ) : (
               <span className="rounded-lg border border-border-subtle bg-surface px-4 py-2 text-sm text-text-muted">

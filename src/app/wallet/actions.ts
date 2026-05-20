@@ -329,6 +329,7 @@ export async function saveWalletAllocationAction(formData: FormData) {
   revalidatePath("/wallet");
   revalidatePath("/wallet/allocations");
   revalidatePath("/wallet/chargeback");
+  revalidatePath("/wallet/reconciliation");
   revalidatePath("/projects");
   redirect("/wallet/allocations");
 }
@@ -357,6 +358,7 @@ export async function deleteWalletAllocationAction(formData: FormData) {
   revalidatePath("/wallet");
   revalidatePath("/wallet/allocations");
   revalidatePath("/wallet/chargeback");
+  revalidatePath("/wallet/reconciliation");
   revalidatePath("/projects");
   redirect("/wallet/allocations");
 }
@@ -388,6 +390,7 @@ export async function issueChargebackStatementsAction(formData: FormData) {
   });
 
   revalidatePath("/wallet/chargeback");
+  revalidatePath("/wallet/reconciliation");
   revalidatePath("/wallet/invoices");
   revalidatePath("/wallet");
   revalidatePath("/projects");
@@ -451,6 +454,7 @@ export async function updateCostCenterMappingAction(formData: FormData) {
   revalidatePath("/wallet");
   revalidatePath("/wallet/allocations");
   revalidatePath("/wallet/chargeback");
+  revalidatePath("/wallet/reconciliation");
   redirect("/wallet/allocations");
 }
 
@@ -482,6 +486,7 @@ export async function approveWalletApprovalAction(formData: FormData) {
   });
 
   revalidatePath("/wallet");
+  revalidatePath("/wallet/history");
   redirect("/wallet");
 }
 
@@ -513,5 +518,6 @@ export async function rejectWalletApprovalAction(formData: FormData) {
   });
 
   revalidatePath("/wallet");
+  revalidatePath("/wallet/history");
   redirect("/wallet");
 }

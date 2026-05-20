@@ -106,16 +106,32 @@ export default async function ChargebackPage() {
         title="Internal chargeback"
         description="Project and team statements built from provider allocations plus real usage."
         action={
-          <form action={issueChargebackStatementsAction}>
-            <input type="hidden" name="organizationId" value={org.id} />
-            <button
-              type="submit"
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-primary-container"
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/wallet/reconciliation"
+              className="inline-flex items-center gap-2 rounded-lg border border-border-subtle bg-surface px-4 py-2 text-sm font-semibold text-on-surface hover:border-primary"
             >
-              <span className="material-symbols-outlined text-[18px]">receipt_long</span>
-              Issue statements
-            </button>
-          </form>
+              <span className="material-symbols-outlined text-[18px]">finance_mode</span>
+              Reconciliation
+            </Link>
+            <Link
+              href="/api/wallet/chargeback/export?view=rollups"
+              className="inline-flex items-center gap-2 rounded-lg border border-border-subtle bg-surface px-4 py-2 text-sm font-semibold text-on-surface hover:border-primary"
+            >
+              <span className="material-symbols-outlined text-[18px]">download</span>
+              Export CSV
+            </Link>
+            <form action={issueChargebackStatementsAction}>
+              <input type="hidden" name="organizationId" value={org.id} />
+              <button
+                type="submit"
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-primary-container"
+              >
+                <span className="material-symbols-outlined text-[18px]">receipt_long</span>
+                Issue statements
+              </button>
+            </form>
+          </div>
         }
       />
 

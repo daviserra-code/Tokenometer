@@ -86,6 +86,22 @@ export async function listPendingWalletApprovalRequests(organizationId: string, 
   });
 }
 
+export async function listWalletApprovalHistory(organizationId: string, take = 50) {
+  return prisma.walletApprovalRequest.findMany({
+    where: {
+      organizationId,
+      status: { not: WalletApprovalStatus.PENDING },
+    },
+    include: {
+      provider: true,
+      organization: true,
+      sourceWallet: { include: { provider: true, organization: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take,
+  });
+}
+
 // ---------- Balance helpers ----------
 
 export function walletAvailableBalance(wallet: Pick<WalletPolicyShape, "balance" | "reservedBalance">) {

@@ -23,6 +23,18 @@ export type WalletAllocationSummary = {
   spendCost: number;
 };
 
+export type ChargebackRollup = {
+  costCenterCode: string | null;
+  costCenterName: string | null;
+  providerName: string;
+  scopeCount: number;
+  allocatedTokens: bigint;
+  usedTokens: bigint;
+  remainingTokens: bigint;
+  spendCost: number;
+  overAllocatedScopes: number;
+};
+
 type CreateWalletAllocationInput = {
   organizationId: string;
   walletId: string;
@@ -335,5 +347,53 @@ export async function issueChargebackInvoices(
       invoices.push(invoice);
     }
     return invoices;
+  });
+}
+
+export async function listChargebackRollups(
+  organizationId: string,
+  periodStart = startOfMonth()
+): Promise<ChargebackRollup[]> {
+  const summaries = await listWalletAllocationSummaries(organizationId, periodStart);
+  const rollupMap = new Map<string, ChargebackRollup>();
+
+  for (const summary of summaries) {
+    const key = [
+      summary.costCenterCode ?? "UNMAPPED",
+      summary.costCenterName ?? "",
+      summary.providerName,
+    ].join(":");
+
+    const existing = rollupMap.get(key);
+    if (existing) {
+      existing.scopeCount += 1;
+      existing.allocatedTokens += summary.allocatedTokens;
+      existing.usedTokens += summary.usedTokens;
+      existing.remainingTokens += summary.remainingTokens;
+      existing.spendCost += summary.spendCost;
+      if (summary.remainingTokens < 0n) {
+        existing.overAllocatedScopes += 1;
+      }
+      continue;
+    }
+
+    rollupMap.set(key, {
+      costCenterCode: summary.costCenterCode,
+      costCenterName: summary.costCenterName,
+      providerName: summary.providerName,
+      scopeCount: 1,
+      allocatedTokens: summary.allocatedTokens,
+      usedTokens: summary.usedTokens,
+      remainingTokens: summary.remainingTokens,
+      spendCost: summary.spendCost,
+      overAllocatedScopes: summary.remainingTokens < 0n ? 1 : 0,
+    });
+  }
+
+  return [...rollupMap.values()].sort((a, b) => {
+    const codeA = a.costCenterCode ?? "ZZZ";
+    const codeB = b.costCenterCode ?? "ZZZ";
+    if (codeA !== codeB) return codeA.localeCompare(codeB);
+    return a.providerName.localeCompare(b.providerName);
   });
 }
