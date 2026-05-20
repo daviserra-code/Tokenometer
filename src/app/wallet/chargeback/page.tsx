@@ -108,6 +108,13 @@ export default async function ChargebackPage() {
         action={
           <div className="flex flex-wrap gap-2">
             <Link
+              href="/wallet/pack"
+              className="inline-flex items-center gap-2 rounded-lg border border-border-subtle bg-surface px-4 py-2 text-sm font-semibold text-on-surface hover:border-primary"
+            >
+              <span className="material-symbols-outlined text-[18px]">folder_zip</span>
+              Finance pack
+            </Link>
+            <Link
               href="/wallet/reconciliation"
               className="inline-flex items-center gap-2 rounded-lg border border-border-subtle bg-surface px-4 py-2 text-sm font-semibold text-on-surface hover:border-primary"
             >

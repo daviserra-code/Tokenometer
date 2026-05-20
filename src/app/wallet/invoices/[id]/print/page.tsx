@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency } from "@/lib/format";
+import { formatTokenBalance } from "@/lib/wallet";
 import { PrintButton } from "./PrintButton";
 
 export const dynamic = "force-dynamic";
@@ -13,29 +14,130 @@ export default async function InvoicePrintPage({ params }: { params: { id: strin
   if (!inv) notFound();
 
   const data = (inv.dataJson ?? {}) as Record<string, unknown>;
-  const lines: Array<[string, string]> = Object.entries(data).map(([k, v]) => [
-    k,
-    typeof v === "object" ? JSON.stringify(v) : String(v),
+  const isUsageStatement = inv.type === "MONTHLY_USAGE";
+  const periodStart =
+    typeof data.periodStart === "string" ? new Date(data.periodStart) : null;
+  const periodLabel = periodStart
+    ? periodStart.toLocaleDateString(undefined, { year: "numeric", month: "long" })
+    : new Date(inv.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "long" });
+  const costCenterCode =
+    typeof data.costCenterCode === "string" ? data.costCenterCode : null;
+  const costCenterName =
+    typeof data.costCenterName === "string" ? data.costCenterName : null;
+
+  const detailLines: Array<[string, string]> = Object.entries(data).map(([key, value]) => [
+    key,
+    typeof value === "object" ? JSON.stringify(value) : String(value),
   ]);
 
   return (
     <div className="invoice-paper">
       <style>{`
-        .invoice-paper { background: #ffffff; color: #0f172a; padding: 40px;
-          font-family: ui-sans-serif, system-ui, sans-serif; min-height: 100vh; }
-        .invoice-paper h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.02em; }
-        .invoice-paper h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
-          color: #475569; margin: 24px 0 8px; }
-        .invoice-paper .header { display: flex; justify-content: space-between;
-          border-bottom: 2px solid #0f172a; padding-bottom: 16px; }
-        .invoice-paper .meta { text-align: right; font-size: 13px; color: #475569; }
-        .invoice-paper .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 16px; }
-        .invoice-paper table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .invoice-paper th, .invoice-paper td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
-        .invoice-paper th { color: #475569; text-transform: uppercase; font-size: 11px; letter-spacing: 0.06em; }
-        .invoice-paper .total { text-align: right; font-size: 22px; font-weight: 600; margin-top: 24px; }
-        .invoice-paper .badge { display: inline-block; padding: 3px 8px; border-radius: 6px;
-          background: #f1f5f9; font-size: 11px; text-transform: uppercase; color: #334155; }
+        .invoice-paper {
+          background: #ffffff;
+          color: #0f172a;
+          padding: 40px;
+          font-family: ui-sans-serif, system-ui, sans-serif;
+          min-height: 100vh;
+        }
+        .invoice-paper h1 {
+          font-size: 28px;
+          margin: 0 0 6px;
+          letter-spacing: 0;
+        }
+        .invoice-paper h2 {
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: #475569;
+          margin: 24px 0 8px;
+        }
+        .invoice-paper .header {
+          display: flex;
+          justify-content: space-between;
+          gap: 24px;
+          border-bottom: 2px solid #0f172a;
+          padding-bottom: 18px;
+        }
+        .invoice-paper .meta {
+          text-align: right;
+          font-size: 13px;
+          color: #475569;
+        }
+        .invoice-paper .badge {
+          display: inline-block;
+          padding: 4px 9px;
+          border-radius: 6px;
+          background: #f1f5f9;
+          font-size: 11px;
+          text-transform: uppercase;
+          color: #334155;
+        }
+        .invoice-paper .grid2 {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 24px;
+          margin-top: 18px;
+        }
+        .invoice-paper .grid4 {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 12px;
+          margin-top: 16px;
+        }
+        .invoice-paper .stat {
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          padding: 12px;
+        }
+        .invoice-paper .stat-label {
+          font-size: 11px;
+          text-transform: uppercase;
+          color: #64748b;
+          letter-spacing: 0.06em;
+        }
+        .invoice-paper .stat-value {
+          margin-top: 6px;
+          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+          font-size: 16px;
+          color: #0f172a;
+        }
+        .invoice-paper table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 13px;
+        }
+        .invoice-paper th,
+        .invoice-paper td {
+          text-align: left;
+          padding: 9px 10px;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        .invoice-paper th {
+          color: #475569;
+          text-transform: uppercase;
+          font-size: 11px;
+          letter-spacing: 0.06em;
+        }
+        .invoice-paper .lead {
+          margin-top: 14px;
+          font-size: 14px;
+          line-height: 1.5;
+          color: #334155;
+        }
+        .invoice-paper .total {
+          text-align: right;
+          font-size: 24px;
+          font-weight: 600;
+          margin-top: 24px;
+        }
+        .invoice-paper .footer {
+          margin-top: 32px;
+          border-top: 1px solid #e2e8f0;
+          padding-top: 16px;
+          font-size: 12px;
+          color: #64748b;
+        }
         @media print {
           body { background: #fff !important; }
           .no-print { display: none !important; }
@@ -46,34 +148,97 @@ export default async function InvoicePrintPage({ params }: { params: { id: strin
       <header className="header">
         <div>
           <h1>Tokenometer</h1>
-          <div style={{ fontSize: 13, color: "#475569" }}>AI Token Wallet & FinOps</div>
+          <div style={{ fontSize: 13, color: "#475569" }}>
+            {isUsageStatement ? "Internal AI Chargeback Statement" : "AI Token Wallet and FinOps"}
+          </div>
+          <p className="lead">
+            {isUsageStatement
+              ? `Statement for ${periodLabel}. This document summarizes allocated provider capacity, actual usage, and internal chargeback for the selected scope.`
+              : "Internal financial record generated by Tokenometer."}
+          </p>
         </div>
         <div className="meta">
           <div style={{ fontSize: 18, fontWeight: 600, color: "#0f172a" }}>{inv.number}</div>
           <div>{new Date(inv.createdAt).toLocaleString()}</div>
-          <div className="badge" style={{ marginTop: 6 }}>{inv.type}</div>
+          <div className="badge" style={{ marginTop: 8 }}>
+            {inv.type}
+          </div>
         </div>
       </header>
 
       <div className="grid2">
         <div>
-          <h2>From</h2>
+          <h2>Issued by</h2>
           <div style={{ fontSize: 14 }}>{inv.issuedFrom}</div>
         </div>
         <div>
-          <h2>Billed to</h2>
+          <h2>Issued to</h2>
           <div style={{ fontSize: 14 }}>{inv.issuedTo}</div>
         </div>
       </div>
 
-      <h2>Details</h2>
+      {isUsageStatement ? (
+        <>
+          <div className="grid4">
+            <div className="stat">
+              <div className="stat-label">Provider</div>
+              <div className="stat-value">{stringValue(data.provider) ?? "-"}</div>
+            </div>
+            <div className="stat">
+              <div className="stat-label">Cost center</div>
+              <div className="stat-value">{costCenterCode ?? "UNMAPPED"}</div>
+            </div>
+            <div className="stat">
+              <div className="stat-label">Period</div>
+              <div className="stat-value">{periodLabel}</div>
+            </div>
+            <div className="stat">
+              <div className="stat-label">Currency</div>
+              <div className="stat-value">{inv.currency}</div>
+            </div>
+          </div>
+
+          <h2>Usage summary</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Scope</th>
+                <th>Cost center</th>
+                <th>Allocated</th>
+                <th>Used</th>
+                <th>Remaining</th>
+                <th>Utilization</th>
+                <th>Chargeback</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>{`${stringValue(data.scope) ?? "-"} - ${inv.issuedTo}`}</td>
+                <td>{costCenterName ? `${costCenterCode ?? "UNMAPPED"} - ${costCenterName}` : costCenterCode ?? "Unmapped"}</td>
+                <td>{formatTokenBalance(bigintValue(data.allocatedTokens))}</td>
+                <td>{formatTokenBalance(bigintValue(data.usedTokens))}</td>
+                <td>{formatTokenBalance(bigintValue(data.remainingTokens))}</td>
+                <td>{typeof data.utilizationPct === "number" ? `${data.utilizationPct.toFixed(1)}%` : "-"}</td>
+                <td>{formatCurrency(Number(inv.total), inv.currency)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </>
+      ) : null}
+
+      <h2>Statement details</h2>
       <table>
-        <thead><tr><th>Field</th><th>Value</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th>Value</th>
+          </tr>
+        </thead>
         <tbody>
-          {lines.map(([k, v]) => (
-            <tr key={k}>
-              <td>{k}</td>
-              <td style={{ fontFamily: "ui-monospace, monospace" }}>{v}</td>
+          {detailLines.map(([key, value]) => (
+            <tr key={key}>
+              <td>{key}</td>
+              <td style={{ fontFamily: "ui-monospace, monospace" }}>{value}</td>
             </tr>
           ))}
         </tbody>
@@ -87,7 +252,11 @@ export default async function InvoicePrintPage({ params }: { params: { id: strin
       ) : null}
 
       <div className="total">
-        Total: {formatCurrency(Number(inv.total))} {inv.currency}
+        Total: {formatCurrency(Number(inv.total), inv.currency)}
+      </div>
+
+      <div className="footer">
+        Generated by Tokenometer for internal AI spend governance and settlement workflows.
       </div>
 
       <div style={{ marginTop: 32, textAlign: "center" }}>
@@ -95,4 +264,16 @@ export default async function InvoicePrintPage({ params }: { params: { id: strin
       </div>
     </div>
   );
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" ? value : null;
+}
+
+function bigintValue(value: unknown) {
+  if (typeof value === "bigint") return value;
+  if (typeof value === "string" && /^\-?\d+$/.test(value)) {
+    return BigInt(value);
+  }
+  return 0n;
 }

@@ -264,6 +264,17 @@ export async function updateWalletPolicyAction(formData: FormData) {
   requireAdmin();
   const parsed = WalletPolicySchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+  const previous = await prisma.wallet.findUnique({
+    where: { id: parsed.data.walletId },
+    select: {
+      id: true,
+      organizationId: true,
+      reserveFloor: true,
+      outgoingLocked: true,
+      lockReason: true,
+    },
+  });
+  if (!previous) throw new Error("Wallet not found.");
 
   const wallet = await updateWalletPolicy({
     walletId: parsed.data.walletId,
@@ -281,6 +292,9 @@ export async function updateWalletPolicyAction(formData: FormData) {
       reserveFloor: parsed.data.reserveFloor.toString(),
       outgoingLocked: parsed.data.outgoingLocked,
       lockReason: parsed.data.lockReason ?? null,
+      previousReserveFloor: previous.reserveFloor.toString(),
+      previousOutgoingLocked: previous.outgoingLocked,
+      previousLockReason: previous.lockReason ?? null,
     },
   });
 
@@ -303,6 +317,18 @@ export async function saveWalletAllocationAction(formData: FormData) {
   const parsed = AllocationSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
   await syncOrganizationBudgetLocks(parsed.data.organizationId);
+  const previous = await prisma.walletAllocation.findFirst({
+    where: {
+      walletId: parsed.data.walletId,
+      projectId: parsed.data.scope === "PROJECT" ? parsed.data.scopeId : null,
+      teamId: parsed.data.scope === "TEAM" ? parsed.data.scopeId : null,
+    },
+    select: {
+      id: true,
+      allocatedTokens: true,
+      active: true,
+    },
+  });
 
   const allocation = await createOrUpdateWalletAllocation({
     organizationId: parsed.data.organizationId,
@@ -323,6 +349,9 @@ export async function saveWalletAllocationAction(formData: FormData) {
       scopeName: allocation.name,
       allocatedTokens: allocation.allocatedTokens.toString(),
       providerId: allocation.providerId,
+      previousAllocationId: previous?.id ?? null,
+      previousAllocatedTokens: previous?.allocatedTokens?.toString() ?? null,
+      previousActive: previous?.active ?? null,
     },
   });
 
@@ -352,6 +381,7 @@ export async function deleteWalletAllocationAction(formData: FormData) {
     metadata: {
       scope: allocation.scope,
       allocatedTokens: allocation.allocatedTokens.toString(),
+      previousAllocatedTokens: allocation.allocatedTokens.toString(),
     },
   });
 
@@ -419,6 +449,25 @@ export async function updateCostCenterMappingAction(formData: FormData) {
   requireAdmin();
   const parsed = CostCenterSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+  const previous =
+    parsed.data.scope === "PROJECT"
+      ? await prisma.project.findUnique({
+          where: { id: parsed.data.scopeId },
+          select: {
+            name: true,
+            costCenterCode: true,
+            costCenterName: true,
+          },
+        })
+      : await prisma.team.findUnique({
+          where: { id: parsed.data.scopeId },
+          select: {
+            name: true,
+            costCenterCode: true,
+            costCenterName: true,
+          },
+        });
+  if (!previous) throw new Error(`${parsed.data.scope} not found.`);
 
   const normalizedCode = parsed.data.costCenterCode?.toUpperCase() ?? null;
   const target =
@@ -447,6 +496,8 @@ export async function updateCostCenterMappingAction(formData: FormData) {
       costCenterCode: normalizedCode,
       costCenterName: parsed.data.costCenterName,
       scopeName: "name" in target ? target.name : null,
+      previousCostCenterCode: previous.costCenterCode ?? null,
+      previousCostCenterName: previous.costCenterName ?? null,
     },
   });
 
@@ -482,6 +533,9 @@ export async function approveWalletApprovalAction(formData: FormData) {
     metadata: {
       kind: request.kind,
       tokens: request.tokens.toString(),
+      status: request.status,
+      targetOrganizationId: request.targetOrganizationId ?? null,
+      reserveTokens: request.reserveTokens.toString(),
     },
   });
 
@@ -513,6 +567,10 @@ export async function rejectWalletApprovalAction(formData: FormData) {
     targetId: request.id,
     metadata: {
       kind: request.kind,
+      tokens: request.tokens.toString(),
+      status: request.status,
+      targetOrganizationId: request.targetOrganizationId ?? null,
+      reserveTokens: request.reserveTokens.toString(),
       reason: parsed.data.reason ?? null,
     },
   });

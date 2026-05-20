@@ -157,6 +157,13 @@ export default async function WalletReconciliationPage() {
         action={
           <div className="flex flex-wrap gap-2">
             <Link
+              href="/wallet/pack"
+              className="inline-flex items-center gap-2 rounded-lg border border-border-subtle bg-surface px-4 py-2 text-sm font-semibold text-on-surface hover:border-primary"
+            >
+              <span className="material-symbols-outlined text-[18px]">folder_zip</span>
+              Finance pack
+            </Link>
+            <Link
               href="/api/wallet/chargeback/export?view=rollups"
               className="inline-flex items-center gap-2 rounded-lg border border-border-subtle bg-surface px-4 py-2 text-sm font-semibold text-on-surface hover:border-primary"
             >
@@ -169,6 +176,20 @@ export default async function WalletReconciliationPage() {
             >
               <span className="material-symbols-outlined text-[18px]">receipt_long</span>
               Export statements CSV
+            </Link>
+            <Link
+              href="/api/wallet/chargeback/export?view=provider_summary"
+              className="inline-flex items-center gap-2 rounded-lg border border-border-subtle bg-surface px-4 py-2 text-sm font-semibold text-on-surface hover:border-primary"
+            >
+              <span className="material-symbols-outlined text-[18px]">bar_chart</span>
+              Provider summary CSV
+            </Link>
+            <Link
+              href="/wallet/value"
+              className="inline-flex items-center gap-2 rounded-lg border border-border-subtle bg-surface px-4 py-2 text-sm font-semibold text-on-surface hover:border-primary"
+            >
+              <span className="material-symbols-outlined text-[18px]">query_stats</span>
+              Provider value view
             </Link>
           </div>
         }
