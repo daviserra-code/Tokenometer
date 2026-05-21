@@ -8,6 +8,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "desktop:dev": "node_modules\\.bin\\tauri.cmd dev",
+    "desktop:build": "node_modules\\.bin\\tauri.cmd build",
+    "desktop:build:msi": "node_modules\\.bin\\tauri.cmd build --bundles msi",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:push": "prisma db push",
@@ -37,6 +40,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.2",
     "@types/node": "^22.9.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
