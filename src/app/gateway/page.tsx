@@ -1,11 +1,12 @@
 import Link from "next/link";
+
 import { Card, PageHeader } from "@/components/Card";
-import { KpiCard } from "@/components/KpiCard";
 import { DataTable, type Column } from "@/components/DataTable";
+import { KpiCard } from "@/components/KpiCard";
 import { ProviderTag } from "@/components/ProviderChip";
-import { prisma } from "@/lib/prisma";
-import { formatCurrency, formatDateTime, formatTokens, toNumber } from "@/lib/format";
 import { requireAdmin } from "@/lib/auth";
+import { formatCurrency, formatDateTime, formatTokens, toNumber } from "@/lib/format";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -88,7 +89,6 @@ export default async function GatewayPage() {
   const credentials = await prisma.providerCredential.findMany({
     where: { organizationId: org.id, active: true },
     orderBy: { createdAt: "desc" },
-    include: { organization: true },
   });
   const providers = await prisma.provider.findMany();
   const providerById = new Map(providers.map((provider) => [provider.id, provider.name]));
@@ -110,10 +110,18 @@ export default async function GatewayPage() {
       source: { startsWith: "byok-proxy" },
     },
     orderBy: { timestamp: "desc" },
-    take: 10,
+    take: 50,
     include: { provider: true, model: true },
   });
-  const rows: GatewayRow[] = events.map((event) => {
+
+  const latestProxyByProvider = new Map<string, Date>();
+  for (const event of events) {
+    if (!latestProxyByProvider.has(event.provider.name)) {
+      latestProxyByProvider.set(event.provider.name, event.timestamp);
+    }
+  }
+
+  const rows: GatewayRow[] = events.slice(0, 10).map((event) => {
     const metadata =
       event.metadataJson && typeof event.metadataJson === "object"
         ? (event.metadataJson as Record<string, unknown>)
@@ -134,6 +142,7 @@ export default async function GatewayPage() {
     };
   });
 
+  const latestProxyEvent = rows[0] ?? null;
   const latencySamples = rows
     .map((row) => row.latencyMs)
     .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
@@ -207,30 +216,34 @@ export default async function GatewayPage() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card title="Live metering" description="The reliable path" className="lg:col-span-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.5fr,1fr]">
+        <Card title="Live metering" description="The reliable path">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Step n="1" title="Vault provider key" body="Store the upstream key once. It stays encrypted in Tokenometer." />
             <Step n="2" title="Call gateway URL" body="Your app calls Tokenometer instead of calling the provider directly." />
-            <Step n="3" title="See live spend" body="Tokenometer records usage, cost, model, project, and agent immediately." />
+            <Step n="3" title="See live spend" body="Tokenometer records usage, cost, model, project, team, agent, and request ID immediately." />
           </div>
         </Card>
         <Card title="Gateway status">
           <div className="space-y-3 text-sm">
             <StatusRow label="Active ingest source" value={ingest ? ingest.name : "Missing"} ok={Boolean(ingest)} />
             <StatusRow label="Vaulted providers" value={String(credentialByProvider.size)} ok={credentialByProvider.size > 0} />
-            <StatusRow label="Recent gateway calls" value={String(rows.length)} ok={rows.length > 0} />
+            <StatusRow
+              label="Latest live request"
+              value={latestProxyEvent ? formatDateTime(latestProxyEvent.timestamp) : "No live traffic yet"}
+              ok={Boolean(latestProxyEvent)}
+            />
+          </div>
+          <div className="mt-4 rounded-lg border border-border-subtle bg-background p-3 text-sm text-text-muted">
+            {latestProxyEvent
+              ? "You already have live metered traffic. The next step is to verify attribution and then route one real app through this path."
+              : "The gateway is ready, but it has not seen a live request yet. Vault a key, click Test, then watch the Recent gateway calls table light up."}
           </div>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard
-          label="Recent calls"
-          value={String(rows.length)}
-          hint="latest live traces"
-          icon="quick_reference"
-        />
+        <KpiCard label="Recent calls" value={String(rows.length)} hint="latest live traces" icon="quick_reference" />
         <KpiCard
           label="Average latency"
           value={avgLatencyMs !== null ? `${avgLatencyMs} ms` : "n/a"}
@@ -246,15 +259,50 @@ export default async function GatewayPage() {
           icon="waterfall_chart"
           tone="input"
         />
-        <KpiCard
-          label="Busiest provider"
-          value={busiestProvider}
-          hint="from recent traces"
-          icon="hub"
-        />
+        <KpiCard label="Busiest provider" value={busiestProvider} hint="from recent traces" icon="hub" />
       </div>
 
-      <Card title="Provider routes" description="Historical sync is optional; live metering works when responses include usage data." noPadding>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr,1fr]">
+        <Card title="Verify your first live request" description="Use these surfaces in this order if you want the clearest sanity check.">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <VerifyTile
+              href="/settings/credentials"
+              title="1. Run Test"
+              body="Vault one provider key, then click Test on the stored credential."
+            />
+            <VerifyTile
+              href="/gateway"
+              title="2. Inspect Gateway"
+              body="Confirm the request ID, provider, model, latency, and token count."
+            />
+            <VerifyTile
+              href="/ledger"
+              title="3. Inspect Ledger"
+              body="Find the raw usage event and confirm it landed with the right timestamp."
+            />
+            <VerifyTile
+              href="/reports"
+              title="4. Inspect Reports"
+              body="Check daily, weekly, or monthly views for fresh spend after the event lands."
+            />
+          </div>
+        </Card>
+
+        <Card title="What gets attached to each request">
+          <div className="space-y-3 text-sm text-text-muted">
+            <AttributionRow label="Provider + model" body="Used for spend grouping and provider comparisons." />
+            <AttributionRow label="Project" body="Set with the x-project header so spend can be grouped by app or workload." />
+            <AttributionRow label="Team / agent" body="Attached from request headers for ownership and accountability." />
+            <AttributionRow label="Request ID" body="Best friend for debugging. It lets you match one app call to one metered event." />
+          </div>
+        </Card>
+      </div>
+
+      <Card
+        title="Provider routes"
+        description="This matrix tells you which providers are ready now, what kind of history import exists, and what to do next."
+        noPadding
+      >
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="text-[12px] uppercase tracking-wider text-text-muted">
@@ -262,28 +310,49 @@ export default async function GatewayPage() {
                 <th className="px-4 py-3 text-left">Provider</th>
                 <th className="px-4 py-3 text-left">Gateway endpoint</th>
                 <th className="px-4 py-3 text-left">Vault</th>
+                <th className="px-4 py-3 text-left">Latest live event</th>
                 <th className="px-4 py-3 text-left">Historical sync</th>
-                <th className="px-4 py-3 text-left">Live metering</th>
                 <th className="px-4 py-3 text-left">Streaming</th>
+                <th className="px-4 py-3 text-left">Best next step</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">
               {PROVIDERS.map((provider) => {
-                const cred = credentialByProvider.get(provider.name);
+                const credential = credentialByProvider.get(provider.name);
+                const latestEvent = latestProxyByProvider.get(provider.name);
+                const nextStep = !credential
+                  ? "Vault key"
+                  : !ingest
+                    ? "Create ingest source"
+                    : !latestEvent
+                      ? "Run Test"
+                      : "Route app traffic";
+
                 return (
                   <tr key={provider.name}>
-                    <td className="px-4 py-3"><ProviderTag name={provider.name} /></td>
+                    <td className="px-4 py-3">
+                      <ProviderTag name={provider.name} />
+                    </td>
                     <td className="px-4 py-3 font-mono text-[12px] text-text-muted">{provider.endpoint}</td>
                     <td className="px-4 py-3">
-                      {cred ? (
-                        <span className="text-status-normal">{cred.label} / ****{cred.keyHint}</span>
+                      {credential ? (
+                        <span className="text-status-normal">
+                          {credential.label} / ****{credential.keyHint}
+                        </span>
                       ) : (
                         <span className="text-status-warning">No key</span>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-text-muted">
+                      {latestEvent ? formatDateTime(latestEvent) : "No live event"}
+                    </td>
                     <td className="px-4 py-3 text-text-muted">{provider.historical}</td>
-                    <td className="px-4 py-3 text-status-normal">{provider.live}</td>
                     <td className="px-4 py-3 text-text-muted">{provider.streaming}</td>
+                    <td className="px-4 py-3">
+                      <span className={nextStep === "Route app traffic" ? "text-status-normal" : "text-status-warning"}>
+                        {nextStep}
+                      </span>
+                    </td>
                   </tr>
                 );
               })}
@@ -293,18 +362,14 @@ export default async function GatewayPage() {
       </Card>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <SnippetCard
-          title="Node.js: OpenAI through Tokenometer"
-          code={nodeSnippet(appUrl)}
-        />
-        <SnippetCard
-          title="Python: OpenAI through Tokenometer"
-          code={pythonSnippet(appUrl)}
-        />
+        <SnippetCard title="Node.js: OpenAI through Tokenometer" code={nodeSnippet(appUrl)} />
+        <SnippetCard title="Python: OpenAI through Tokenometer" code={pythonSnippet(appUrl)} />
       </div>
 
       <Card title="Benchmark from your machine" description="Use the local script to get a first read on gateway overhead.">
-        <pre className="overflow-auto rounded-lg border border-border-subtle bg-background p-4 font-mono text-[12px] leading-relaxed text-text-muted">{benchmarkSnippet()}</pre>
+        <pre className="overflow-auto rounded-lg border border-border-subtle bg-background p-4 font-mono text-[12px] leading-relaxed text-text-muted">
+          {benchmarkSnippet()}
+        </pre>
       </Card>
 
       <Card title="Recent gateway calls" description="Only live metered BYOK proxy calls, not demo data." noPadding>
@@ -331,6 +396,27 @@ function StatusRow({ label, value, ok }: { label: string; value: string; ok: boo
     <div className="flex items-center justify-between gap-3 border-b border-border-subtle/60 pb-2 last:border-0 last:pb-0">
       <span className="text-text-muted">{label}</span>
       <span className={ok ? "text-status-normal" : "text-status-warning"}>{value}</span>
+    </div>
+  );
+}
+
+function VerifyTile({ href, title, body }: { href: string; title: string; body: string }) {
+  return (
+    <Link
+      href={href}
+      className="block rounded-lg border border-border-subtle bg-background p-4 transition hover:border-primary/40 hover:bg-surface-2"
+    >
+      <strong className="block text-on-surface">{title}</strong>
+      <span className="mt-1 block text-[12px] text-text-muted">{body}</span>
+    </Link>
+  );
+}
+
+function AttributionRow({ label, body }: { label: string; body: string }) {
+  return (
+    <div className="rounded-lg border border-border-subtle bg-background p-3">
+      <strong className="block text-on-surface">{label}</strong>
+      <span className="mt-1 block text-[12px] text-text-muted">{body}</span>
     </div>
   );
 }
