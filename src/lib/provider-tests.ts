@@ -1,0 +1,85 @@
+export type ProviderTestConfig = {
+  providerName: string;
+  endpoint: string;
+  model: string;
+  title: string;
+  summary: string;
+  verifyHint: string;
+  historicalNote: string;
+  body: Record<string, unknown>;
+};
+
+export const PROVIDER_TESTS: ProviderTestConfig[] = [
+  {
+    providerName: "OpenAI",
+    endpoint: "/api/proxy/openai/chat/completions",
+    model: "gpt-4o-mini",
+    title: "OpenAI guided test",
+    summary: "Runs one tiny chat completion through Tokenometer using gpt-4o-mini.",
+    verifyHint: "Expect a fresh request ID, a small token count, and immediate visibility in Gateway, Ledger, and Live reports.",
+    historicalNote: "Historical sync needs an Admin API key. The guided test works with a normal project key.",
+    body: {
+      model: "gpt-4o-mini",
+      max_tokens: 5,
+      messages: [{ role: "user", content: "ping" }],
+    },
+  },
+  {
+    providerName: "Anthropic",
+    endpoint: "/api/proxy/anthropic/v1/messages",
+    model: "claude-3-5-haiku-latest",
+    title: "Anthropic guided test",
+    summary: "Runs one tiny messages request through Tokenometer using Claude 3.5 Haiku.",
+    verifyHint: "Expect a fresh request ID and a small usage event in Gateway and Ledger. Historical sync still needs an Admin key.",
+    historicalNote: "Historical sync needs an Admin API key. The guided test works with a normal API key.",
+    body: {
+      model: "claude-3-5-haiku-latest",
+      max_tokens: 5,
+      messages: [{ role: "user", content: "ping" }],
+    },
+  },
+  {
+    providerName: "Google",
+    endpoint: "/api/proxy/google/v1beta/models/gemini-2.0-flash:generateContent",
+    model: "gemini-2.0-flash",
+    title: "Gemini guided test",
+    summary: "Runs one tiny Gemini generateContent call through Tokenometer using gemini-2.0-flash.",
+    verifyHint: "Expect a fresh request ID and a small usage event in Gateway and Ledger. This is the recommended Google verification path.",
+    historicalNote: "Google does not expose a public historical usage API, so the guided test is the main proof path.",
+    body: {
+      contents: [{ parts: [{ text: "ping" }] }],
+    },
+  },
+  {
+    providerName: "Mistral",
+    endpoint: "/api/proxy/mistral/v1/chat/completions",
+    model: "mistral-small-latest",
+    title: "Mistral guided test",
+    summary: "Runs one tiny chat completion through Tokenometer using mistral-small-latest.",
+    verifyHint: "Expect a fresh request ID and immediate live metering in Gateway and Ledger.",
+    historicalNote: "Mistral does not expose a public historical usage API, so guided testing is the main proof path.",
+    body: {
+      model: "mistral-small-latest",
+      max_tokens: 5,
+      messages: [{ role: "user", content: "ping" }],
+    },
+  },
+  {
+    providerName: "GitHub",
+    endpoint: "/api/proxy/github/chat/completions",
+    model: "openai/gpt-4o-mini",
+    title: "GitHub Models guided test",
+    summary: "Runs one tiny chat completion through Tokenometer using GitHub Models and openai/gpt-4o-mini.",
+    verifyHint: "Expect a fresh request ID and a small usage event if the PAT has models:read and billing access is enabled.",
+    historicalNote: "GitHub Models has no public historical usage API, so guided testing is the main verification path.",
+    body: {
+      model: "openai/gpt-4o-mini",
+      max_tokens: 5,
+      messages: [{ role: "user", content: "ping" }],
+    },
+  },
+];
+
+export function getProviderTestConfig(providerName: string) {
+  return PROVIDER_TESTS.find((config) => config.providerName === providerName) ?? null;
+}

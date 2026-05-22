@@ -1,3 +1,6 @@
+import Link from "next/link";
+import { cookies } from "next/headers";
+
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/Card";
 import { DataTable, type Column } from "@/components/DataTable";
@@ -6,6 +9,7 @@ import {
   formatCurrency,
   formatDateTime,
   formatNumber,
+  formatRelativeTime,
   toNumber,
 } from "@/lib/format";
 import type { Prisma } from "@prisma/client";
@@ -22,6 +26,16 @@ type SearchParams = {
 };
 
 const PAGE_SIZE = 100;
+
+type VerificationFlashState = {
+  kind: "guided-test";
+  provider: string;
+  ok: boolean;
+  message: string;
+  requestId?: string;
+  model?: string;
+  timestamp: string;
+};
 
 export default async function LedgerPage({
   searchParams,
@@ -52,7 +66,7 @@ export default async function LedgerPage({
   if (sp.projectId) where.projectId = sp.projectId;
   if (sp.teamId) where.teamId = sp.teamId;
 
-  const [events, total, providers, models, projects, teams] = await Promise.all([
+  const [events, total, providers, models, projects, teams, latestLiveEvent] = await Promise.all([
     prisma.usageEvent.findMany({
       where,
       orderBy: { timestamp: "desc" },
@@ -75,7 +89,28 @@ export default async function LedgerPage({
       where: { organizationId: org.id },
       orderBy: { name: "asc" },
     }),
+    prisma.usageEvent.findFirst({
+      where: {
+        organizationId: org.id,
+        source: { startsWith: "byok-proxy" },
+      },
+      orderBy: { timestamp: "desc" },
+      include: {
+        provider: { select: { name: true } },
+        model: { select: { name: true } },
+      },
+    }),
   ]);
+
+  const verificationRaw = cookies().get("verification-flash")?.value;
+  let verification: VerificationFlashState | null = null;
+  if (verificationRaw) {
+    try {
+      verification = JSON.parse(verificationRaw) as VerificationFlashState;
+    } catch {
+      verification = null;
+    }
+  }
 
   type Row = (typeof events)[number];
 
@@ -173,6 +208,50 @@ export default async function LedgerPage({
           </button>
         }
       />
+
+      {(verification || latestLiveEvent) && (
+        <div
+          className={`rounded-lg border px-4 py-3 ${
+            verification?.ok || latestLiveEvent
+              ? "border-status-normal/40 bg-status-normal/10"
+              : "border-status-warning/40 bg-status-warning/10"
+          }`}
+        >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              {verification && (
+                <p className="text-sm text-on-surface">
+                  <strong>{verification.provider} guided test:</strong> {verification.message}
+                </p>
+              )}
+              {latestLiveEvent && (
+                <p className="text-[12px] text-text-muted">
+                  Latest live ledger event: {latestLiveEvent.provider.name} / {latestLiveEvent.model.name} at{" "}
+                  {formatDateTime(latestLiveEvent.timestamp)} ({formatRelativeTime(latestLiveEvent.timestamp)}).
+                  {verification?.requestId ? ` Request ID to watch for: ${verification.requestId}.` : ""}
+                </p>
+              )}
+              {!verification && !latestLiveEvent && (
+                <p className="text-[12px] text-text-muted">No recent live gateway event yet.</p>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <a
+                href="/ledger"
+                className="rounded-lg border border-border-subtle px-3 py-2 text-xs font-semibold text-on-surface hover:border-primary hover:text-primary"
+              >
+                Clear filters
+              </a>
+              <Link
+                href="/gateway"
+                className="rounded-lg border border-border-subtle px-3 py-2 text-xs font-semibold text-on-surface hover:border-primary hover:text-primary"
+              >
+                Open Gateway
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Card title="Filters">
         <form

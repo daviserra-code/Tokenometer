@@ -4,7 +4,8 @@ import { cookies } from "next/headers";
 import { Card, PageHeader } from "@/components/Card";
 import { ProviderChip } from "@/components/ProviderChip";
 import { requireAdmin } from "@/lib/auth";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatRelativeTime } from "@/lib/format";
+import { PROVIDER_TESTS } from "@/lib/provider-tests";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -22,6 +23,16 @@ type FlashState = {
   message?: string;
   inserted?: number;
   skipped?: number;
+};
+
+type VerificationFlashState = {
+  kind: "guided-test";
+  provider: string;
+  ok: boolean;
+  message: string;
+  requestId?: string;
+  model?: string;
+  timestamp: string;
 };
 
 export default async function CredentialsPage() {
@@ -85,12 +96,21 @@ export default async function CredentialsPage() {
   const latestProxyEvent = recentProxyEvents[0] ?? null;
 
   const flashRaw = cookies().get("sync-flash")?.value;
+  const verificationRaw = cookies().get("verification-flash")?.value;
   let flash: FlashState | null = null;
+  let verification: VerificationFlashState | null = null;
   if (flashRaw) {
     try {
       flash = JSON.parse(flashRaw) as FlashState;
     } catch {
       flash = null;
+    }
+  }
+  if (verificationRaw) {
+    try {
+      verification = JSON.parse(verificationRaw) as VerificationFlashState;
+    } catch {
+      verification = null;
     }
   }
 
@@ -114,6 +134,24 @@ export default async function CredentialsPage() {
           {flash.ok && typeof flash.inserted === "number" && flash.inserted > 0 && (
             <span className="ml-2 text-text-muted">(inserted {flash.inserted}, skipped {flash.skipped ?? 0})</span>
           )}
+        </div>
+      )}
+
+      {verification && (
+        <div
+          className={`rounded-lg border px-4 py-3 text-sm ${
+            verification.ok
+              ? "border-status-normal/40 bg-status-normal/10 text-status-normal"
+              : "border-status-warning/40 bg-status-warning/10 text-status-warning"
+          }`}
+        >
+          <strong className="font-semibold">{verification.provider} guided test</strong>
+          <span className="ml-2">{verification.message}</span>
+          <div className="mt-2 flex flex-wrap gap-3 text-[12px] text-text-muted">
+            {verification.model && <span>Model: {verification.model}</span>}
+            {verification.requestId && <span>Request ID: {verification.requestId}</span>}
+            <span>{formatRelativeTime(verification.timestamp)}</span>
+          </div>
         </div>
       )}
 
@@ -307,7 +345,63 @@ export default async function CredentialsPage() {
         </div>
       </Card>
 
+      <Card title="Guided provider tests" description="Each test uses a provider-specific tiny request so the expected outcome is clear.">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {PROVIDER_TESTS.map((test) => {
+            const credential = credentialByProvider.get(test.providerName);
+            const latestEvent = latestProxyByProvider.get(test.providerName);
+            return (
+              <div key={test.providerName} className="rounded-lg border border-border-subtle bg-background p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <ProviderChip name={test.providerName} />
+                      <strong className="text-on-surface">{test.title}</strong>
+                    </div>
+                    <p className="mt-2 text-[12px] text-text-muted">{test.summary}</p>
+                  </div>
+                  <span className="rounded-md border border-border-subtle px-2 py-1 font-mono text-[11px] text-text-muted">
+                    {test.model}
+                  </span>
+                </div>
+                <div className="mt-3 space-y-2 text-[12px] text-text-muted">
+                  <p>{test.verifyHint}</p>
+                  <p>{test.historicalNote}</p>
+                  <p>
+                    Latest live event:{" "}
+                    <span className="text-on-surface">
+                      {latestEvent ? `${formatDateTime(latestEvent)} (${formatRelativeTime(latestEvent)})` : "none yet"}
+                    </span>
+                  </p>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {credential ? (
+                    <form action={testCredentialAction}>
+                      <input type="hidden" name="id" value={credential.id} />
+                      <button
+                        type="submit"
+                        className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-primary-container"
+                      >
+                        Run {test.providerName} test
+                      </button>
+                    </form>
+                  ) : (
+                    <span className="rounded-lg border border-status-warning/40 px-3 py-2 text-xs font-semibold text-status-warning">
+                      Vault a {test.providerName} key first
+                    </span>
+                  )}
+                  <Link href="/gateway" className="rounded-lg border border-border-subtle px-3 py-2 text-xs font-semibold text-text-muted hover:border-primary hover:text-primary">
+                    Verify in Gateway
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.3fr,1fr]">
+
         <Card title="Readiness by provider" noPadding>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">

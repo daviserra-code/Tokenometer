@@ -51,3 +51,22 @@ export function formatDateTime(d: Date | string): string {
     minute: "2-digit",
   }).format(date);
 }
+
+export function formatRelativeTime(d: Date | string): string {
+  const date = typeof d === "string" ? new Date(d) : d;
+  const diffMs = date.getTime() - Date.now();
+  const absMs = Math.abs(diffMs);
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+
+  const rtf = new Intl.RelativeTimeFormat("en-US", { numeric: "auto" });
+
+  if (absMs < hour) {
+    return rtf.format(Math.round(diffMs / minute), "minute");
+  }
+  if (absMs < day) {
+    return rtf.format(Math.round(diffMs / hour), "hour");
+  }
+  return rtf.format(Math.round(diffMs / day), "day");
+}

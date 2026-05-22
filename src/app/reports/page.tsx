@@ -1,3 +1,5 @@
+import { cookies } from "next/headers";
+
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/Card";
 import { KpiCard } from "@/components/KpiCard";
@@ -5,7 +7,7 @@ import { DataTable, type Column } from "@/components/DataTable";
 import { HBarChart } from "@/components/charts/HBarChart";
 import { ProviderTag } from "@/components/ProviderChip";
 import { ModeSwitch } from "@/components/ModeSwitch";
-import { formatCurrency, formatTokens, toNumber } from "@/lib/format";
+import { formatCurrency, formatDateTime, formatRelativeTime, formatTokens, toNumber } from "@/lib/format";
 import { startOfMonth } from "@/lib/calc";
 import { getAppMode, isAdmin, modeUsageWhere } from "@/lib/auth";
 
@@ -13,6 +15,15 @@ export const dynamic = "force-dynamic";
 
 type Row = { name: string; subname?: string; tokens: number; cost: number };
 type Period = "daily" | "weekly" | "monthly";
+type VerificationFlashState = {
+  kind: "guided-test";
+  provider: string;
+  ok: boolean;
+  message: string;
+  requestId?: string;
+  model?: string;
+  timestamp: string;
+};
 
 function getPeriod(value?: string): Period {
   return value === "daily" || value === "weekly" || value === "monthly"
@@ -67,6 +78,7 @@ export default async function ReportsPage({
     projects,
     teams,
     providers,
+    latestLiveEvent,
   ] = await Promise.all([
     prisma.usageEvent.groupBy({
       by: ["providerId"],
@@ -97,7 +109,28 @@ export default async function ReportsPage({
     prisma.project.findMany({ where: { organizationId: org.id } }),
     prisma.team.findMany({ where: { organizationId: org.id } }),
     prisma.provider.findMany(),
+    prisma.usageEvent.findFirst({
+      where: {
+        organizationId: org.id,
+        source: { startsWith: "byok-proxy" },
+      },
+      orderBy: { timestamp: "desc" },
+      include: {
+        provider: true,
+        model: true,
+      },
+    }),
   ]);
+
+  const verificationRaw = cookies().get("verification-flash")?.value;
+  let verification: VerificationFlashState | null = null;
+  if (verificationRaw) {
+    try {
+      verification = JSON.parse(verificationRaw) as VerificationFlashState;
+    } catch {
+      verification = null;
+    }
+  }
 
   const providerMap = new Map(providers.map((p) => [p.id, p.name]));
   const modelMap = new Map(
@@ -189,6 +222,8 @@ export default async function ReportsPage({
     },
   ];
 
+  const latestLiveInPeriod = latestLiveEvent ? latestLiveEvent.timestamp >= periodStart : false;
+
   return (
     <div className="space-y-section-gap">
       <PageHeader
@@ -208,6 +243,47 @@ export default async function ReportsPage({
           </div>
         }
       />
+
+      {(verification || latestLiveEvent) && (
+        <div
+          className={`rounded-lg border px-4 py-3 ${
+            mode === "demo"
+              ? "border-status-warning/40 bg-status-warning/10"
+              : "border-status-normal/40 bg-status-normal/10"
+          }`}
+        >
+          <div className="space-y-1">
+            {mode === "demo" ? (
+              <p className="text-sm text-on-surface">
+                <strong>You are viewing demo mode.</strong>{" "}
+                {latestLiveEvent
+                  ? `A live request was seen ${formatRelativeTime(latestLiveEvent.timestamp)}. Switch to Live to inspect real spend.`
+                  : "Any guided test you run will land in live data, not in the seeded demo view below."}
+              </p>
+            ) : latestLiveEvent ? (
+              <p className="text-sm text-on-surface">
+                <strong>Latest live request:</strong> {latestLiveEvent.provider.name} / {latestLiveEvent.model.name} at{" "}
+                {formatDateTime(latestLiveEvent.timestamp)} ({formatRelativeTime(latestLiveEvent.timestamp)}).
+              </p>
+            ) : (
+              <p className="text-sm text-on-surface">
+                <strong>No live spend yet.</strong> Run a guided provider test or route one real app call through the gateway.
+              </p>
+            )}
+            {verification && (
+              <p className="text-[12px] text-text-muted">
+                Guided test status: {verification.message}
+                {verification.requestId ? ` Request ID: ${verification.requestId}.` : ""}
+              </p>
+            )}
+            {mode === "live" && latestLiveEvent && !latestLiveInPeriod && (
+              <p className="text-[12px] text-text-muted">
+                The latest live request is outside the current {periodLabel} window, so the totals below may not move until you change period.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="inline-flex rounded-lg border border-border-subtle bg-surface-elevated/70 p-1 text-[12px] font-semibold">
         {(["daily", "weekly", "monthly"] as const).map((p) => (

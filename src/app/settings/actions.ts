@@ -3,17 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
-import {
-  generateApiKey,
-  maskKey,
-} from "@/lib/crypto";
-import { encryptVaultSecret } from "@/lib/secret-store";
-import { importUsageCsv } from "@/lib/ingest";
-import { syncProviderUsage } from "@/lib/provider-sync";
-import { requireAdmin } from "@/lib/auth";
+
 import { auditLog } from "@/lib/audit";
+import { requireAdmin } from "@/lib/auth";
+import { generateApiKey, maskKey } from "@/lib/crypto";
+import { importUsageCsv } from "@/lib/ingest";
 import { newEncryptedIngestSecret } from "@/lib/ingest-secret";
+import { syncProviderUsage } from "@/lib/provider-sync";
+import { getProviderTestConfig } from "@/lib/provider-tests";
+import { prisma } from "@/lib/prisma";
+import { encryptVaultSecret } from "@/lib/secret-store";
 import { cookies } from "next/headers";
 
 // --- Provider credentials -------------------------------------------------
@@ -24,6 +23,26 @@ const CredSchema = z.object({
   label: z.string().min(1).max(60),
   apiKey: z.string().min(8, "API key looks too short."),
 });
+
+type VerificationFlash = {
+  kind: "guided-test";
+  provider: string;
+  ok: boolean;
+  message: string;
+  requestId?: string;
+  model?: string;
+  timestamp: string;
+};
+
+function setVerificationFlash(flash: VerificationFlash) {
+  cookies().set("verification-flash", JSON.stringify(flash), {
+    path: "/",
+    maxAge: 5 * 60,
+    httpOnly: false,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
+}
 
 export async function saveCredentialAction(formData: FormData) {
   requireAdmin();
@@ -149,10 +168,8 @@ export async function importCsvAction(formData: FormData): Promise<ImportActionS
   const organizationId = String(formData.get("organizationId") ?? "");
   const file = formData.get("file");
   if (!organizationId) return { ok: false, error: "organizationId required." };
-  if (!(file instanceof File) || file.size === 0)
-    return { ok: false, error: "Please select a CSV file." };
-  if (file.size > 20 * 1024 * 1024)
-    return { ok: false, error: "File too large (>20MB)." };
+  if (!(file instanceof File) || file.size === 0) return { ok: false, error: "Please select a CSV file." };
+  if (file.size > 20 * 1024 * 1024) return { ok: false, error: "File too large (>20MB)." };
 
   const text = await file.text();
   const job = await prisma.importJob.create({
@@ -203,7 +220,7 @@ export async function importCsvAction(formData: FormData): Promise<ImportActionS
 // --- Test a vaulted credential by sending one real proxied call ----------
 
 /**
- * Sends a 1-token chat-completion through the appropriate BYOK proxy using the
+ * Sends a tiny provider-specific request through the appropriate BYOK proxy using the
  * caller's vaulted credential. Gives users instant proof that the pipeline
  * works end-to-end without needing a separate Admin API key.
  */
@@ -225,79 +242,73 @@ export async function testCredentialAction(formData: FormData) {
 
   let ok = false;
   let message = "Unknown error.";
-  let providerName = provider?.name ?? "?";
+  const providerName = provider?.name ?? "?";
 
   if (!cred || !provider) {
     message = "Credential or provider not found.";
   } else if (!ingest) {
-    message = "No active ingest source for this organization. Create one in Settings → Ingest first.";
+    message = "No active ingest source for this organization. Create one in Settings -> Ingest first.";
   } else {
     const headersToken = ingest.apiKey;
-    const base =
-      process.env.NEXT_PUBLIC_APP_URL ?? `http://localhost:${process.env.PORT ?? "3000"}`;
+    const base = process.env.NEXT_PUBLIC_APP_URL ?? `http://localhost:${process.env.PORT ?? "3000"}`;
+    const testConfig = getProviderTestConfig(provider.name);
+
     try {
-      let url: string;
-      let body: unknown;
-      const headers: Record<string, string> = {
-        "content-type": "application/json",
-        "x-ingest-key": headersToken,
-        "x-credential-id": cred.id,
-        "x-project": "Tokenometer Self-Test",
-      };
-      switch (provider.name) {
-        case "OpenAI":
-          url = `${base}/api/proxy/openai/chat/completions`;
-          body = {
-            model: "gpt-4o-mini",
-            max_tokens: 5,
-            messages: [{ role: "user", content: "ping" }],
-          };
-          break;
-        case "Anthropic":
-          url = `${base}/api/proxy/anthropic/v1/messages`;
-          body = {
-            model: "claude-3-5-haiku-latest",
-            max_tokens: 5,
-            messages: [{ role: "user", content: "ping" }],
-          };
-          break;
-        case "Google":
-          url = `${base}/api/proxy/google/v1beta/models/gemini-2.0-flash:generateContent`;
-          body = { contents: [{ parts: [{ text: "ping" }] }] };
-          break;
-        case "Mistral":
-          url = `${base}/api/proxy/mistral/v1/chat/completions`;
-          body = {
-            model: "mistral-small-latest",
-            max_tokens: 5,
-            messages: [{ role: "user", content: "ping" }],
-          };
-          break;
-        case "GitHub":
-          url = `${base}/api/proxy/github/chat/completions`;
-          body = {
-            model: "openai/gpt-4o-mini",
-            max_tokens: 5,
-            messages: [{ role: "user", content: "ping" }],
-          };
-          break;
-        default:
-          throw new Error(`No test path for provider ${provider.name}.`);
+      if (!testConfig) {
+        throw new Error(`No guided test path for provider ${provider.name}.`);
       }
-      const res = await fetch(url, {
+
+      const requestId = crypto.randomUUID();
+      const res = await fetch(`${base}${testConfig.endpoint}`, {
         method: "POST",
-        headers,
-        body: JSON.stringify(body),
+        headers: {
+          "content-type": "application/json",
+          "x-ingest-key": headersToken,
+          "x-credential-id": cred.id,
+          "x-project": "Tokenometer Self-Test",
+          "x-agent": "guided-provider-test",
+          "x-request-id": requestId,
+        },
+        body: JSON.stringify(testConfig.body),
       });
       const text = await res.text();
+      const echoedRequestId = res.headers.get("x-request-id")?.trim() || requestId;
+
       if (res.ok) {
         ok = true;
-        message = `Sent a 5-token call through ${provider.name}. Refresh the dashboard to see it.`;
+        message = `Sent a guided ${provider.name} test through ${testConfig.model}. Request ${echoedRequestId} should now appear in Gateway, Ledger, and Live reports.`;
+        setVerificationFlash({
+          kind: "guided-test",
+          provider: provider.name,
+          ok: true,
+          message,
+          requestId: echoedRequestId,
+          model: testConfig.model,
+          timestamp: new Date().toISOString(),
+        });
       } else {
         message = `${provider.name} upstream rejected the call (${res.status}): ${text.slice(0, 200)}`;
+        setVerificationFlash({
+          kind: "guided-test",
+          provider: provider.name,
+          ok: false,
+          message,
+          requestId: echoedRequestId,
+          model: testConfig.model,
+          timestamp: new Date().toISOString(),
+        });
       }
     } catch (e) {
+      const testConfigModel = getProviderTestConfig(provider.name)?.model;
       message = `Test call failed: ${(e as Error).message}`;
+      setVerificationFlash({
+        kind: "guided-test",
+        provider: provider.name,
+        ok: false,
+        message,
+        model: testConfigModel ?? undefined,
+        timestamp: new Date().toISOString(),
+      });
     }
   }
 
@@ -314,6 +325,8 @@ export async function testCredentialAction(formData: FormData) {
     metadata: { provider: providerName, ok },
   });
   revalidatePath("/", "layout");
+  revalidatePath("/ledger");
+  revalidatePath("/reports");
   redirect("/settings/credentials");
 }
 
