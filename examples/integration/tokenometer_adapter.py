@@ -4,6 +4,7 @@ import json
 import os
 import uuid
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 import requests
@@ -52,7 +53,63 @@ def call_openai_chat(
         except Exception:
             if not config.allow_direct_fallback or not provider_api_key:
                 raise
-            result = _call_openai_direct(
+            result = _call_openai_compatible_direct(
+                config=config,
+                body=body,
+                provider_name="OpenAI",
+                provider_api_key=provider_api_key,
+                direct_url="https://api.openai.com/v1/chat/completions",
+                direct_headers={
+                    "content-type": "application/json",
+                    "authorization": f"Bearer {provider_api_key}",
+                },
+                request_id=request_id,
+                source_name="shadow-openai",
+                fallback_reason="proxy_unavailable",
+            )
+            result["mode_used"] = "proxy-fallback-direct"
+            return result
+
+    return _call_openai_compatible_direct(
+        config=config,
+        body=body,
+        provider_name="OpenAI",
+        provider_api_key=provider_api_key,
+        direct_url="https://api.openai.com/v1/chat/completions",
+        direct_headers={
+            "content-type": "application/json",
+            "authorization": f"Bearer {provider_api_key}",
+        },
+        request_id=request_id,
+        source_name="shadow-openai",
+    )
+
+
+def call_anthropic_messages(
+    config: AdapterConfig,
+    body: Dict[str, Any],
+    provider_api_key: Optional[str] = None,
+) -> Dict[str, Any]:
+    request_id = str(uuid.uuid4())
+
+    if config.mode == "proxy":
+        try:
+            data = _post_json(
+                f"{_trim(config.tokenometer_base_url)}/api/proxy/anthropic/v1/messages",
+                headers=_proxy_headers(config, request_id),
+                body=body,
+                timeout_seconds=config.timeout_seconds,
+            )
+            return {
+                "data": data,
+                "request_id": request_id,
+                "mode_used": "proxy",
+                "metered_via": "proxy",
+            }
+        except Exception:
+            if not config.allow_direct_fallback or not provider_api_key:
+                raise
+            result = _call_anthropic_direct(
                 config=config,
                 body=body,
                 provider_api_key=provider_api_key,
@@ -62,7 +119,7 @@ def call_openai_chat(
             result["mode_used"] = "proxy-fallback-direct"
             return result
 
-    return _call_openai_direct(
+    return _call_anthropic_direct(
         config=config,
         body=body,
         provider_api_key=provider_api_key,
@@ -115,19 +172,173 @@ def call_gemini_generate_content(
     )
 
 
-def _call_openai_direct(
+def call_mistral_chat(
+    config: AdapterConfig,
+    body: Dict[str, Any],
+    provider_api_key: Optional[str] = None,
+) -> Dict[str, Any]:
+    request_id = str(uuid.uuid4())
+
+    if config.mode == "proxy":
+        try:
+            data = _post_json(
+                f"{_trim(config.tokenometer_base_url)}/api/proxy/mistral/v1/chat/completions",
+                headers=_proxy_headers(config, request_id),
+                body=body,
+                timeout_seconds=config.timeout_seconds,
+            )
+            return {
+                "data": data,
+                "request_id": request_id,
+                "mode_used": "proxy",
+                "metered_via": "proxy",
+            }
+        except Exception:
+            if not config.allow_direct_fallback or not provider_api_key:
+                raise
+            result = _call_openai_compatible_direct(
+                config=config,
+                body=body,
+                provider_name="Mistral",
+                provider_api_key=provider_api_key,
+                direct_url="https://api.mistral.ai/v1/chat/completions",
+                direct_headers={
+                    "content-type": "application/json",
+                    "authorization": f"Bearer {provider_api_key}",
+                },
+                request_id=request_id,
+                source_name="shadow-mistral",
+                fallback_reason="proxy_unavailable",
+            )
+            result["mode_used"] = "proxy-fallback-direct"
+            return result
+
+    return _call_openai_compatible_direct(
+        config=config,
+        body=body,
+        provider_name="Mistral",
+        provider_api_key=provider_api_key,
+        direct_url="https://api.mistral.ai/v1/chat/completions",
+        direct_headers={
+            "content-type": "application/json",
+            "authorization": f"Bearer {provider_api_key}",
+        },
+        request_id=request_id,
+        source_name="shadow-mistral",
+    )
+
+
+def call_github_models_chat(
+    config: AdapterConfig,
+    body: Dict[str, Any],
+    provider_api_key: Optional[str] = None,
+) -> Dict[str, Any]:
+    request_id = str(uuid.uuid4())
+
+    if config.mode == "proxy":
+        try:
+            data = _post_json(
+                f"{_trim(config.tokenometer_base_url)}/api/proxy/github/chat/completions",
+                headers=_proxy_headers(config, request_id),
+                body=body,
+                timeout_seconds=config.timeout_seconds,
+            )
+            return {
+                "data": data,
+                "request_id": request_id,
+                "mode_used": "proxy",
+                "metered_via": "proxy",
+            }
+        except Exception:
+            if not config.allow_direct_fallback or not provider_api_key:
+                raise
+            result = _call_openai_compatible_direct(
+                config=config,
+                body=body,
+                provider_name="GitHub",
+                provider_api_key=provider_api_key,
+                direct_url="https://models.github.ai/inference/chat/completions",
+                direct_headers={
+                    "content-type": "application/json",
+                    "authorization": f"Bearer {provider_api_key}",
+                },
+                request_id=request_id,
+                source_name="shadow-github",
+                fallback_reason="proxy_unavailable",
+            )
+            result["mode_used"] = "proxy-fallback-direct"
+            return result
+
+    return _call_openai_compatible_direct(
+        config=config,
+        body=body,
+        provider_name="GitHub",
+        provider_api_key=provider_api_key,
+        direct_url="https://models.github.ai/inference/chat/completions",
+        direct_headers={
+            "content-type": "application/json",
+            "authorization": f"Bearer {provider_api_key}",
+        },
+        request_id=request_id,
+        source_name="shadow-github",
+    )
+
+
+def _call_openai_compatible_direct(
+    config: AdapterConfig,
+    body: Dict[str, Any],
+    provider_name: str,
+    provider_api_key: Optional[str],
+    direct_url: str,
+    direct_headers: Dict[str, str],
+    request_id: str,
+    source_name: str,
+    fallback_reason: Optional[str] = None,
+) -> Dict[str, Any]:
+    _assert_provider_key(provider_api_key, provider_name)
+    data = _post_json(
+        direct_url,
+        headers=direct_headers,
+        body=body,
+        timeout_seconds=config.timeout_seconds,
+    )
+
+    if config.mode == "shadow" or fallback_reason:
+        _best_effort_shadow_ingest(
+            config,
+            _build_openai_compatible_event(
+                provider_name=provider_name,
+                model=body["model"],
+                response=data,
+                config=config,
+                request_id=request_id,
+                source_name=source_name,
+                fallback_reason=fallback_reason,
+            ),
+        )
+
+    return {
+        "data": data,
+        "request_id": request_id,
+        "mode_used": config.mode,
+        "metered_via": "ingest" if (config.mode == "shadow" or fallback_reason) else "none",
+    }
+
+
+def _call_anthropic_direct(
     config: AdapterConfig,
     body: Dict[str, Any],
     provider_api_key: Optional[str],
     request_id: str,
     fallback_reason: Optional[str] = None,
 ) -> Dict[str, Any]:
-    _assert_provider_key(provider_api_key, "OpenAI")
+    _assert_provider_key(provider_api_key, "Anthropic")
     data = _post_json(
-        "https://api.openai.com/v1/chat/completions",
+        "https://api.anthropic.com/v1/messages",
         headers={
             "content-type": "application/json",
-            "authorization": f"Bearer {provider_api_key}",
+            "x-api-key": provider_api_key,
+            "anthropic-version": "2023-06-01",
         },
         body=body,
         timeout_seconds=config.timeout_seconds,
@@ -136,7 +347,7 @@ def _call_openai_direct(
     if config.mode == "shadow" or fallback_reason:
         _best_effort_shadow_ingest(
             config,
-            _build_openai_event(
+            _build_anthropic_event(
                 model=body["model"],
                 response=data,
                 config=config,
@@ -234,11 +445,13 @@ def _proxy_headers(config: AdapterConfig, request_id: str) -> Dict[str, str]:
     return headers
 
 
-def _build_openai_event(
+def _build_openai_compatible_event(
+    provider_name: str,
     model: str,
     response: Dict[str, Any],
     config: AdapterConfig,
     request_id: str,
+    source_name: str,
     fallback_reason: Optional[str] = None,
 ) -> Dict[str, Any]:
     usage = response.get("usage", {})
@@ -247,7 +460,7 @@ def _build_openai_event(
     total_tokens = int(usage.get("total_tokens", 0) or (input_tokens + output_tokens))
     return {
         "timestamp": _now_iso(),
-        "provider": "OpenAI",
+        "provider": provider_name,
         "model": model,
         "inputTokens": input_tokens,
         "outputTokens": output_tokens,
@@ -256,10 +469,42 @@ def _build_openai_event(
         "team": config.team,
         "agent": config.agent,
         "owner": config.owner,
-        "source": config.source or "shadow-openai",
+        "source": config.source or source_name,
+        "metadata": {
+          "requestId": request_id,
+          "upstreamId": response.get("id"),
+          "fallbackReason": fallback_reason,
+        },
+    }
+
+
+def _build_anthropic_event(
+    model: str,
+    response: Dict[str, Any],
+    config: AdapterConfig,
+    request_id: str,
+    fallback_reason: Optional[str] = None,
+) -> Dict[str, Any]:
+    usage = response.get("usage", {})
+    input_tokens = int(usage.get("input_tokens", 0) or 0)
+    output_tokens = int(usage.get("output_tokens", 0) or 0)
+    total_tokens = input_tokens + output_tokens
+    return {
+        "timestamp": _now_iso(),
+        "provider": "Anthropic",
+        "model": model,
+        "inputTokens": input_tokens,
+        "outputTokens": output_tokens,
+        "totalTokens": total_tokens,
+        "project": config.project,
+        "team": config.team,
+        "agent": config.agent,
+        "owner": config.owner,
+        "source": config.source or "shadow-anthropic",
         "metadata": {
             "requestId": request_id,
             "upstreamId": response.get("id"),
+            "stopReason": response.get("stop_reason"),
             "fallbackReason": fallback_reason,
         },
     }
@@ -318,8 +563,6 @@ def _assert_provider_key(value: Optional[str], provider_name: str) -> None:
 
 
 def _now_iso() -> str:
-    from datetime import datetime, timezone
-
     return datetime.now(timezone.utc).isoformat()
 
 
