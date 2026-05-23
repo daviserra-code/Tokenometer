@@ -18,6 +18,7 @@ import {
 } from "@/lib/integration-onboarding";
 import { PROVIDER_TESTS } from "@/lib/provider-tests";
 import { prisma } from "@/lib/prisma";
+import { ensureRuntimeProviderCatalog } from "@/lib/runtime-provider-catalog";
 
 import {
   deleteCredentialAction,
@@ -71,30 +72,12 @@ export default async function CredentialsPage({
   requireAdmin();
   const org = await prisma.organization.findFirst();
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
+  await ensureRuntimeProviderCatalog(org.id, org.currency);
 
   const resolvedSearchParams =
     searchParams && typeof (searchParams as Promise<SearchParams>).then === "function"
       ? await (searchParams as Promise<SearchParams>)
       : ((searchParams as SearchParams | undefined) ?? {});
-
-  // Idempotent runtime upsert so users on older seeds still see new providers.
-  for (const name of ["GitHub"] as const) {
-    await prisma.provider.upsert({
-      where: { name },
-      create: { name, type: "HOSTED" },
-      update: {},
-    });
-    const provider = await prisma.provider.findUnique({ where: { name } });
-    if (provider) {
-      await prisma.wallet.upsert({
-        where: {
-          organizationId_providerId: { organizationId: org.id, providerId: provider.id },
-        },
-        create: { organizationId: org.id, providerId: provider.id, currency: org.currency, balance: BigInt(0) },
-        update: {},
-      });
-    }
-  }
 
   const providers = await prisma.provider.findMany({ orderBy: { name: "asc" } });
   const creds = await prisma.providerCredential.findMany({
@@ -226,7 +209,7 @@ export default async function CredentialsPage({
             <QuickStep
               n="1"
               title="Vault one key"
-              body="Add one provider credential below. OpenAI or Gemini is the easiest first pass."
+              body="Add one provider credential below. OpenAI, Gemini, or DeepSeek is the easiest first pass."
             />
             <QuickStep
               n="2"
@@ -724,12 +707,12 @@ export default async function CredentialsPage({
             Requires an <strong>Admin API key</strong>.
           </li>
           <li>
-            <strong className="text-on-surface">Google &amp; Mistral</strong> - no public usage API, so Sync sends one
-            small real call against the upstream and meters the resulting tokens. For bulk metering, route your app
-            traffic through the BYOK proxy or import a CSV.
+            <strong className="text-on-surface">Google, Mistral, and DeepSeek</strong> - no public usage API, so Sync
+            sends one small real call against the upstream and meters the resulting tokens. For bulk metering, route
+            your app traffic through the BYOK proxy or import a CSV.
           </li>
           <li>
-            <strong className="text-on-surface">GitHub Models</strong> - paste a fine-grained PAT with the
+            <strong className="text-on-surface">GitHub Copilot / Models</strong> - paste a fine-grained PAT with the
             <code className="mx-1 rounded bg-surface-2 px-1">models:read</code> permission. Paid usage requires
             Copilot Pro+, Business, Enterprise, or pay-as-you-go enabled at github.com/settings/billing.
           </li>

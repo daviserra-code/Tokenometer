@@ -228,6 +228,62 @@ def call_mistral_chat(
     )
 
 
+def call_deepseek_chat(
+    config: AdapterConfig,
+    body: Dict[str, Any],
+    provider_api_key: Optional[str] = None,
+) -> Dict[str, Any]:
+    request_id = str(uuid.uuid4())
+
+    if config.mode == "proxy":
+        try:
+            data = _post_json(
+                f"{_trim(config.tokenometer_base_url)}/api/proxy/deepseek/chat/completions",
+                headers=_proxy_headers(config, request_id),
+                body=body,
+                timeout_seconds=config.timeout_seconds,
+            )
+            return {
+                "data": data,
+                "request_id": request_id,
+                "mode_used": "proxy",
+                "metered_via": "proxy",
+            }
+        except Exception:
+            if not config.allow_direct_fallback or not provider_api_key:
+                raise
+            result = _call_openai_compatible_direct(
+                config=config,
+                body=body,
+                provider_name="DeepSeek",
+                provider_api_key=provider_api_key,
+                direct_url="https://api.deepseek.com/chat/completions",
+                direct_headers={
+                    "content-type": "application/json",
+                    "authorization": f"Bearer {provider_api_key}",
+                },
+                request_id=request_id,
+                source_name="shadow-deepseek",
+                fallback_reason="proxy_unavailable",
+            )
+            result["mode_used"] = "proxy-fallback-direct"
+            return result
+
+    return _call_openai_compatible_direct(
+        config=config,
+        body=body,
+        provider_name="DeepSeek",
+        provider_api_key=provider_api_key,
+        direct_url="https://api.deepseek.com/chat/completions",
+        direct_headers={
+            "content-type": "application/json",
+            "authorization": f"Bearer {provider_api_key}",
+        },
+        request_id=request_id,
+        source_name="shadow-deepseek",
+    )
+
+
 def call_github_models_chat(
     config: AdapterConfig,
     body: Dict[str, Any],

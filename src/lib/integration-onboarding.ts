@@ -1,4 +1,4 @@
-export type ProviderSlug = "openai" | "anthropic" | "google" | "mistral" | "github";
+export type ProviderSlug = "openai" | "anthropic" | "google" | "mistral" | "deepseek" | "github";
 export type RolloutSlug = "observe" | "fallback" | "enforce";
 
 export type ProviderConfig = {
@@ -9,6 +9,7 @@ export type ProviderConfig = {
   live: string;
   streaming: string;
   model: string;
+  modelEnvVar: string;
   envVar: string;
   nodeFunction: string;
   pythonFunction: string;
@@ -37,6 +38,7 @@ export const INTEGRATION_PROVIDERS: ProviderConfig[] = [
     live: "Response usage",
     streaming: "Yes",
     model: "gpt-4o-mini",
+    modelEnvVar: "OPENAI_MODEL",
     envVar: "OPENAI_API_KEY",
     nodeFunction: "callOpenAiChat",
     pythonFunction: "call_openai_chat",
@@ -51,6 +53,7 @@ export const INTEGRATION_PROVIDERS: ProviderConfig[] = [
     live: "Response usage",
     streaming: "Yes",
     model: "claude-3-5-haiku-latest",
+    modelEnvVar: "ANTHROPIC_MODEL",
     envVar: "ANTHROPIC_API_KEY",
     nodeFunction: "callAnthropicMessages",
     pythonFunction: "call_anthropic_messages",
@@ -65,6 +68,7 @@ export const INTEGRATION_PROVIDERS: ProviderConfig[] = [
     live: "Response usage",
     streaming: "Soon",
     model: "gemini-2.0-flash",
+    modelEnvVar: "GEMINI_MODEL",
     envVar: "GEMINI_API_KEY",
     nodeFunction: "callGeminiGenerateContent",
     pythonFunction: "call_gemini_generate_content",
@@ -79,11 +83,27 @@ export const INTEGRATION_PROVIDERS: ProviderConfig[] = [
     live: "Response usage",
     streaming: "Yes",
     model: "mistral-small-latest",
+    modelEnvVar: "MISTRAL_MODEL",
     envVar: "MISTRAL_API_KEY",
     nodeFunction: "callMistralChat",
     pythonFunction: "call_mistral_chat",
     defaultProject: "ops-assistant",
     defaultAgent: "mistral-worker",
+  },
+  {
+    slug: "deepseek",
+    name: "DeepSeek",
+    endpoint: "/api/proxy/deepseek/chat/completions",
+    historical: "No public usage API",
+    live: "Response usage",
+    streaming: "Yes",
+    model: "deepseek-v4-flash",
+    modelEnvVar: "DEEPSEEK_MODEL",
+    envVar: "DEEPSEEK_API_KEY",
+    nodeFunction: "callDeepSeekChat",
+    pythonFunction: "call_deepseek_chat",
+    defaultProject: "coding-agent",
+    defaultAgent: "deepseek-worker",
   },
   {
     slug: "github",
@@ -93,6 +113,7 @@ export const INTEGRATION_PROVIDERS: ProviderConfig[] = [
     live: "Response usage",
     streaming: "Yes",
     model: "openai/gpt-4o-mini",
+    modelEnvVar: "GITHUB_MODEL",
     envVar: "GITHUB_MODELS_API_KEY",
     nodeFunction: "callGitHubModelsChat",
     pythonFunction: "call_github_models_chat",
@@ -194,11 +215,7 @@ export function envBlock(appUrl: string, provider: ProviderConfig, rollout: Roll
     lines.push(`TOKENOMETER_INGEST_SECRET=your_ingest_secret_here`);
   }
 
-  if (provider.slug === "google") {
-    lines.push(`GEMINI_MODEL=${provider.model}`);
-  } else {
-    lines.push(`OPENMODEL_NAME=${provider.model}`);
-  }
+  lines.push(`${provider.modelEnvVar}=${provider.model}`);
 
   if (rollout.slug !== "enforce") {
     lines.push(`TOKENOMETER_ALLOW_DIRECT_FALLBACK=${rollout.fallbackAllowed ? "true" : "false"}`);
@@ -208,7 +225,8 @@ export function envBlock(appUrl: string, provider: ProviderConfig, rollout: Roll
 }
 
 export function nodeSnippet(provider: ProviderConfig, rollout: RolloutConfig) {
-  const body = providerNodeBody(provider);
+  const modelExpression = `process.env.${provider.modelEnvVar} || "${provider.model}"`;
+  const body = providerNodeBody(provider, modelExpression);
   const providerKeyArg = rollout.requiresProviderKeyInApp
     ? `,
   process.env.${provider.envVar}`
@@ -216,7 +234,7 @@ export function nodeSnippet(provider: ProviderConfig, rollout: RolloutConfig) {
 
   const invocation =
     provider.slug === "google"
-      ? `const result = await ${provider.nodeFunction}(config, process.env.GEMINI_MODEL || "${provider.model}", ${body}${providerKeyArg});`
+      ? `const result = await ${provider.nodeFunction}(config, ${modelExpression}, ${body}${providerKeyArg});`
       : `const result = await ${provider.nodeFunction}(config, ${body}${providerKeyArg});`;
 
   return `import {
@@ -239,7 +257,8 @@ console.log(result.requestId, result.modeUsed, result.meteredVia);`;
 }
 
 export function pythonSnippet(provider: ProviderConfig, rollout: RolloutConfig) {
-  const body = providerPythonBody(provider);
+  const modelExpression = `os.environ.get("${provider.modelEnvVar}", "${provider.model}")`;
+  const body = providerPythonBody(provider, modelExpression);
   const providerKeyArg = rollout.requiresProviderKeyInApp
     ? `,
     provider_api_key=os.environ.get("${provider.envVar}")`
@@ -249,7 +268,7 @@ export function pythonSnippet(provider: ProviderConfig, rollout: RolloutConfig) 
     provider.slug === "google"
       ? `result = ${provider.pythonFunction}(
     config=config,
-    model=os.environ.get("GEMINI_MODEL", "${provider.model}"),
+    model=${modelExpression},
     body=${body}${providerKeyArg},
 )`
       : `result = ${provider.pythonFunction}(
@@ -312,10 +331,10 @@ export function buildRolloutChecklist(provider: ProviderConfig, rollout: Rollout
   ];
 }
 
-function providerNodeBody(provider: ProviderConfig) {
+function providerNodeBody(provider: ProviderConfig, modelExpression: string) {
   if (provider.slug === "anthropic") {
     return `{
-  model: "${provider.model}",
+  model: ${modelExpression},
   max_tokens: 120,
   messages: [{ role: "user", content: "Summarize our onboarding status in one sentence." }],
 }`;
@@ -333,15 +352,15 @@ function providerNodeBody(provider: ProviderConfig) {
   }
 
   return `{
-  model: "${provider.model}",
+  model: ${modelExpression},
   messages: [{ role: "user", content: "Summarize our onboarding status in one sentence." }],
 }`;
 }
 
-function providerPythonBody(provider: ProviderConfig) {
+function providerPythonBody(provider: ProviderConfig, modelExpression: string) {
   if (provider.slug === "anthropic") {
     return `{
-        "model": "${provider.model}",
+        "model": ${modelExpression},
         "max_tokens": 120,
         "messages": [{"role": "user", "content": "Summarize our onboarding status in one sentence."}],
     }`;
@@ -359,7 +378,7 @@ function providerPythonBody(provider: ProviderConfig) {
   }
 
   return `{
-        "model": "${provider.model}",
+        "model": ${modelExpression},
         "messages": [{"role": "user", "content": "Summarize our onboarding status in one sentence."}],
     }`;
 }

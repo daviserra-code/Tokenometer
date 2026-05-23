@@ -1,6 +1,6 @@
 import type { LanguageModel } from "ai";
 
-export type CopilotProvider = "openai" | "anthropic" | "google" | "mistral" | "github";
+export type CopilotProvider = "openai" | "anthropic" | "google" | "mistral" | "deepseek" | "github";
 
 export type CopilotConfig = {
   provider: CopilotProvider;
@@ -17,8 +17,8 @@ export type CopilotConfig = {
 export function resolveCopilotConfig(): CopilotConfig {
   const explicit = (process.env.AI_PROVIDER ?? "").toLowerCase() as CopilotProvider;
   const order: CopilotProvider[] = explicit
-    ? [explicit, "openai", "anthropic", "google", "mistral", "github"]
-    : ["openai", "anthropic", "google", "mistral", "github"];
+    ? [explicit, "openai", "anthropic", "google", "mistral", "deepseek", "github"]
+    : ["openai", "anthropic", "google", "mistral", "deepseek", "github"];
 
   for (const provider of order) {
     if (provider === "openai" && process.env.OPENAI_API_KEY) {
@@ -49,7 +49,14 @@ export function resolveCopilotConfig(): CopilotConfig {
         configured: true,
       };
     }
-    if (provider === "github" && process.env.GITHUB_TOKEN) {
+    if (provider === "deepseek" && process.env.DEEPSEEK_API_KEY) {
+      return {
+        provider,
+        modelId: process.env.DEEPSEEK_MODEL ?? "deepseek-v4-flash",
+        configured: true,
+      };
+    }
+    if (provider === "github" && (process.env.GITHUB_MODELS_API_KEY || process.env.GITHUB_TOKEN)) {
       return {
         provider,
         modelId: process.env.GITHUB_MODEL ?? "openai/gpt-4o-mini",
@@ -63,7 +70,7 @@ export function resolveCopilotConfig(): CopilotConfig {
     modelId: "",
     configured: false,
     reason:
-      "No AI provider key found. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, MISTRAL_API_KEY, or GITHUB_TOKEN in .env.",
+      "No AI provider key found. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, MISTRAL_API_KEY, DEEPSEEK_API_KEY, or GITHUB_MODELS_API_KEY/GITHUB_TOKEN in .env.",
   };
 }
 
@@ -85,12 +92,18 @@ export async function getCopilotModel(cfg: CopilotConfig): Promise<LanguageModel
       const { mistral } = await import("@ai-sdk/mistral");
       return mistral(cfg.modelId);
     }
-    case "github": {
-      // GitHub Models is OpenAI-compatible — reuse the OpenAI adapter with a
-      // custom baseURL and the user's PAT (GITHUB_TOKEN).
+    case "deepseek": {
       const { createOpenAI } = await import("@ai-sdk/openai");
       const provider = createOpenAI({
-        apiKey: process.env.GITHUB_TOKEN ?? "",
+        apiKey: process.env.DEEPSEEK_API_KEY ?? "",
+        baseURL: "https://api.deepseek.com",
+      });
+      return provider(cfg.modelId);
+    }
+    case "github": {
+      const { createOpenAI } = await import("@ai-sdk/openai");
+      const provider = createOpenAI({
+        apiKey: process.env.GITHUB_MODELS_API_KEY ?? process.env.GITHUB_TOKEN ?? "",
         baseURL: "https://models.github.ai/inference",
       });
       return provider(cfg.modelId);

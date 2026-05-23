@@ -148,6 +148,16 @@ async function main() {
       ],
     },
     {
+      name: "DeepSeek",
+      type: ProviderType.HOSTED,
+      models: [
+        { name: "deepseek-v4-flash",    ctx: 1000000, in: 0.14,  out: 0.28 },
+        { name: "deepseek-v4-pro",      ctx: 1000000, in: 0.435, out: 0.87 },
+        { name: "deepseek-chat",        ctx: 1000000, in: 0.14,  out: 0.28 },
+        { name: "deepseek-reasoner",    ctx: 1000000, in: 0.14,  out: 0.28 },
+      ],
+    },
+    {
       name: "Self-hosted Llama",
       type: ProviderType.SELF_HOSTED,
       models: [
@@ -327,6 +337,7 @@ async function main() {
     Anthropic: 40_000_000n,
     Google: 35_000_000n,
     Mistral: 20_000_000n,
+    DeepSeek: 18_000_000n,
     "Self-hosted Llama": 80_000_000n,
     GitHub: 25_000_000n,
   };

@@ -26,6 +26,7 @@ export type OpenAiConfig = ProviderKeyConfig;
 export type AnthropicConfig = ProviderKeyConfig;
 export type GeminiConfig = ProviderKeyConfig;
 export type MistralConfig = ProviderKeyConfig;
+export type DeepSeekConfig = ProviderKeyConfig;
 export type GitHubModelsConfig = ProviderKeyConfig;
 
 export type MeteredResult<T> = {
@@ -212,6 +213,56 @@ export async function callMistralChat<T = unknown>(
   });
 }
 
+export async function callDeepSeekChat<T = unknown>(
+  config: DeepSeekConfig,
+  body: OpenAiChatBody
+): Promise<MeteredResult<T>> {
+  const requestId = crypto.randomUUID();
+
+  if (config.mode === "proxy") {
+    try {
+      const data = await postJson<T>({
+        url: `${trimSlash(config.tokenometerBaseUrl)}/api/proxy/deepseek/chat/completions`,
+        headers: proxyHeaders(config, requestId),
+        body,
+        timeoutMs: config.timeoutMs,
+      });
+      return { data, requestId, modeUsed: "proxy", meteredVia: "proxy" };
+    } catch (error) {
+      if (!config.allowDirectFallback || !config.providerApiKey) {
+        throw error;
+      }
+      const direct = await callOpenAiCompatibleDirect<T>({
+        config,
+        body,
+        requestId,
+        providerName: "DeepSeek",
+        directUrl: "https://api.deepseek.com/chat/completions",
+        directHeaders: {
+          "content-type": "application/json",
+          authorization: `Bearer ${config.providerApiKey}`,
+        },
+        sourceName: "shadow-deepseek",
+        fallbackReason: "proxy_unavailable",
+      });
+      return { ...direct, modeUsed: "proxy-fallback-direct" };
+    }
+  }
+
+  return callOpenAiCompatibleDirect<T>({
+    config,
+    body,
+    requestId,
+    providerName: "DeepSeek",
+    directUrl: "https://api.deepseek.com/chat/completions",
+    directHeaders: {
+      "content-type": "application/json",
+      authorization: `Bearer ${config.providerApiKey}`,
+    },
+    sourceName: "shadow-deepseek",
+  });
+}
+
 export async function callGitHubModelsChat<T = unknown>(
   config: GitHubModelsConfig,
   body: OpenAiChatBody
@@ -275,7 +326,7 @@ async function callOpenAiCompatibleDirect<T>({
   config: ProviderKeyConfig;
   body: OpenAiChatBody;
   requestId: string;
-  providerName: "OpenAI" | "Mistral" | "GitHub";
+  providerName: "OpenAI" | "Mistral" | "DeepSeek" | "GitHub";
   directUrl: string;
   directHeaders: Record<string, string>;
   sourceName: string;
@@ -411,7 +462,7 @@ function proxyHeaders(config: AdapterConfig, requestId: string) {
 }
 
 function buildOpenAiCompatibleEvent(
-  providerName: "OpenAI" | "Mistral" | "GitHub",
+  providerName: "OpenAI" | "Mistral" | "DeepSeek" | "GitHub",
   model: string,
   response: unknown,
   config: AdapterConfig,

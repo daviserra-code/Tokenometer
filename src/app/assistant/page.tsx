@@ -24,9 +24,10 @@ export default function AssistantPage() {
           <code className="font-mono">ANTHROPIC_API_KEY</code>,{" "}
           <code className="font-mono">GOOGLE_GENERATIVE_AI_API_KEY</code>,{" "}
           <code className="font-mono">MISTRAL_API_KEY</code>, or{" "}
-          <code className="font-mono">GITHUB_TOKEN</code> to your{" "}
+          <code className="font-mono">DEEPSEEK_API_KEY</code>, or{" "}
+          <code className="font-mono">GITHUB_MODELS_API_KEY</code>/<code className="font-mono">GITHUB_TOKEN</code> to your{" "}
           <code className="font-mono">.env</code> and restart the dev server. Optionally pin a
-          provider with <code className="font-mono">AI_PROVIDER=openai|anthropic|google|mistral|github</code>.
+          provider with <code className="font-mono">AI_PROVIDER=openai|anthropic|google|mistral|deepseek|github</code>.
         </div>
       )}
 

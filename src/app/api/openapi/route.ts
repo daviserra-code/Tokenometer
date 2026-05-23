@@ -177,9 +177,26 @@ export async function GET(req: Request) {
           responses: { "200": { description: "Upstream Mistral response (passed through)" } },
         },
       },
+      "/api/proxy/deepseek/chat/completions": {
+        post: {
+          summary: "BYOK proxy for DeepSeek chat completions",
+          description:
+            "Forwards to api.deepseek.com using the vaulted DeepSeek credential. OpenAI-compatible request shape. Streaming is supported and responses expose X-Request-Id for tracing.",
+          security: [{ IngestKey: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { type: "object", description: "Standard DeepSeek chat completion request" },
+              },
+            },
+          },
+          responses: { "200": { description: "Upstream DeepSeek response (passed through)" } },
+        },
+      },
       "/api/proxy/github/chat/completions": {
         post: {
-          summary: "BYOK proxy for GitHub Models",
+          summary: "BYOK proxy for GitHub Models / Copilot-backed models",
           description:
             "Forwards to models.github.ai/inference using a vaulted GitHub PAT (`models:read` scope). OpenAI-compatible. Model names use `<publisher>/<model>` form, e.g. `openai/gpt-4o-mini`. Streaming is supported and responses expose X-Request-Id for tracing.",
           security: [{ IngestKey: [] }],

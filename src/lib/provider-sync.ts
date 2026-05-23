@@ -18,7 +18,7 @@ export type SyncResult = {
  * insert UsageEvent rows. No curl required.
  *
  * Supported: OpenAI (admin key), Anthropic (admin key).
- * Not supported (no public usage API): Google Gemini, Mistral.
+ * Not supported (no public usage API): Google Gemini, Mistral, DeepSeek, GitHub Models.
  */
 export async function syncProviderUsage(credentialId: string, days = 7): Promise<SyncResult> {
   const cred = await prisma.providerCredential.findUnique({
@@ -46,6 +46,8 @@ export async function syncProviderUsage(credentialId: string, days = 7): Promise
       return pingGoogle(cred.id, cred.label, cred.organizationId, provider.id, plaintext);
     case "Mistral":
       return pingMistral(cred.id, cred.label, cred.organizationId, provider.id, plaintext);
+    case "DeepSeek":
+      return pingDeepSeek(cred.id, cred.label, cred.organizationId, provider.id, plaintext);
     case "GitHub":
       return pingGitHub(cred.id, cred.label, cred.organizationId, provider.id, plaintext);
     default:
@@ -582,6 +584,85 @@ async function pingMistral(
       inserted: 0,
       skipped: 0,
       error: `Mistral ping failed: ${(e as Error).message}`,
+    };
+  }
+}
+
+async function pingDeepSeek(
+  credentialId: string,
+  label: string,
+  organizationId: string,
+  providerId: string,
+  apiKey: string
+): Promise<SyncResult> {
+  const modelName = process.env.DEEPSEEK_MODEL ?? "deepseek-v4-flash";
+  try {
+    const res = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: modelName,
+        max_tokens: 5,
+        messages: [{ role: "user", content: "ping" }],
+      }),
+    });
+    const json = (await res.json()) as {
+      usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+      error?: { message?: string } | string;
+      message?: string;
+    };
+    if (!res.ok) {
+      const errMsg =
+        typeof json.error === "string"
+          ? json.error
+          : json.error?.message ?? json.message ?? "rejected the call";
+      return {
+        ok: false,
+        provider: "DeepSeek",
+        credentialId,
+        label,
+        inserted: 0,
+        skipped: 0,
+        error: `DeepSeek ${res.status}: ${errMsg}`,
+      };
+    }
+    const inT = json.usage?.prompt_tokens ?? 1;
+    const outT = json.usage?.completion_tokens ?? 1;
+    const written = await upsertSyncedUsage({
+      organizationId,
+      providerId,
+      modelName,
+      timestamp: new Date(),
+      source: "provider-sync:deepseek",
+      inputTokens: inT,
+      outputTokens: outT,
+      requests: 1,
+    });
+    await prisma.providerCredential.update({
+      where: { id: credentialId },
+      data: { lastUsedAt: new Date() },
+    });
+    return {
+      ok: true,
+      provider: "DeepSeek",
+      credentialId,
+      label,
+      inserted: written ? 1 : 0,
+      skipped: written ? 0 : 1,
+      message: `DeepSeek has no public usage API, so we sent a real ${inT}+${outT} token call to ${modelName} and metered it. Use the BYOK proxy for bulk metering.`,
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      provider: "DeepSeek",
+      credentialId,
+      label,
+      inserted: 0,
+      skipped: 0,
+      error: `DeepSeek ping failed: ${(e as Error).message}`,
     };
   }
 }

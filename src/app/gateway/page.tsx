@@ -27,6 +27,7 @@ import {
   recommendMode,
 } from "@/lib/integration-onboarding";
 import { prisma } from "@/lib/prisma";
+import { ensureRuntimeProviderCatalog } from "@/lib/runtime-provider-catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +67,8 @@ export default async function GatewayPage({
       </div>
     );
   }
+
+  await ensureRuntimeProviderCatalog(org.id, org.currency);
 
   const resolvedSearchParams =
     searchParams && typeof (searchParams as Promise<SearchParams>).then === "function"
