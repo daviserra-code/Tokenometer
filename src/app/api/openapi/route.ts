@@ -5,7 +5,12 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const baseUrl = `${url.protocol}//${url.host}`;
+  const forwardedProto = req.headers.get("x-forwarded-proto");
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const baseUrl =
+    forwardedProto && forwardedHost
+      ? `${forwardedProto}://${forwardedHost}`
+      : `${url.protocol}//${url.host}`;
 
   const spec = {
     openapi: "3.1.0",
