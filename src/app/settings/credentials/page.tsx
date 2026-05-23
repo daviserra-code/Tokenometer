@@ -5,6 +5,17 @@ import { Card, PageHeader } from "@/components/Card";
 import { ProviderChip } from "@/components/ProviderChip";
 import { requireAdmin } from "@/lib/auth";
 import { formatDateTime, formatRelativeTime } from "@/lib/format";
+import {
+  buildGatewayHref,
+  envBlock,
+  getNextAction,
+  getProviderConfig,
+  getRolloutConfig,
+  INTEGRATION_PROVIDERS,
+  INTEGRATION_ROLLOUTS,
+  type ProviderSlug,
+  type RolloutSlug,
+} from "@/lib/integration-onboarding";
 import { PROVIDER_TESTS } from "@/lib/provider-tests";
 import { prisma } from "@/lib/prisma";
 
@@ -35,10 +46,36 @@ type VerificationFlashState = {
   timestamp: string;
 };
 
-export default async function CredentialsPage() {
+type SearchParams = {
+  provider?: string;
+  mode?: string;
+};
+
+type IntegrationStatusRow = {
+  key: string;
+  provider: string;
+  integrationName: string;
+  project: string;
+  agent: string;
+  source: string;
+  model: string;
+  lastSeen: Date;
+  calls: number;
+};
+
+export default async function CredentialsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<SearchParams> | SearchParams;
+}) {
   requireAdmin();
   const org = await prisma.organization.findFirst();
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
+
+  const resolvedSearchParams =
+    searchParams && typeof (searchParams as Promise<SearchParams>).then === "function"
+      ? await (searchParams as Promise<SearchParams>)
+      : ((searchParams as SearchParams | undefined) ?? {});
 
   // Idempotent runtime upsert so users on older seeds still see new providers.
   for (const name of ["GitHub"] as const) {
@@ -75,7 +112,7 @@ export default async function CredentialsPage() {
     },
     orderBy: { timestamp: "desc" },
     take: 50,
-    include: { provider: true },
+    include: { provider: true, model: true, project: true, team: true },
   });
 
   const providerById = Object.fromEntries(providers.map((provider) => [provider.id, provider]));
@@ -94,6 +131,23 @@ export default async function CredentialsPage() {
     }
   }
   const latestProxyEvent = recentProxyEvents[0] ?? null;
+  const selectedProvider = getProviderConfig(resolvedSearchParams.provider);
+  const selectedRollout = getRolloutConfig(resolvedSearchParams.mode);
+  const selectedCredential = credentialByProvider.get(selectedProvider.name);
+  const selectedLatestEvent = latestProxyByProvider.get(selectedProvider.name);
+  const shadowReady = Boolean(ingest?.secret || ingest?.encryptedSecret || ingest?.secretHint);
+  const modeReady =
+    Boolean(ingest) &&
+    (!selectedRollout.requiresProviderKeyInApp || Boolean(selectedCredential)) &&
+    (!selectedRollout.requiresIngestSecret || shadowReady);
+  const nextAction = getNextAction({
+    ingestReady: Boolean(ingest),
+    providerKeyReady: Boolean(selectedCredential),
+    shadowReady,
+    latestEventReady: Boolean(selectedLatestEvent),
+    rollout: selectedRollout,
+  });
+  const integrationRows = buildIntegrationRows(recentProxyEvents);
 
   const flashRaw = cookies().get("sync-flash")?.value;
   const verificationRaw = cookies().get("verification-flash")?.value;
@@ -210,6 +264,122 @@ export default async function CredentialsPage() {
             {latestProxyEvent
               ? "Good sign: Tokenometer has already seen live proxy traffic. You can keep testing with more providers or move to app integration."
               : "No live request has landed yet. The next move is simple: ensure ingest exists, then hit Test on one credential."}
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.35fr,1fr]">
+        <Card
+          title="App setup generator"
+          description="Pick the provider and rollout mode you want to wire next. This keeps setup, testing, and app rollout in one place."
+          action={
+            <Link
+              href={buildGatewayHref(selectedProvider.slug, selectedRollout.slug)}
+              className="rounded-lg border border-primary/40 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10"
+            >
+              Open full gateway flow
+            </Link>
+          }
+        >
+          <div className="space-y-4">
+            <div>
+              <div className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-text-muted">Provider</div>
+              <div className="flex flex-wrap gap-2">
+                {INTEGRATION_PROVIDERS.map((provider) => (
+                  <ChoiceLink
+                    key={provider.slug}
+                    href={buildCredentialsHref(provider.slug, selectedRollout.slug)}
+                    active={provider.slug === selectedProvider.slug}
+                    label={provider.name}
+                    sublabel={provider.model}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-text-muted">Rollout mode</div>
+              <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
+                {INTEGRATION_ROLLOUTS.map((rollout) => (
+                  <ChoiceLink
+                    key={rollout.slug}
+                    href={buildCredentialsHref(selectedProvider.slug, rollout.slug)}
+                    active={rollout.slug === selectedRollout.slug}
+                    label={rollout.label}
+                    sublabel={rollout.bestFor}
+                    block
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.2fr,1fr]">
+              <div className="rounded-lg border border-border-subtle bg-background p-4">
+                <div className="flex items-center gap-2">
+                  <ProviderChip name={selectedProvider.name} />
+                  <strong className="text-on-surface">{selectedRollout.label}</strong>
+                </div>
+                <p className="mt-2 text-sm text-text-muted">{selectedRollout.promise}</p>
+                <pre className="mt-3 overflow-auto rounded-lg border border-border-subtle bg-surface-2 p-3 font-mono text-[12px] leading-relaxed text-text-muted">
+                  {envBlock(
+                    process.env.NEXT_PUBLIC_APP_URL ?? "https://www.tokenometer.cloud",
+                    selectedProvider,
+                    selectedRollout,
+                    ingest?.name ?? "Default",
+                  )}
+                </pre>
+              </div>
+
+              <div className="rounded-lg border border-border-subtle bg-background p-4">
+                <div className="space-y-2 text-sm">
+                  <StatusRow
+                    label="Vaulted key"
+                    value={selectedCredential ? `${selectedCredential.label} / ****${selectedCredential.keyHint}` : "Missing"}
+                    ok={Boolean(selectedCredential)}
+                  />
+                  <StatusRow label="Ingest source" value={ingest ? ingest.name : "Missing"} ok={Boolean(ingest)} />
+                  <StatusRow
+                    label="Latest live event"
+                    value={selectedLatestEvent ? formatRelativeTime(selectedLatestEvent) : "None yet"}
+                    ok={Boolean(selectedLatestEvent)}
+                  />
+                  <StatusRow
+                    label="Mode readiness"
+                    value={modeReady ? "Ready to wire" : "Needs one setup step"}
+                    ok={modeReady}
+                  />
+                </div>
+                <div className="mt-3 rounded-lg border border-border-subtle bg-surface-2 p-3 text-[12px] text-text-muted">
+                  <strong className="block text-on-surface">Best next move</strong>
+                  <span className="mt-1 block">{nextAction}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card title="What each secret really does">
+          <div className="space-y-3 text-sm text-text-muted">
+            <SecretMeaning
+              title={`${selectedProvider.envVar}`}
+              body={
+                selectedRollout.requiresProviderKeyInApp
+                  ? "Lives in your app when you are in Observe only or Observe + fallback mode."
+                  : "Can stay vaulted inside Tokenometer once you move to Enforce through Tokenometer."
+              }
+            />
+            <SecretMeaning
+              title="TOKENOMETER_INGEST_KEY"
+              body="Identifies the app to Tokenometer. This is required for every gateway path."
+            />
+            <SecretMeaning
+              title="TOKENOMETER_INGEST_SECRET"
+              body="Only needed for Observe only, where the app signs the post-call usage event."
+            />
+            <SecretMeaning
+              title="TOKENOMETER_PROJECT + TOKENOMETER_AGENT"
+              body="These are the names that make later spend views understandable. Think app/workload and worker/bot."
+            />
           </div>
         </Card>
       </div>
@@ -475,6 +645,65 @@ export default async function CredentialsPage() {
         </Card>
       </div>
 
+      <Card
+        title="Integration activity by app"
+        description="This is the early version of named integrations. For now it is derived from live traffic using project, agent, workflow, owner, and source."
+        noPadding
+      >
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="text-[12px] uppercase tracking-wider text-text-muted">
+              <tr>
+                <th className="px-4 py-3 text-left">Integration</th>
+                <th className="px-4 py-3 text-left">Provider</th>
+                <th className="px-4 py-3 text-left">Model</th>
+                <th className="px-4 py-3 text-left">Last seen</th>
+                <th className="px-4 py-3 text-left">Calls</th>
+                <th className="px-4 py-3 text-left">Next action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-subtle">
+              {integrationRows.map((row) => (
+                <tr key={row.key}>
+                  <td className="px-4 py-3">
+                    <div className="space-y-1">
+                      <strong className="block text-on-surface">{row.integrationName}</strong>
+                      <div className="text-[12px] text-text-muted">
+                        Project: {row.project} | Agent: {row.agent}
+                      </div>
+                      <div className="text-[12px] text-text-muted">Source: {row.source}</div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <ProviderChip name={row.provider} />
+                  </td>
+                  <td className="px-4 py-3 text-text-muted">{row.model}</td>
+                  <td className="px-4 py-3 text-text-muted">
+                    {formatDateTime(row.lastSeen)} ({formatRelativeTime(row.lastSeen)})
+                  </td>
+                  <td className="px-4 py-3 text-text-muted">{row.calls}</td>
+                  <td className="px-4 py-3">
+                    <Link
+                      href={buildGatewayHref(providerNameToSlug(row.provider), row.calls > 0 ? "fallback" : "observe")}
+                      className="text-xs font-semibold text-primary hover:underline"
+                    >
+                      Open {row.provider} onboarding
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+              {integrationRows.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-6 text-center text-text-muted">
+                    No live app traffic yet. Run a guided test first, then route one real app through Tokenometer.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
       <Card title="How test and sync behave">
         <ul className="space-y-2 text-sm text-text-muted">
           <li>
@@ -571,4 +800,101 @@ function VerifyLink({ href, title, body }: { href: string; title: string; body: 
       <span className="mt-1 block text-[12px] text-text-muted">{body}</span>
     </Link>
   );
+}
+
+function ChoiceLink({
+  href,
+  active,
+  label,
+  sublabel,
+  block = false,
+}: {
+  href: string;
+  active: boolean;
+  label: string;
+  sublabel: string;
+  block?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={[
+        "rounded-lg border px-3 py-3 transition",
+        block ? "block" : "inline-flex items-center gap-3",
+        active
+          ? "border-primary bg-primary/10 text-on-surface"
+          : "border-border-subtle bg-background text-text-muted hover:border-primary/40 hover:bg-surface-2",
+      ].join(" ")}
+    >
+      <span className="block font-semibold">{label}</span>
+      <span className="block text-[12px] text-text-muted">{sublabel}</span>
+    </Link>
+  );
+}
+
+function SecretMeaning({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-lg border border-border-subtle bg-background p-3">
+      <strong className="block text-on-surface">{title}</strong>
+      <span className="mt-1 block text-[12px] text-text-muted">{body}</span>
+    </div>
+  );
+}
+
+function buildCredentialsHref(provider: ProviderSlug, mode: RolloutSlug) {
+  return `/settings/credentials?provider=${provider}&mode=${mode}`;
+}
+
+function providerNameToSlug(providerName: string): ProviderSlug {
+  const found = INTEGRATION_PROVIDERS.find((provider) => provider.name === providerName);
+  return found?.slug ?? "openai";
+}
+
+function buildIntegrationRows(
+  events: Array<{
+    provider: { name: string };
+    model: { name: string };
+    project: { name: string } | null;
+    team: { name: string } | null;
+    source: string | null;
+    agentName: string | null;
+    workflowName: string | null;
+    requestOwner: string | null;
+    timestamp: Date;
+  }>,
+): IntegrationStatusRow[] {
+  const grouped = new Map<string, IntegrationStatusRow>();
+
+  for (const event of events) {
+    const project = event.project?.name ?? event.requestOwner ?? event.workflowName ?? event.team?.name ?? "Unassigned";
+    const agent = event.agentName ?? "Unknown agent";
+    const source = event.source ?? "byok-proxy";
+    const integrationName = event.workflowName ?? event.requestOwner ?? `${project} / ${agent}`;
+    const key = [event.provider.name, project, agent, source].join("|");
+    const existing = grouped.get(key);
+
+    if (existing) {
+      existing.calls += 1;
+      if (event.timestamp > existing.lastSeen) {
+        existing.lastSeen = event.timestamp;
+        existing.model = event.model.name;
+        existing.integrationName = integrationName;
+      }
+      continue;
+    }
+
+    grouped.set(key, {
+      key,
+      provider: event.provider.name,
+      integrationName,
+      project,
+      agent,
+      source,
+      model: event.model.name,
+      lastSeen: event.timestamp,
+      calls: 1,
+    });
+  }
+
+  return Array.from(grouped.values()).sort((a, b) => b.lastSeen.getTime() - a.lastSeen.getTime());
 }
