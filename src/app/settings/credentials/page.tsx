@@ -2,9 +2,11 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 
 import { Card, PageHeader } from "@/components/Card";
+import { KpiCard } from "@/components/KpiCard";
 import { ProviderChip } from "@/components/ProviderChip";
 import { requireAdmin } from "@/lib/auth";
 import { formatDateTime, formatRelativeTime } from "@/lib/format";
+import { evaluateIntegrationHealth, healthToneClasses } from "@/lib/integration-health";
 import {
   buildGatewayHref,
   envBlock,
@@ -159,6 +161,43 @@ export default async function CredentialsPage({
     rollout: selectedRollout,
   });
   const integrationRows = buildIntegrationRows(recentProxyEvents);
+  const fallbackCredentialByProvider = new Map<string, (typeof creds)[number]>();
+  for (const credential of creds) {
+    const providerName = providerById[credential.providerId]?.name;
+    if (providerName && !fallbackCredentialByProvider.has(providerName)) {
+      fallbackCredentialByProvider.set(providerName, credential);
+    }
+  }
+  const namedIntegrationRows = integrations.map((integration) => ({
+    integration,
+    health: evaluateIntegrationHealth({
+      name: integration.name,
+      mode: integration.mode,
+      active: integration.active,
+      lastSeenAt: integration.lastSeenAt,
+      environment: integration.environment,
+      teamId: integration.teamId,
+      project: integration.project
+        ? { id: integration.project.id, name: integration.project.name, teamId: integration.project.teamId }
+        : null,
+      provider: { name: integration.provider.name },
+      credential: integration.credential,
+      ingestSource: integration.ingestSource,
+      fallbackCredential: fallbackCredentialByProvider.get(integration.provider.name) ?? null,
+      fallbackIngestSource: ingest,
+    }),
+  }));
+  const healthCounts = namedIntegrationRows.reduce(
+    (acc, row) => {
+      acc[row.health.status] += 1;
+      return acc;
+    },
+    { healthy: 0, attention: 0, stale: 0, broken: 0, paused: 0 } as Record<
+      "healthy" | "attention" | "stale" | "broken" | "paused",
+      number
+    >,
+  );
+  const topNamedIntegrationRows = namedIntegrationRows.slice(0, 6);
 
   const flashRaw = cookies().get("sync-flash")?.value;
   const verificationRaw = cookies().get("verification-flash")?.value;
@@ -219,6 +258,14 @@ export default async function CredentialsPage({
           </div>
         </div>
       )}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <KpiCard label="Healthy apps" value={String(healthCounts.healthy)} hint="named integrations ready to use" icon="verified" tone="success" />
+        <KpiCard label="Attention" value={String(healthCounts.attention)} hint="usable, but still worth checking" icon="notification_important" tone="warning" />
+        <KpiCard label="Stale" value={String(healthCounts.stale)} hint="no recent traffic" icon="schedule" tone="input" />
+        <KpiCard label="Needs fixing" value={String(healthCounts.broken)} hint="blocked by setup issues" icon="error" tone="danger" />
+        <KpiCard label="Paused" value={String(healthCounts.paused)} hint="intentionally inactive" icon="pause_circle" />
+      </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.6fr,1fr]">
         <Card
@@ -425,7 +472,7 @@ export default async function CredentialsPage({
         }
       >
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          {integrations.slice(0, 6).map((integration) => (
+          {topNamedIntegrationRows.map(({ integration, health }) => (
             <Link
               key={integration.id}
               href={buildCredentialsHref(
@@ -440,6 +487,11 @@ export default async function CredentialsPage({
                   <div className="flex items-center gap-2">
                     <ProviderChip name={integration.provider.name} />
                     <strong className="text-on-surface">{integration.name}</strong>
+                    {health && (
+                      <span className={["rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide", healthToneClasses(health.status)].join(" ")}>
+                        {health.label}
+                      </span>
+                    )}
                   </div>
                   <div className="mt-2 text-[12px] text-text-muted">
                     Mode {integration.mode.toLowerCase()} | Agent {integration.agentName ?? "not set"}
@@ -447,6 +499,7 @@ export default async function CredentialsPage({
                   <div className="mt-1 text-[12px] text-text-muted">
                     Last seen {integration.lastSeenAt ? formatRelativeTime(integration.lastSeenAt) : "never"} | {integration._count.usageEvents} usage events
                   </div>
+                  {health && <div className="mt-2 text-[12px] text-text-muted">{health.summary}</div>}
                 </div>
                 <span className="text-xs font-semibold text-primary">Use in setup</span>
               </div>

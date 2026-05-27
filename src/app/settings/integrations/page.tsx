@@ -1,9 +1,11 @@
 import Link from "next/link";
 
 import { Card, PageHeader } from "@/components/Card";
+import { KpiCard } from "@/components/KpiCard";
 import { ProviderChip } from "@/components/ProviderChip";
 import { requireAdmin } from "@/lib/auth";
 import { formatDateTime, formatRelativeTime } from "@/lib/format";
+import { evaluateIntegrationHealth, healthToneClasses } from "@/lib/integration-health";
 import {
   envBlock,
   getProviderConfig,
@@ -55,6 +57,41 @@ export default async function IntegrationsPage() {
   ]);
 
   const ingest = ingestSources[0] ?? null;
+  const fallbackCredentialByProvider = new Map<string, (typeof credentials)[number]>();
+  for (const credential of credentials) {
+    if (!fallbackCredentialByProvider.has(credential.providerId)) {
+      fallbackCredentialByProvider.set(credential.providerId, credential);
+    }
+  }
+  const integrationRows = integrations.map((integration) => ({
+    integration,
+    health: evaluateIntegrationHealth({
+      name: integration.name,
+      mode: integration.mode,
+      active: integration.active,
+      lastSeenAt: integration.lastSeenAt,
+      environment: integration.environment,
+      teamId: integration.teamId,
+      project: integration.project
+        ? { id: integration.project.id, name: integration.project.name, teamId: integration.project.teamId }
+        : null,
+      provider: { name: integration.provider.name },
+      credential: integration.credential,
+      ingestSource: integration.ingestSource,
+      fallbackCredential: fallbackCredentialByProvider.get(integration.providerId) ?? null,
+      fallbackIngestSource: ingest,
+    }),
+  }));
+  const healthCounts = integrationRows.reduce(
+    (acc, row) => {
+      acc[row.health.status] += 1;
+      return acc;
+    },
+    { healthy: 0, attention: 0, stale: 0, broken: 0, paused: 0 } as Record<
+      "healthy" | "attention" | "stale" | "broken" | "paused",
+      number
+    >,
+  );
 
   return (
     <div className="space-y-6">
@@ -70,6 +107,14 @@ export default async function IntegrationsPage() {
           </Link>
         }
       />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <KpiCard label="Healthy" value={String(healthCounts.healthy)} hint="ready for normal traffic" icon="verified" tone="success" />
+        <KpiCard label="Needs attention" value={String(healthCounts.attention)} hint="mostly wired, still worth checking" icon="notification_important" tone="warning" />
+        <KpiCard label="Stale" value={String(healthCounts.stale)} hint="freshness threshold exceeded" icon="schedule" tone="input" />
+        <KpiCard label="Needs fixing" value={String(healthCounts.broken)} hint="blocked by secrets or mappings" icon="error" tone="danger" />
+        <KpiCard label="Paused" value={String(healthCounts.paused)} hint="intentionally inactive" icon="pause_circle" />
+      </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.25fr,1fr]">
         <Card
@@ -110,7 +155,7 @@ export default async function IntegrationsPage() {
 
       <Card title="Stored integrations" description="Edit these in place. The integration ID is the piece your app can carry in env vars or request headers.">
         <div className="space-y-4">
-          {integrations.map((integration) => {
+          {integrationRows.map(({ integration, health }) => {
             const providerConfig = getProviderConfig(providerNameToSlug(integration.provider.name));
             const rollout = integration.mode === "OBSERVE" ? "observe" : integration.mode === "ENFORCE" ? "enforce" : "fallback";
             return (
@@ -123,12 +168,10 @@ export default async function IntegrationsPage() {
                       <span
                         className={[
                           "rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
-                          integration.active
-                            ? "bg-status-normal/10 text-status-normal"
-                            : "bg-status-warning/10 text-status-warning",
+                          healthToneClasses(health.status),
                         ].join(" ")}
                       >
-                        {integration.active ? "active" : "paused"}
+                        {health.label}
                       </span>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-3 text-[12px] text-text-muted">
@@ -142,6 +185,10 @@ export default async function IntegrationsPage() {
                       {integration.lastSeenAt
                         ? `${formatDateTime(integration.lastSeenAt)} (${formatRelativeTime(integration.lastSeenAt)})`
                         : "never"}
+                    </div>
+                    <div className="mt-3 rounded-lg border border-border-subtle bg-surface-2 p-3 text-[12px] text-text-muted">
+                      <strong className="block text-on-surface">{health.summary}</strong>
+                      <span className="mt-1 block">{health.nextAction}</span>
                     </div>
                   </div>
 
@@ -280,10 +327,32 @@ export default async function IntegrationsPage() {
                     <div className="rounded-lg border border-border-subtle bg-surface-2 p-3">
                       <div className="text-[11px] uppercase tracking-wider text-text-muted">Linked secrets</div>
                       <div className="mt-1 text-[12px] text-text-muted">
-                        Credential: {integration.credential ? `${integration.credential.label} / ****${integration.credential.keyHint}` : "fallback to org default"}
+                        Credential: {health.resolvedCredentialLabel}
                       </div>
                       <div className="mt-1 text-[12px] text-text-muted">
-                        Ingest source: {integration.ingestSource?.name ?? "not fixed"}
+                        Ingest source: {health.resolvedIngestLabel}
+                      </div>
+                      <div className="mt-1 text-[12px] text-text-muted">
+                        Freshness threshold: {health.staleThresholdHours}h
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-border-subtle bg-surface-2 p-3">
+                      <div className="text-[11px] uppercase tracking-wider text-text-muted">Health checks</div>
+                      {health.issues.length === 0 ? (
+                        <div className="mt-2 text-[12px] text-status-normal">No active issues.</div>
+                      ) : (
+                        <ul className="mt-2 space-y-1 text-[12px] text-text-muted">
+                          {health.issues.map((issue) => (
+                            <li key={issue}>- {issue}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <div className="rounded-lg border border-border-subtle bg-surface-2 p-3">
+                      <div className="text-[11px] uppercase tracking-wider text-text-muted">Status action</div>
+                      <div className="mt-2 text-[12px] text-text-muted">{health.nextAction}</div>
+                      <div className="mt-2 text-[12px] text-text-muted">
+                        Provider fallback: {integration.credential ? "fixed credential" : "org default or app-managed"}
                       </div>
                     </div>
                     <div className="rounded-lg border border-border-subtle bg-surface-2 p-3">

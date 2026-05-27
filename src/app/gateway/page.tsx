@@ -13,6 +13,7 @@ import {
   formatTokens,
   toNumber,
 } from "@/lib/format";
+import { evaluateIntegrationHealth, healthToneClasses } from "@/lib/integration-health";
 import {
   buildGatewayHref,
   buildRolloutChecklist,
@@ -100,7 +101,7 @@ export default async function GatewayPage({
   const providerById = new Map(providers.map((provider) => [provider.id, provider.name]));
   const credentialByProvider = new Map<
     string,
-    { id: string; label: string; keyHint: string; lastUsedAt: Date | null; updatedAt: Date }
+    { id: string; label: string; keyHint: string; active: boolean; lastUsedAt: Date | null; updatedAt: Date }
   >();
 
   for (const credential of credentials) {
@@ -110,11 +111,13 @@ export default async function GatewayPage({
         id: credential.id,
         label: credential.label,
         keyHint: credential.keyHint,
+        active: credential.active,
         lastUsedAt: credential.lastUsedAt,
         updatedAt: credential.updatedAt,
       });
     }
   }
+  const fallbackCredentialByProvider = credentialByProvider;
 
   const events = await prisma.usageEvent.findMany({
     where: {
@@ -203,6 +206,46 @@ export default async function GatewayPage({
     providerCounts.set(row.provider, (providerCounts.get(row.provider) ?? 0) + 1);
   });
   const busiestProvider = Array.from(providerCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "-";
+  const selectedIntegrationHealth = selectedIntegration
+    ? evaluateIntegrationHealth({
+        name: selectedIntegration.name,
+        mode: selectedIntegration.mode,
+        active: selectedIntegration.active,
+        lastSeenAt: selectedIntegration.lastSeenAt,
+        environment: selectedIntegration.environment,
+        teamId: selectedIntegration.teamId,
+        project: selectedIntegration.project
+          ? { id: selectedIntegration.project.id, name: selectedIntegration.project.name, teamId: selectedIntegration.project.teamId }
+          : null,
+        provider: { name: selectedIntegration.provider.name },
+        credential: selectedIntegration.credential,
+        ingestSource: selectedIntegration.ingestSource,
+        fallbackCredential: fallbackCredentialByProvider.get(selectedIntegration.provider.name) ?? null,
+        fallbackIngestSource: ingest,
+      })
+    : null;
+  const providerIntegrations = integrations
+    .filter((integration) => integration.provider.name === selectedProvider.name)
+    .slice(0, 6)
+    .map((integration) => ({
+      integration,
+      health: evaluateIntegrationHealth({
+        name: integration.name,
+        mode: integration.mode,
+        active: integration.active,
+        lastSeenAt: integration.lastSeenAt,
+        environment: integration.environment,
+        teamId: integration.teamId,
+        project: integration.project
+          ? { id: integration.project.id, name: integration.project.name, teamId: integration.project.teamId }
+          : null,
+        provider: { name: integration.provider.name },
+        credential: integration.credential,
+        ingestSource: integration.ingestSource,
+        fallbackCredential: fallbackCredentialByProvider.get(integration.provider.name) ?? null,
+        fallbackIngestSource: ingest,
+      }),
+    }));
 
   const cols: Column<GatewayRow>[] = [
     {
@@ -415,15 +458,38 @@ export default async function GatewayPage({
         } : undefined)} />
       </div>
 
+      {selectedIntegration && selectedIntegrationHealth && (
+        <Card title="Selected integration health" description="This is the app-specific status view for the integration currently loaded into the setup generator.">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr,1fr]">
+            <div className="rounded-lg border border-border-subtle bg-background p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <strong className="text-on-surface">{selectedIntegration.name}</strong>
+                <span className={clsx("rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide", healthToneClasses(selectedIntegrationHealth.status))}>
+                  {selectedIntegrationHealth.label}
+                </span>
+                <span className="font-mono text-[11px] text-text-muted">{selectedIntegration.id.slice(0, 10)}...</span>
+              </div>
+              <div className="mt-2 text-sm text-text-muted">{selectedIntegrationHealth.summary}</div>
+              <div className="mt-2 text-sm text-text-muted">
+                <strong className="text-on-surface">Next action:</strong> {selectedIntegrationHealth.nextAction}
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <ReadinessRow label="Resolved credential" ok={selectedIntegrationHealth.resolvedCredentialLabel !== "Missing"} value={selectedIntegrationHealth.resolvedCredentialLabel} />
+              <ReadinessRow label="Resolved ingest" ok={selectedIntegrationHealth.resolvedIngestLabel !== "Missing"} value={selectedIntegrationHealth.resolvedIngestLabel} />
+              <ReadinessRow label="Freshness threshold" ok value={`${selectedIntegrationHealth.staleThresholdHours}h`} />
+              <ReadinessRow label="Usage events" ok={selectedIntegration._count.usageEvents > 0} value={String(selectedIntegration._count.usageEvents)} />
+            </div>
+          </div>
+        </Card>
+      )}
+
       <Card
         title="Named integrations for this provider"
         description="Choose one if you want the generated setup to carry a stable integration ID, owned credential, and last-seen status."
       >
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          {integrations
-            .filter((integration) => integration.provider.name === selectedProvider.name)
-            .slice(0, 6)
-            .map((integration) => (
+          {providerIntegrations.map(({ integration, health }) => (
               <Link
                 key={integration.id}
                 href={`/gateway?provider=${selectedProvider.slug}&mode=${selectedRollout.slug}&integration=${integration.id}`}
@@ -443,12 +509,22 @@ export default async function GatewayPage({
                     <div className="mt-1 text-[12px] text-text-muted">
                       Last seen {integration.lastSeenAt ? formatRelativeTime(integration.lastSeenAt) : "never"} | {integration._count.usageEvents} usage events
                     </div>
+                    <div className="mt-2">
+                      <span
+                        className={clsx(
+                          "rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
+                          healthToneClasses(health.status),
+                        )}
+                      >
+                        {health.label}
+                      </span>
+                    </div>
                   </div>
                   <span className="font-mono text-[11px] text-text-muted">{integration.id.slice(0, 8)}...</span>
                 </div>
               </Link>
             ))}
-          {integrations.filter((integration) => integration.provider.name === selectedProvider.name).length === 0 && (
+          {providerIntegrations.length === 0 && (
             <div className="rounded-lg border border-dashed border-border-subtle bg-background p-4 text-sm text-text-muted">
               No named {selectedProvider.name} integrations yet. Create one in Settings -&gt; Integrations to make onboarding and audit history more explicit.
             </div>
