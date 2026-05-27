@@ -50,6 +50,7 @@ type VerificationFlashState = {
 type SearchParams = {
   provider?: string;
   mode?: string;
+  integration?: string;
 };
 
 type IntegrationStatusRow = {
@@ -88,15 +89,29 @@ export default async function CredentialsPage({
     where: { organizationId: org.id, active: true },
     orderBy: { createdAt: "desc" },
   });
-  const recentProxyEvents = await prisma.usageEvent.findMany({
-    where: {
-      organizationId: org.id,
-      source: { startsWith: "byok-proxy" },
-    },
-    orderBy: { timestamp: "desc" },
-    take: 50,
-    include: { provider: true, model: true, project: true, team: true },
-  });
+  const [recentProxyEvents, integrations] = await Promise.all([
+    prisma.usageEvent.findMany({
+      where: {
+        organizationId: org.id,
+        source: { startsWith: "byok-proxy" },
+      },
+      orderBy: { timestamp: "desc" },
+      take: 50,
+      include: { provider: true, model: true, project: true, team: true },
+    }),
+    prisma.integration.findMany({
+      where: { organizationId: org.id },
+      include: {
+        provider: true,
+        credential: true,
+        ingestSource: true,
+        project: true,
+        team: true,
+        _count: { select: { usageEvents: true } },
+      },
+      orderBy: [{ active: "desc" }, { updatedAt: "desc" }],
+    }),
+  ]);
 
   const providerById = Object.fromEntries(providers.map((provider) => [provider.id, provider]));
   const credentialByProvider = new Map(
@@ -114,8 +129,21 @@ export default async function CredentialsPage({
     }
   }
   const latestProxyEvent = recentProxyEvents[0] ?? null;
-  const selectedProvider = getProviderConfig(resolvedSearchParams.provider);
-  const selectedRollout = getRolloutConfig(resolvedSearchParams.mode);
+  const selectedIntegration =
+    integrations.find((integration) => integration.id === resolvedSearchParams.integration) ?? null;
+  const selectedProvider = getProviderConfig(
+    resolvedSearchParams.provider ?? providerNameToSlug(selectedIntegration?.provider.name ?? "openai"),
+  );
+  const selectedRollout = getRolloutConfig(
+    resolvedSearchParams.mode ??
+      (selectedIntegration
+        ? selectedIntegration.mode === "OBSERVE"
+          ? "observe"
+          : selectedIntegration.mode === "ENFORCE"
+            ? "enforce"
+            : "fallback"
+        : undefined),
+  );
   const selectedCredential = credentialByProvider.get(selectedProvider.name);
   const selectedLatestEvent = latestProxyByProvider.get(selectedProvider.name);
   const shadowReady = Boolean(ingest?.secret || ingest?.encryptedSecret || ingest?.secretHint);
@@ -302,6 +330,12 @@ export default async function CredentialsPage({
                   <ProviderChip name={selectedProvider.name} />
                   <strong className="text-on-surface">{selectedRollout.label}</strong>
                 </div>
+                {selectedIntegration && (
+                  <div className="mt-2 text-[12px] text-text-muted">
+                    Using named integration <span className="font-mono text-on-surface">{selectedIntegration.name}</span>
+                    {" "}({selectedIntegration.id.slice(0, 10)}...)
+                  </div>
+                )}
                 <p className="mt-2 text-sm text-text-muted">{selectedRollout.promise}</p>
                 <pre className="mt-3 overflow-auto rounded-lg border border-border-subtle bg-surface-2 p-3 font-mono text-[12px] leading-relaxed text-text-muted">
                   {envBlock(
@@ -309,6 +343,13 @@ export default async function CredentialsPage({
                     selectedProvider,
                     selectedRollout,
                     ingest?.name ?? "Default",
+                    selectedIntegration
+                      ? {
+                          integrationId: selectedIntegration.id,
+                          project: selectedIntegration.project?.name ?? undefined,
+                          agent: selectedIntegration.agentName ?? undefined,
+                        }
+                      : undefined,
                   )}
                 </pre>
               </div>
@@ -363,9 +404,61 @@ export default async function CredentialsPage({
               title="TOKENOMETER_PROJECT + TOKENOMETER_AGENT"
               body="These are the names that make later spend views understandable. Think app/workload and worker/bot."
             />
+            <SecretMeaning
+              title="TOKENOMETER_INTEGRATION_ID"
+              body="Optional, but strongly recommended now. It binds runtime traffic to a named integration with an explicit provider, mode, and secret ownership story."
+            />
           </div>
         </Card>
       </div>
+
+      <Card
+        title="Named integrations"
+        description="Epic 4 starts here: define apps as first-class objects instead of relying only on inferred traffic."
+        action={
+          <Link
+            href="/settings/integrations"
+            className="rounded-lg border border-primary/40 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10"
+          >
+            Manage integrations
+          </Link>
+        }
+      >
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {integrations.slice(0, 6).map((integration) => (
+            <Link
+              key={integration.id}
+              href={buildCredentialsHref(
+                providerNameToSlug(integration.provider.name),
+                integration.mode === "OBSERVE" ? "observe" : integration.mode === "ENFORCE" ? "enforce" : "fallback",
+                integration.id,
+              )}
+              className="rounded-lg border border-border-subtle bg-background p-4 transition hover:border-primary/40 hover:bg-surface-2"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <ProviderChip name={integration.provider.name} />
+                    <strong className="text-on-surface">{integration.name}</strong>
+                  </div>
+                  <div className="mt-2 text-[12px] text-text-muted">
+                    Mode {integration.mode.toLowerCase()} | Agent {integration.agentName ?? "not set"}
+                  </div>
+                  <div className="mt-1 text-[12px] text-text-muted">
+                    Last seen {integration.lastSeenAt ? formatRelativeTime(integration.lastSeenAt) : "never"} | {integration._count.usageEvents} usage events
+                  </div>
+                </div>
+                <span className="text-xs font-semibold text-primary">Use in setup</span>
+              </div>
+            </Link>
+          ))}
+          {integrations.length === 0 && (
+            <div className="rounded-lg border border-dashed border-border-subtle bg-background p-4 text-sm text-text-muted">
+              No named integrations yet. Create one in Settings -&gt; Integrations so your app setup can carry a stable identity.
+            </div>
+          )}
+        </div>
+      </Card>
 
       <Card title="Add or update a credential">
         <form action={saveCredentialAction} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -629,8 +722,8 @@ export default async function CredentialsPage({
       </div>
 
       <Card
-        title="Integration activity by app"
-        description="This is the early version of named integrations. For now it is derived from live traffic using project, agent, workflow, owner, and source."
+        title="Observed app traffic"
+        description="This is still the inferred traffic view. It is useful, but named integrations above are now the preferred identity layer."
         noPadding
       >
         <div className="overflow-x-auto">
@@ -824,8 +917,10 @@ function SecretMeaning({ title, body }: { title: string; body: string }) {
   );
 }
 
-function buildCredentialsHref(provider: ProviderSlug, mode: RolloutSlug) {
-  return `/settings/credentials?provider=${provider}&mode=${mode}`;
+function buildCredentialsHref(provider: ProviderSlug, mode: RolloutSlug, integrationId?: string) {
+  const params = new URLSearchParams({ provider, mode });
+  if (integrationId) params.set("integration", integrationId);
+  return `/settings/credentials?${params.toString()}`;
 }
 
 function providerNameToSlug(providerName: string): ProviderSlug {

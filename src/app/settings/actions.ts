@@ -100,6 +100,25 @@ const IngestSchema = z.object({
   name: z.string().min(1).max(60),
 });
 
+const IntegrationSchema = z.object({
+  id: z.string().optional(),
+  organizationId: z.string().min(1),
+  providerId: z.string().min(1),
+  credentialId: z.string().optional(),
+  ingestSourceId: z.string().optional(),
+  projectId: z.string().optional(),
+  teamId: z.string().optional(),
+  name: z.string().min(2).max(80),
+  agentName: z.string().max(80).optional(),
+  environment: z.string().max(40).optional(),
+  mode: z.enum(["OBSERVE", "FALLBACK", "ENFORCE"]),
+  active: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((value) => value !== "false"),
+  notes: z.string().max(500).optional(),
+});
+
 export async function createIngestSourceAction(formData: FormData) {
   requireAdmin();
   const parsed = IngestSchema.safeParse(Object.fromEntries(formData));
@@ -155,6 +174,125 @@ export async function deleteIngestSourceAction(formData: FormData) {
     targetId: id,
   });
   revalidatePath("/settings/ingest");
+}
+
+// --- Named integrations ---------------------------------------------------
+
+export async function saveIntegrationAction(formData: FormData) {
+  requireAdmin();
+  const parsed = IntegrationSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+
+  const {
+    id,
+    organizationId,
+    providerId,
+    credentialId,
+    ingestSourceId,
+    projectId,
+    teamId,
+    name,
+    agentName,
+    environment,
+    mode,
+    active,
+    notes,
+  } = parsed.data;
+
+  const provider = await prisma.provider.findUnique({ where: { id: providerId } });
+  if (!provider) throw new Error("Provider not found.");
+
+  if (credentialId) {
+    const credential = await prisma.providerCredential.findUnique({ where: { id: credentialId } });
+    if (!credential || credential.organizationId !== organizationId || credential.providerId !== providerId) {
+      throw new Error("Selected credential does not belong to this organization/provider.");
+    }
+  }
+
+  if (ingestSourceId) {
+    const source = await prisma.ingestSource.findUnique({ where: { id: ingestSourceId } });
+    if (!source || source.organizationId !== organizationId) {
+      throw new Error("Selected ingest source does not belong to this organization.");
+    }
+  }
+
+  if (projectId) {
+    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    if (!project || project.organizationId !== organizationId) {
+      throw new Error("Selected project does not belong to this organization.");
+    }
+  }
+
+  if (teamId) {
+    const team = await prisma.team.findUnique({ where: { id: teamId } });
+    if (!team || team.organizationId !== organizationId) {
+      throw new Error("Selected team does not belong to this organization.");
+    }
+  }
+
+  const data = {
+    organizationId,
+    providerId,
+    credentialId: credentialId || null,
+    ingestSourceId: ingestSourceId || null,
+    projectId: projectId || null,
+    teamId: teamId || null,
+    name,
+    agentName: emptyToNull(agentName),
+    environment: emptyToNull(environment),
+    mode,
+    active,
+    notes: emptyToNull(notes),
+  };
+
+  const integration = id
+    ? await prisma.integration.update({
+        where: { id },
+        data,
+      })
+    : await prisma.integration.create({
+        data,
+      });
+
+  await auditLog({
+    action: id ? "integration.update" : "integration.create",
+    organizationId,
+    targetType: "Integration",
+    targetId: integration.id,
+    metadata: {
+      providerId,
+      name,
+      mode,
+      active,
+      credentialId: credentialId || null,
+      ingestSourceId: ingestSourceId || null,
+      projectId: projectId || null,
+      teamId: teamId || null,
+      environment: emptyToNull(environment),
+    },
+  });
+  revalidatePath("/settings/integrations");
+  revalidatePath("/settings/credentials");
+  revalidatePath("/gateway");
+  redirect("/settings/integrations");
+}
+
+export async function deleteIntegrationAction(formData: FormData) {
+  requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) throw new Error("Integration id required.");
+  const existing = await prisma.integration.findUnique({ where: { id } });
+  await prisma.integration.delete({ where: { id } });
+  await auditLog({
+    action: "integration.delete",
+    organizationId: existing?.organizationId,
+    targetType: "Integration",
+    targetId: id,
+    metadata: { name: existing?.name ?? null },
+  });
+  revalidatePath("/settings/integrations");
+  revalidatePath("/settings/credentials");
+  revalidatePath("/gateway");
 }
 
 // --- CSV import -----------------------------------------------------------
@@ -375,6 +513,11 @@ export async function wipeDemoDataAction() {
 }
 
 export { maskKey };
+
+function emptyToNull(value?: string) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
 
 // --- Pull usage directly from provider APIs -------------------------------
 

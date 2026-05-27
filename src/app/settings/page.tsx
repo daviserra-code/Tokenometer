@@ -33,6 +33,12 @@ export default async function SettingsPage() {
             desc="Vault encrypted API keys per provider (OpenAI, Anthropic, …)."
           />
           <SettingsLink
+            href="/settings/integrations"
+            icon="deployed_code"
+            title="Integrations"
+            desc="Name each app integration, bind secrets, set rollout mode, and track last-seen status."
+          />
+          <SettingsLink
             href="/gateway"
             icon="api"
             title="Metering gateway"

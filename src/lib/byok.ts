@@ -9,6 +9,14 @@ export type ProxyContext = {
   providerName: string;
   credentialId: string;
   plaintextKey: string;
+  integration?: {
+    id: string;
+    name: string;
+    agentName: string | null;
+    projectName: string | null;
+    teamId: string | null;
+    mode: string;
+  } | null;
 };
 
 /**
@@ -47,11 +55,37 @@ export async function authProxy(
     );
   }
 
+  const requestedIntegrationId = req.headers.get("x-integration-id");
+  const integration = requestedIntegrationId
+    ? await prisma.integration.findFirst({
+        where: {
+          id: requestedIntegrationId,
+          organizationId: source.organizationId,
+          providerId: provider.id,
+          active: true,
+        },
+        include: { project: true },
+      })
+    : null;
+  if (requestedIntegrationId && !integration) {
+    return NextResponse.json(
+      { error: "The selected integration is missing, inactive, or belongs to another organization/provider." },
+      { status: 412 }
+    );
+  }
+  if (integration?.ingestSourceId && integration.ingestSourceId !== source.id) {
+    return NextResponse.json(
+      { error: "This integration is bound to a different ingest source." },
+      { status: 412 }
+    );
+  }
+
   const requestedCredentialId = req.headers.get("x-credential-id");
-  const cred = requestedCredentialId
+  const preferredCredentialId = requestedCredentialId || integration?.credentialId || null;
+  const cred = preferredCredentialId
     ? await prisma.providerCredential.findFirst({
         where: {
-          id: requestedCredentialId,
+          id: preferredCredentialId,
           organizationId: source.organizationId,
           providerId: provider.id,
           active: true,
@@ -66,6 +100,8 @@ export async function authProxy(
       {
         error: requestedCredentialId
           ? `The selected ${providerName} credential is missing, inactive, or belongs to another organization.`
+          : integration?.credentialId
+            ? `The credential attached to integration "${integration.name}" is missing or inactive.`
           : `No ${providerName} credential vaulted for this organization. Add one in Settings.`,
       },
       { status: 412 }
@@ -92,6 +128,16 @@ export async function authProxy(
     providerName,
     credentialId: cred.id,
     plaintextKey: plaintext,
+    integration: integration
+      ? {
+          id: integration.id,
+          name: integration.name,
+          agentName: integration.agentName,
+          projectName: integration.project?.name ?? null,
+          teamId: integration.teamId,
+          mode: integration.mode,
+        }
+      : null,
   };
 }
 
@@ -135,19 +181,24 @@ export async function meterUsage(args: {
       ? await prisma.project.findFirst({
           where: { organizationId: args.ctx.source.organizationId, name: args.project },
         })
+      : args.ctx.integration?.projectName
+        ? await prisma.project.findFirst({
+            where: { organizationId: args.ctx.source.organizationId, name: args.ctx.integration.projectName },
+          })
       : null;
 
     await prisma.$transaction(async (tx) => {
       await tx.usageEvent.create({
         data: {
           organizationId: args.ctx.source.organizationId,
+          integrationId: args.ctx.integration?.id ?? null,
           providerId: args.ctx.providerId,
           modelId: model.id,
           projectId: projectRow?.id,
-          teamId: projectRow?.teamId,
+          teamId: projectRow?.teamId ?? args.ctx.integration?.teamId ?? null,
           timestamp: new Date(),
           source: args.source ?? "byok-proxy",
-          agentName: args.agent ?? undefined,
+          agentName: args.agent ?? args.ctx.integration?.agentName ?? undefined,
           requestOwner: args.ctx.source.name,
           inputTokens: args.inputTokens,
           outputTokens: args.outputTokens,
@@ -159,6 +210,8 @@ export async function meterUsage(args: {
             proxied: true,
             provider: args.ctx.providerName,
             model: args.modelName,
+            integrationId: args.ctx.integration?.id,
+            integrationName: args.ctx.integration?.name,
             ...(args.metadata ?? {}),
           },
         },
@@ -187,6 +240,13 @@ export async function meterUsage(args: {
         await tx.wallet.update({
           where: { id: wallet.id },
           data: { balance: { decrement: BigInt(totT) } },
+        });
+      }
+
+      if (args.ctx.integration?.id) {
+        await tx.integration.update({
+          where: { id: args.ctx.integration.id },
+          data: { lastSeenAt: new Date() },
         });
       }
     });

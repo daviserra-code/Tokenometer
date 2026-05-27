@@ -31,6 +31,7 @@ export default async function IngestPage() {
           timestamp: new Date().toISOString(),
           provider: "OpenAI",
           model: "gpt-4o-mini",
+          integrationId: "integration_cuid_from_settings",
           inputTokens: 1200,
           outputTokens: 300,
           project: "Support Copilot",
@@ -116,6 +117,10 @@ export default async function IngestPage() {
 
       <Card title="How to call /api/ingest" description="Sign the raw body with HMAC-SHA256 using your secret.">
         <div className="space-y-3">
+          <p className="text-sm text-text-muted">
+            If you already created a named integration, include its <code className="rounded bg-surface-2 px-1">integrationId</code> in each event.
+            That lets shadow-mode traffic land with the same stable identity as proxy traffic.
+          </p>
           <h4 className="text-[12px] font-semibold uppercase tracking-wider text-text-muted">
             Curl example
           </h4>

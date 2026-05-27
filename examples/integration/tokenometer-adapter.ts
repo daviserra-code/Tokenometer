@@ -8,6 +8,7 @@ export type AdapterConfig = {
   tokenometerBaseUrl: string;
   ingestKey?: string;
   ingestSecret?: string;
+  integrationId?: string;
   project?: string;
   team?: string;
   agent?: string;
@@ -457,6 +458,7 @@ function proxyHeaders(config: AdapterConfig, requestId: string) {
     "x-request-id": requestId,
     ...(config.project ? { "x-project": config.project } : {}),
     ...(config.agent ? { "x-agent": config.agent } : {}),
+    ...(config.integrationId ? { "x-integration-id": config.integrationId } : {}),
     ...(config.credentialId ? { "x-credential-id": config.credentialId } : {}),
   };
 }
@@ -480,6 +482,7 @@ function buildOpenAiCompatibleEvent(
     timestamp: new Date().toISOString(),
     provider: providerName,
     model,
+    integrationId: config.integrationId,
     inputTokens,
     outputTokens,
     totalTokens,
@@ -513,6 +516,7 @@ function buildAnthropicEvent(
     timestamp: new Date().toISOString(),
     provider: "Anthropic",
     model,
+    integrationId: config.integrationId,
     inputTokens,
     outputTokens,
     totalTokens,
@@ -547,6 +551,7 @@ function buildGeminiEvent(
     timestamp: new Date().toISOString(),
     provider: "Google",
     model,
+    integrationId: config.integrationId,
     inputTokens,
     outputTokens,
     totalTokens,

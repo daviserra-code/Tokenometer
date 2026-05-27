@@ -11,6 +11,7 @@ type IngestEvent = {
   timestamp: string;
   provider: string;
   model: string;
+  integrationId?: string;
   inputTokens?: number;
   outputTokens?: number;
   totalTokens?: number;
@@ -80,8 +81,14 @@ export async function POST(req: NextRequest) {
   const modelByKey = new Map(
     models.map((m) => [`${m.providerId}:${m.name.toLowerCase()}`, m])
   );
+  const integrations = await prisma.integration.findMany({
+    where: { organizationId: source.organizationId },
+    include: { project: true },
+  });
+  const integrationById = new Map(integrations.map((integration) => [integration.id, integration]));
 
   const inserts: Prisma.UsageEventCreateManyInput[] = [];
+  const touchedIntegrationIds = new Set<string>();
   let failed = 0;
   const errors: string[] = [];
 
@@ -91,6 +98,13 @@ export async function POST(req: NextRequest) {
       if (isNaN(ts.getTime())) throw new Error(`Invalid timestamp: ${ev.timestamp}`);
       const provider = providerByName.get(ev.provider.toLowerCase());
       if (!provider) throw new Error(`Unknown provider: ${ev.provider}`);
+      const integration = ev.integrationId ? integrationById.get(ev.integrationId) : null;
+      if (ev.integrationId && !integration) {
+        throw new Error(`Unknown integration: ${ev.integrationId}`);
+      }
+      if (integration && integration.providerId !== provider.id) {
+        throw new Error(`Integration ${integration.name} does not belong to provider ${ev.provider}`);
+      }
       let model = modelByKey.get(`${provider.id}:${ev.model.toLowerCase()}`);
       if (!model) {
         model = await prisma.model.create({
@@ -105,14 +119,18 @@ export async function POST(req: NextRequest) {
       const outP = Number(model.outputPricePerMillion);
       const inC = (inT / 1_000_000) * inP;
       const outC = (outT / 1_000_000) * outP;
+      if (integration) touchedIntegrationIds.add(integration.id);
       inserts.push({
         organizationId: source.organizationId,
+        integrationId: integration?.id,
+        projectId: integration?.projectId ?? undefined,
+        teamId: integration?.teamId ?? undefined,
         providerId: provider.id,
         modelId: model.id,
         timestamp: ts,
-        source: ev.source ?? source.name,
-        agentName: ev.agent,
-        workflowName: ev.workflow,
+        source: ev.source ?? integration?.name ?? source.name,
+        agentName: ev.agent ?? integration?.agentName ?? undefined,
+        workflowName: ev.workflow ?? integration?.name ?? undefined,
         requestOwner: ev.owner,
         inputTokens: inT,
         outputTokens: outT,
@@ -123,6 +141,8 @@ export async function POST(req: NextRequest) {
         metadataJson: {
           ...(ev.metadata ?? {}),
           ingestJobId: job.id,
+          integrationId: integration?.id ?? null,
+          integrationName: integration?.name ?? null,
         },
       });
     } catch (e) {
@@ -138,7 +158,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  await prisma.$transaction([
+  const transactionSteps: Prisma.PrismaPromise<unknown>[] = [
     prisma.importJob.update({
       where: { id: job.id },
       data: {
@@ -153,7 +173,18 @@ export async function POST(req: NextRequest) {
       where: { id: source.id },
       data: { lastSeenAt: new Date() },
     }),
-  ]);
+  ];
+
+  if (touchedIntegrationIds.size > 0) {
+    transactionSteps.push(
+      prisma.integration.updateMany({
+        where: { id: { in: Array.from(touchedIntegrationIds) } },
+        data: { lastSeenAt: new Date() },
+      })
+    );
+  }
+
+  await prisma.$transaction(transactionSteps);
 
   return NextResponse.json({
     jobId: job.id,

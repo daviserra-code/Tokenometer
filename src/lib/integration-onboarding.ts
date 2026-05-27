@@ -29,6 +29,12 @@ export type RolloutConfig = {
   bestFor: string;
 };
 
+type IntegrationEnvOptions = {
+  integrationId?: string | null;
+  project?: string | null;
+  agent?: string | null;
+};
+
 export const INTEGRATION_PROVIDERS: ProviderConfig[] = [
   {
     slug: "openai",
@@ -198,14 +204,24 @@ export function recommendMode(isSelected: boolean, hasLiveEvent: boolean) {
   return "Observe + fallback";
 }
 
-export function envBlock(appUrl: string, provider: ProviderConfig, rollout: RolloutConfig, ingestName: string) {
+export function envBlock(
+  appUrl: string,
+  provider: ProviderConfig,
+  rollout: RolloutConfig,
+  ingestName: string,
+  integration?: IntegrationEnvOptions,
+) {
   const lines = [
     `TOKENOMETER_BASE_URL=${appUrl}`,
     `AI_METERING_MODE=${rollout.runtimeMode}`,
     `TOKENOMETER_INGEST_KEY=tmtr_ingest_key_from_${slugify(ingestName)}`,
-    `TOKENOMETER_PROJECT=${provider.defaultProject}`,
-    `TOKENOMETER_AGENT=${provider.defaultAgent}`,
+    `TOKENOMETER_PROJECT=${integration?.project ?? provider.defaultProject}`,
+    `TOKENOMETER_AGENT=${integration?.agent ?? provider.defaultAgent}`,
   ];
+
+  if (integration?.integrationId) {
+    lines.push(`TOKENOMETER_INTEGRATION_ID=${integration.integrationId}`);
+  }
 
   if (rollout.requiresProviderKeyInApp) {
     lines.push(`${provider.envVar}=your_provider_key_here`);
@@ -224,7 +240,7 @@ export function envBlock(appUrl: string, provider: ProviderConfig, rollout: Roll
   return lines.join("\n");
 }
 
-export function nodeSnippet(provider: ProviderConfig, rollout: RolloutConfig) {
+export function nodeSnippet(provider: ProviderConfig, rollout: RolloutConfig, integration?: IntegrationEnvOptions) {
   const modelExpression = `process.env.${provider.modelEnvVar} || "${provider.model}"`;
   const body = providerNodeBody(provider, modelExpression);
   const providerKeyArg = rollout.requiresProviderKeyInApp
@@ -247,8 +263,9 @@ const config: AdapterConfig = {
   tokenometerBaseUrl: process.env.TOKENOMETER_BASE_URL || "https://www.tokenometer.cloud",
   ingestKey: process.env.TOKENOMETER_INGEST_KEY,
   ingestSecret: process.env.TOKENOMETER_INGEST_SECRET,
-  project: process.env.TOKENOMETER_PROJECT || "${provider.defaultProject}",
-  agent: process.env.TOKENOMETER_AGENT || "${provider.defaultAgent}",
+  project: process.env.TOKENOMETER_PROJECT || "${integration?.project ?? provider.defaultProject}",
+  agent: process.env.TOKENOMETER_AGENT || "${integration?.agent ?? provider.defaultAgent}",
+  integrationId: process.env.TOKENOMETER_INTEGRATION_ID${integration?.integrationId ? ` || "${integration.integrationId}"` : ""},
   allowDirectFallback: ${rollout.fallbackAllowed ? "true" : "false"},
 };
 
@@ -256,7 +273,7 @@ ${invocation}
 console.log(result.requestId, result.modeUsed, result.meteredVia);`;
 }
 
-export function pythonSnippet(provider: ProviderConfig, rollout: RolloutConfig) {
+export function pythonSnippet(provider: ProviderConfig, rollout: RolloutConfig, integration?: IntegrationEnvOptions) {
   const modelExpression = `os.environ.get("${provider.modelEnvVar}", "${provider.model}")`;
   const body = providerPythonBody(provider, modelExpression);
   const providerKeyArg = rollout.requiresProviderKeyInApp
@@ -286,10 +303,11 @@ config = AdapterConfig(
     tokenometer_base_url=os.environ.get("TOKENOMETER_BASE_URL", "https://www.tokenometer.cloud"),
     ingest_key=os.environ.get("TOKENOMETER_INGEST_KEY"),
     ingest_secret=os.environ.get("TOKENOMETER_INGEST_SECRET"),
-    project=os.environ.get("TOKENOMETER_PROJECT", "${provider.defaultProject}"),
-    agent=os.environ.get("TOKENOMETER_AGENT", "${provider.defaultAgent}"),
+    project=os.environ.get("TOKENOMETER_PROJECT", "${integration?.project ?? provider.defaultProject}"),
+    agent=os.environ.get("TOKENOMETER_AGENT", "${integration?.agent ?? provider.defaultAgent}"),
+    integration_id=os.environ.get("TOKENOMETER_INTEGRATION_ID"${integration?.integrationId ? `, "${integration.integrationId}"` : ""}),
     allow_direct_fallback=${rollout.fallbackAllowed ? "True" : "False"},
-)
+) 
 
 ${invocation}
 print(json.dumps({

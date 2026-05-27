@@ -48,6 +48,7 @@ type GatewayRow = {
 type SearchParams = {
   provider?: string;
   mode?: string;
+  integration?: string;
 };
 
 export default async function GatewayPage({
@@ -75,9 +76,6 @@ export default async function GatewayPage({
       ? await (searchParams as Promise<SearchParams>)
       : ((searchParams as SearchParams | undefined) ?? {});
 
-  const selectedProvider = getProviderConfig(resolvedSearchParams.provider);
-  const selectedRollout = getRolloutConfig(resolvedSearchParams.mode);
-
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.tokenometer.cloud";
   const ingest = await prisma.ingestSource.findFirst({
     where: { organizationId: org.id, active: true },
@@ -86,6 +84,17 @@ export default async function GatewayPage({
   const credentials = await prisma.providerCredential.findMany({
     where: { organizationId: org.id, active: true },
     orderBy: { createdAt: "desc" },
+  });
+  const integrations = await prisma.integration.findMany({
+    where: { organizationId: org.id, active: true },
+    include: {
+      provider: true,
+      credential: true,
+      ingestSource: true,
+      project: true,
+      _count: { select: { usageEvents: true } },
+    },
+    orderBy: [{ lastSeenAt: "desc" }, { updatedAt: "desc" }],
   });
   const providers = await prisma.provider.findMany();
   const providerById = new Map(providers.map((provider) => [provider.id, provider.name]));
@@ -145,6 +154,21 @@ export default async function GatewayPage({
     };
   });
 
+  const selectedIntegration =
+    integrations.find((integration) => integration.id === resolvedSearchParams.integration) ?? null;
+  const selectedProvider = getProviderConfig(
+    resolvedSearchParams.provider ?? providerNameToSlug(selectedIntegration?.provider.name ?? "openai"),
+  );
+  const selectedRollout = getRolloutConfig(
+    resolvedSearchParams.mode ??
+      (selectedIntegration
+        ? selectedIntegration.mode === "OBSERVE"
+          ? "observe"
+          : selectedIntegration.mode === "ENFORCE"
+            ? "enforce"
+            : "fallback"
+        : undefined),
+  );
   const latestProxyEvent = rows[0] ?? null;
   const selectedCredential = credentialByProvider.get(selectedProvider.name) ?? null;
   const selectedLatestEvent = latestProxyByProvider.get(selectedProvider.name) ?? null;
@@ -361,7 +385,11 @@ export default async function GatewayPage({
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr,1fr]">
         <Card title="Environment block" description="This is the smallest useful env setup for the selected provider and rollout mode.">
           <pre className="overflow-auto rounded-lg border border-border-subtle bg-background p-4 font-mono text-[12px] leading-relaxed text-text-muted">
-            {envBlock(appUrl, selectedProvider, selectedRollout, ingest?.name ?? "Default")}
+            {envBlock(appUrl, selectedProvider, selectedRollout, ingest?.name ?? "Default", selectedIntegration ? {
+              integrationId: selectedIntegration.id,
+              project: selectedIntegration.project?.name ?? undefined,
+              agent: selectedIntegration.agentName ?? undefined,
+            } : undefined)}
           </pre>
         </Card>
 
@@ -375,9 +403,58 @@ export default async function GatewayPage({
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <SnippetCard title={`Node.js: ${selectedProvider.name} in ${selectedRollout.label}`} code={nodeSnippet(selectedProvider, selectedRollout)} />
-        <SnippetCard title={`Python: ${selectedProvider.name} in ${selectedRollout.label}`} code={pythonSnippet(selectedProvider, selectedRollout)} />
+        <SnippetCard title={`Node.js: ${selectedProvider.name} in ${selectedRollout.label}`} code={nodeSnippet(selectedProvider, selectedRollout, selectedIntegration ? {
+          integrationId: selectedIntegration.id,
+          project: selectedIntegration.project?.name ?? undefined,
+          agent: selectedIntegration.agentName ?? undefined,
+        } : undefined)} />
+        <SnippetCard title={`Python: ${selectedProvider.name} in ${selectedRollout.label}`} code={pythonSnippet(selectedProvider, selectedRollout, selectedIntegration ? {
+          integrationId: selectedIntegration.id,
+          project: selectedIntegration.project?.name ?? undefined,
+          agent: selectedIntegration.agentName ?? undefined,
+        } : undefined)} />
       </div>
+
+      <Card
+        title="Named integrations for this provider"
+        description="Choose one if you want the generated setup to carry a stable integration ID, owned credential, and last-seen status."
+      >
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {integrations
+            .filter((integration) => integration.provider.name === selectedProvider.name)
+            .slice(0, 6)
+            .map((integration) => (
+              <Link
+                key={integration.id}
+                href={`/gateway?provider=${selectedProvider.slug}&mode=${selectedRollout.slug}&integration=${integration.id}`}
+                className={clsx(
+                  "rounded-lg border p-4 transition",
+                  selectedIntegration?.id === integration.id
+                    ? "border-primary bg-primary/10"
+                    : "border-border-subtle bg-background hover:border-primary/40 hover:bg-surface-2",
+                )}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <strong className="block text-on-surface">{integration.name}</strong>
+                    <div className="mt-1 text-[12px] text-text-muted">
+                      Mode {integration.mode.toLowerCase()} | Agent {integration.agentName ?? "not set"}
+                    </div>
+                    <div className="mt-1 text-[12px] text-text-muted">
+                      Last seen {integration.lastSeenAt ? formatRelativeTime(integration.lastSeenAt) : "never"} | {integration._count.usageEvents} usage events
+                    </div>
+                  </div>
+                  <span className="font-mono text-[11px] text-text-muted">{integration.id.slice(0, 8)}...</span>
+                </div>
+              </Link>
+            ))}
+          {integrations.filter((integration) => integration.provider.name === selectedProvider.name).length === 0 && (
+            <div className="rounded-lg border border-dashed border-border-subtle bg-background p-4 text-sm text-text-muted">
+              No named {selectedProvider.name} integrations yet. Create one in Settings -&gt; Integrations to make onboarding and audit history more explicit.
+            </div>
+          )}
+        </div>
+      </Card>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.3fr,1fr]">
         <Card title="Verification loop" description="These are the four surfaces that should confirm a healthy rollout.">
@@ -409,6 +486,7 @@ export default async function GatewayPage({
           <div className="space-y-3 text-sm text-text-muted">
             <ModeCallout title="x-project" body="Use one stable project slug per app or workload. This is how the spend views stay understandable later." />
             <ModeCallout title="x-agent" body="Use the worker or bot name so you can separate flows inside the same app." />
+            <ModeCallout title="x-integration-id" body="Use this when you created a named integration. It gives the request a durable Tokenometer identity and lets the app inherit the linked provider credential and ingest rules." />
             <ModeCallout title="x-request-id" body="Keep it unique per request. It is your best debugging handle when one app call looks wrong." />
             <ModeCallout title="Provider model name" body="Keep the real upstream model in the request body so Tokenometer records the right cost basis." />
           </div>
@@ -565,4 +643,9 @@ function SnippetCard({ title, code }: { title: string; code: string }) {
       </pre>
     </Card>
   );
+}
+
+function providerNameToSlug(name: string) {
+  const found = INTEGRATION_PROVIDERS.find((provider) => provider.name === name);
+  return found?.slug ?? "openai";
 }

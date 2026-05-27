@@ -70,6 +70,12 @@ enum WalletAllocationScope {
   TEAM
 }
 
+enum IntegrationMode {
+  OBSERVE
+  FALLBACK
+  ENFORCE
+}
+
 model Organization {
   id        String   @id @default(cuid())
   name      String
@@ -93,6 +99,7 @@ model Organization {
   auditLogs           AuditLog[]
   walletApprovals     WalletApprovalRequest[]
   walletAllocations   WalletAllocation[]
+  integrations        Integration[]
 }
 
 model Team {
@@ -108,6 +115,7 @@ model Team {
   projects     Project[]
   usageEvents  UsageEvent[]
   walletAllocations WalletAllocation[]
+  integrations Integration[]
 
   @@index([organizationId])
 }
@@ -129,6 +137,7 @@ model Project {
   team         Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
   usageEvents  UsageEvent[]
   walletAllocations WalletAllocation[]
+  integrations Integration[]
 
   @@index([organizationId])
   @@index([teamId])
@@ -147,6 +156,7 @@ model Provider {
   walletAllocations WalletAllocation[]
   exchangeFrom ExchangeRate[] @relation("FromProvider")
   exchangeTo   ExchangeRate[] @relation("ToProvider")
+  integrations Integration[]
 }
 
 model Model {
@@ -170,6 +180,7 @@ model Model {
 model UsageEvent {
   id                  String   @id @default(cuid())
   organizationId      String
+  integrationId       String?
   projectId           String?
   teamId              String?
   providerId          String
@@ -189,12 +200,14 @@ model UsageEvent {
   createdAt           DateTime @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  integration  Integration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
   project      Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
   team         Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
   provider     Provider     @relation(fields: [providerId], references: [id], onDelete: Restrict)
   model        Model        @relation(fields: [modelId], references: [id], onDelete: Restrict)
 
   @@index([organizationId, timestamp])
+  @@index([integrationId, timestamp])
   @@index([projectId, timestamp])
   @@index([teamId, timestamp])
   @@index([modelId, timestamp])
@@ -379,6 +392,7 @@ model ProviderCredential {
   updatedAt      DateTime  @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  integrations Integration[]
 
   @@unique([organizationId, providerId, label])
   @@index([organizationId])
@@ -400,8 +414,41 @@ model IngestSource {
   createdAt       DateTime  @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  integrations Integration[]
 
   @@index([organizationId])
+}
+
+model Integration {
+  id               String          @id @default(cuid())
+  organizationId   String
+  providerId       String
+  credentialId     String?
+  ingestSourceId   String?
+  projectId        String?
+  teamId           String?
+  name             String
+  agentName        String?
+  environment      String?
+  mode             IntegrationMode @default(FALLBACK)
+  active           Boolean         @default(true)
+  lastSeenAt       DateTime?
+  notes            String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider     Provider          @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  credential   ProviderCredential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+  ingestSource IngestSource?     @relation(fields: [ingestSourceId], references: [id], onDelete: SetNull)
+  project      Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  team         Team?             @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  usageEvents  UsageEvent[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, providerId, active])
+  @@index([credentialId, active])
+  @@index([ingestSourceId, active])
 }
 
 model AdminUser {

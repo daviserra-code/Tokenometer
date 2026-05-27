@@ -19,6 +19,7 @@ class AdapterConfig:
     tokenometer_base_url: str
     ingest_key: Optional[str] = None
     ingest_secret: Optional[str] = None
+    integration_id: Optional[str] = None
     project: Optional[str] = None
     team: Optional[str] = None
     agent: Optional[str] = None
@@ -496,6 +497,8 @@ def _proxy_headers(config: AdapterConfig, request_id: str) -> Dict[str, str]:
         headers["x-project"] = config.project
     if config.agent:
         headers["x-agent"] = config.agent
+    if config.integration_id:
+        headers["x-integration-id"] = config.integration_id
     if config.credential_id:
         headers["x-credential-id"] = config.credential_id
     return headers
@@ -518,6 +521,7 @@ def _build_openai_compatible_event(
         "timestamp": _now_iso(),
         "provider": provider_name,
         "model": model,
+        "integrationId": config.integration_id,
         "inputTokens": input_tokens,
         "outputTokens": output_tokens,
         "totalTokens": total_tokens,
@@ -549,6 +553,7 @@ def _build_anthropic_event(
         "timestamp": _now_iso(),
         "provider": "Anthropic",
         "model": model,
+        "integrationId": config.integration_id,
         "inputTokens": input_tokens,
         "outputTokens": output_tokens,
         "totalTokens": total_tokens,
@@ -581,6 +586,7 @@ def _build_gemini_event(
         "timestamp": _now_iso(),
         "provider": "Google",
         "model": model,
+        "integrationId": config.integration_id,
         "inputTokens": input_tokens,
         "outputTokens": output_tokens,
         "totalTokens": total_tokens,
