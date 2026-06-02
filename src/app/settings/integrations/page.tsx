@@ -143,23 +143,19 @@ export default async function IntegrationsPage() {
           />
         </Card>
 
-        <Card title="Why this matters">
+        <Card title="Before you create one">
           <div className="space-y-3 text-sm text-text-muted">
             <Meaning
-              title="Stable app identity"
-              body="Your app gets a real Tokenometer integration ID instead of relying only on project and agent headers."
+              title="Use one integration per real app or workload"
+              body="Treat this like an app identity, not a temporary test label. It should stay meaningful in audit logs and spend reports."
             />
             <Meaning
-              title="Secret ownership is explicit"
-              body="Each integration can point to the exact vaulted credential and ingest source it is allowed to use."
+              title="Bind the owner and environment early"
+              body="Owner, environment, and runbook fields keep the integration healthy later, especially once more than one app is live."
             />
             <Meaning
-              title="Spend attribution gets cleaner"
-              body="Proxy calls and signed ingest events can both attach to the same integration, project, and team."
-            />
-            <Meaning
-              title="Epic 4 foundation"
-              body="This is the object model that makes later rotation, health, app status, and policy easier to reason about."
+              title="Keep secret ownership explicit"
+              body="Link the right provider credential and ingest source so proxy traffic and observe-mode events resolve to the same app identity."
             />
           </div>
         </Card>

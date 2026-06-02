@@ -441,7 +441,7 @@ export default async function CredentialsPage({
           </div>
         </Card>
 
-        <Card title="What each secret really does">
+        <Card title="Runtime contract">
           <div className="space-y-3 text-sm text-text-muted">
             <SecretMeaning
               title={`${selectedProvider.envVar}`}
@@ -629,8 +629,8 @@ export default async function CredentialsPage({
       </Card>
 
       <Card
-        title="Recommended path: live metering"
-        description="Historical provider sync is useful, but it depends on admin keys and provider support. Live metering is the product engine."
+        title="Test, sync, and live metering"
+        description="These three actions are related, but they are not the same thing."
         action={
           <Link
             href="/gateway"
@@ -640,19 +640,33 @@ export default async function CredentialsPage({
           </Link>
         }
       >
-        <div className="grid grid-cols-1 gap-3 text-sm text-text-muted sm:grid-cols-3">
-          <div className="rounded-lg border border-border-subtle bg-background p-3">
-            <strong className="block text-on-surface">Test key</strong>
-            Sends one tiny call to prove the vaulted key can call the provider.
-          </div>
-          <div className="rounded-lg border border-border-subtle bg-background p-3">
-            <strong className="block text-on-surface">Historical sync</strong>
-            Imports old usage only when the provider exposes an admin usage API.
-          </div>
-          <div className="rounded-lg border border-border-subtle bg-background p-3">
-            <strong className="block text-on-surface">Live metering</strong>
-            Routes real app calls through Tokenometer and records tokens immediately.
-          </div>
+        <div className="grid grid-cols-1 gap-3 text-sm text-text-muted lg:grid-cols-3">
+          <SecretMeaning
+            title="Test"
+            body='Sends one tiny real provider call so you can verify the key, request path, and spend loop immediately.'
+          />
+          <SecretMeaning
+            title="Sync"
+            body="Imports historical usage only when the provider exposes an admin usage API or a small fallback usage call."
+          />
+          <SecretMeaning
+            title="Live metering"
+            body="Routes real app traffic through Tokenometer or reports it via signed observe-mode ingest. This is the main product engine."
+          />
+        </div>
+        <div className="mt-4 rounded-lg border border-border-subtle bg-background p-4">
+          <ul className="space-y-2 text-sm text-text-muted">
+            <li>
+              <strong className="text-on-surface">OpenAI and Anthropic:</strong> historical sync needs admin usage access. Normal app keys still work for <strong className="text-on-surface">Test</strong>.
+            </li>
+            <li>
+              <strong className="text-on-surface">Google, Mistral, and DeepSeek:</strong> there is no strong public historical usage API, so live metering matters more than sync.
+            </li>
+            <li>
+              <strong className="text-on-surface">GitHub Models:</strong> use a PAT with <code className="mx-1 rounded bg-surface-2 px-1">models:read</code>. Paid usage still depends on GitHub billing being enabled.
+            </li>
+            <li>Sync stays idempotent, so rerunning it will skip usage buckets that are already imported.</li>
+          </ul>
         </div>
       </Card>
 
@@ -787,8 +801,8 @@ export default async function CredentialsPage({
       </div>
 
       <Card
-        title="Observed app traffic"
-        description="This is still the inferred traffic view. It is useful, but named integrations above are now the preferred identity layer."
+        title="Observed app traffic fallback view"
+        description="This inferred traffic view is still useful, but named integrations above are now the preferred identity layer."
         noPadding
       >
         <div className="overflow-x-auto">
@@ -845,38 +859,6 @@ export default async function CredentialsPage({
         </div>
       </Card>
 
-      <Card title="How test and sync behave">
-        <ul className="space-y-2 text-sm text-text-muted">
-          <li>
-            <strong className="text-on-surface">Test</strong> - sends a real 5-token <span>&quot;ping&quot;</span> call through the BYOK proxy
-            using this credential. Works with <strong>any</strong> key (not just Admin keys). Best way to verify the
-            pipeline end-to-end and see numbers move on the dashboard immediately.
-          </li>
-          <li>
-            <strong className="text-on-surface">OpenAI Sync</strong> - pulls daily totals from
-            <code className="mx-1 rounded bg-surface-2 px-1">/v1/organization/usage/completions</code>.
-            Requires an <strong>Admin API key</strong> (<code>sk-admin-...</code>). With a normal
-            <code className="mx-1 rounded bg-surface-2 px-1">sk-...</code> project key, Tokenometer falls back to
-            one tiny live ping and meters that call.
-          </li>
-          <li>
-            <strong className="text-on-surface">Anthropic Sync</strong> - pulls from
-            <code className="mx-1 rounded bg-surface-2 px-1">/v1/organizations/usage_report/messages</code>.
-            Requires an <strong>Admin API key</strong>.
-          </li>
-          <li>
-            <strong className="text-on-surface">Google, Mistral, and DeepSeek</strong> - no public usage API, so Sync
-            sends one small real call against the upstream and meters the resulting tokens. For bulk metering, route
-            your app traffic through the BYOK proxy or import a CSV.
-          </li>
-          <li>
-            <strong className="text-on-surface">GitHub Copilot / Models</strong> - paste a fine-grained PAT with the
-            <code className="mx-1 rounded bg-surface-2 px-1">models:read</code> permission. Paid usage requires
-            Copilot Pro+, Business, Enterprise, or pay-as-you-go enabled at github.com/settings/billing.
-          </li>
-          <li>Sync is idempotent - re-running skips daily buckets already imported.</li>
-        </ul>
-      </Card>
     </div>
   );
 }

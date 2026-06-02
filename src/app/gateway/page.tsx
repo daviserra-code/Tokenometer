@@ -395,10 +395,10 @@ export default async function GatewayPage({
           </div>
         </Card>
 
-        <Card title="Read this mode like a teammate would" description="The app should teach the rollout, not make you reverse-engineer it.">
+        <Card title="Mode summary" description="Just enough context to decide whether this rollout mode is the right one.">
           <div className="space-y-3 text-sm text-text-muted">
             <ModeCallout
-              title="What the app keeps doing"
+              title="App-side requirement"
               body={
                 selectedRollout.requiresProviderKeyInApp
                   ? "Your app still needs the upstream provider key in its own environment."
@@ -414,7 +414,7 @@ export default async function GatewayPage({
               }
             />
             <ModeCallout
-              title="When to use it"
+              title="Best fit"
               body={selectedRollout.bestFor}
             />
           </div>
