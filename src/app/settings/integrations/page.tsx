@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Card, PageHeader } from "@/components/Card";
 import { KpiCard } from "@/components/KpiCard";
 import { ProviderChip } from "@/components/ProviderChip";
+import { SetupSurfaceGuide } from "@/components/SetupSurfaceGuide";
 import { requireAdmin } from "@/lib/auth";
 import { formatDateTime, formatRelativeTime } from "@/lib/format";
 import { evaluateIntegrationHealth, healthToneClasses } from "@/lib/integration-health";
@@ -110,6 +111,13 @@ export default async function IntegrationsPage() {
             Open gateway
           </Link>
         }
+      />
+
+      <SetupSurfaceGuide
+        current="integrations"
+        nextHref="/gateway"
+        nextLabel="Move into Gateway for rollout and verification"
+        nextBody="After the app identity exists, use Gateway to generate the right env block or adapter snippet for observe, fallback, or enforce, then run the verification loop."
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">

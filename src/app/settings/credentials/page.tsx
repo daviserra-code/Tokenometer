@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { Card, PageHeader } from "@/components/Card";
 import { KpiCard } from "@/components/KpiCard";
 import { ProviderChip } from "@/components/ProviderChip";
+import { SetupSurfaceGuide } from "@/components/SetupSurfaceGuide";
 import { requireAdmin } from "@/lib/auth";
 import { formatDateTime, formatRelativeTime } from "@/lib/format";
 import { evaluateIntegrationHealth, healthToneClasses } from "@/lib/integration-health";
@@ -227,6 +228,13 @@ export default async function CredentialsPage({
       <PageHeader
         title="Provider credentials"
         description="Vault provider keys here, then prove the spending loop with one real test request. Historical sync is optional; live metering is the main path."
+      />
+
+      <SetupSurfaceGuide
+        current="credentials"
+        nextHref="/settings/integrations"
+        nextLabel="Name the app integration after the key exists"
+        nextBody="Once the provider key is vaulted, create a named integration so the app has a durable Tokenometer identity, owner, rollout mode, and project or team mapping."
       />
 
       {flash && (

@@ -5,6 +5,7 @@ import { Card, PageHeader } from "@/components/Card";
 import { DataTable, type Column } from "@/components/DataTable";
 import { KpiCard } from "@/components/KpiCard";
 import { ProviderTag } from "@/components/ProviderChip";
+import { SetupSurfaceGuide } from "@/components/SetupSurfaceGuide";
 import { requireAdmin } from "@/lib/auth";
 import {
   formatCurrency,
@@ -308,6 +309,13 @@ export default async function GatewayPage({
             Vault keys
           </Link>
         }
+      />
+
+      <SetupSurfaceGuide
+        current="gateway"
+        nextHref="/ledger"
+        nextLabel="Confirm the request in Ledger and Reports"
+        nextBody="Gateway proves the request path and metadata. The final confidence check is making sure the raw event lands in Ledger and then shows up in the spend views you care about."
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.35fr,1fr]">
