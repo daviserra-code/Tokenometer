@@ -37,9 +37,9 @@ export function Topbar() {
           <ModeSwitch mode={mode} admin={admin} compact />
         </div>
         <AdminAuthButton admin={admin} />
-        <IconButton href="#" label="Notifications" icon="notifications" />
+        <IconButton href="/wallet/history" label="History" icon="notifications" />
         <IconButton href="/settings" label="Settings" icon="settings" />
-        <IconButton href="#" label="Help" icon="help" />
+        <IconButton href="/setup" label="Setup guide" icon="help" />
         <Link
           href={admin ? "/settings" : "/login"}
           aria-label={admin ? "Admin settings" : "Admin login"}

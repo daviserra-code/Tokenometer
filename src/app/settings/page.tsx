@@ -1,8 +1,10 @@
-import { prisma } from "@/lib/prisma";
-import { Card, PageHeader } from "@/components/Card";
 import Link from "next/link";
-import { wipeDemoDataAction } from "./actions";
+
+import { Card, PageHeader } from "@/components/Card";
 import { requireAdmin } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+
+import { wipeDemoDataAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -14,47 +16,80 @@ export default async function SettingsPage() {
   return (
     <div className="space-y-section-gap">
       <PageHeader
-        title="Settings"
-        description="Admin-only configuration for credentials, ingestion, imports and live-mode testing."
+        title="Admin settings"
+        description="Use Setup for the main onboarding flow. Use this page for admin controls, policy, imports, and security."
+        action={
+          <Link
+            href="/setup"
+            className="inline-flex items-center gap-2 rounded-lg border border-primary-container/40 bg-primary-container/10 px-4 py-2 text-sm font-semibold text-primary-container hover:bg-primary-container/20"
+          >
+            <span className="material-symbols-outlined text-[18px]">checklist</span>
+            Open setup
+          </Link>
+        }
       />
 
-      <Card title="Data ingestion" description="Feed Tokenometer with real AI usage data.">
+      <Card
+        title="Start and operate"
+        description="These are the working surfaces for getting real AI spend into Tokenometer and keeping it healthy."
+      >
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <SettingsLink
-            href="/settings/security"
-            icon="shield_lock"
-            title="Security"
-            desc="Admin users, 2FA, rate limits and audit logs."
-          />
           <SettingsLink
             href="/settings/credentials"
             icon="key"
             title="Provider credentials"
-            desc="Vault encrypted API keys per provider (OpenAI, Anthropic, …)."
+            desc="Vault encrypted provider keys and run the guided provider tests."
           />
           <SettingsLink
             href="/settings/integrations"
             icon="deployed_code"
             title="Integrations"
-            desc="Name each app integration, bind secrets, set rollout mode, and track last-seen status."
+            desc="Name each app integration, bind ownership, set rollout mode, and track health."
           />
           <SettingsLink
             href="/gateway"
             icon="api"
             title="Metering gateway"
-            desc="Route live model calls through Tokenometer and measure tokens immediately."
+            desc="Generate the rollout snippets and verify live request metadata."
           />
           <SettingsLink
             href="/settings/ingest"
             icon="webhook"
             title="Ingest API & webhooks"
-            desc="HMAC-signed POST /api/ingest for your services to push usage."
+            desc="Manage signed observe-mode ingestion for services that report usage after the call."
           />
           <SettingsLink
             href="/settings/import"
             icon="upload_file"
             title="CSV import"
             desc="One-shot bulk upload of historical usage data."
+          />
+          <SettingsLink
+            href="/settings/security"
+            icon="shield_lock"
+            title="Security"
+            desc="Admin users, 2FA, rate limits, and audit logs."
+          />
+        </div>
+      </Card>
+
+      <Card title="What each surface is for" description="These names now have one job across the product.">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <Meaning
+            title="Credentials"
+            body="Provider secrets live here. This is where a key becomes usable by Tokenometer."
+          />
+          <Meaning
+            title="Integrations"
+            body="Each app gets a durable identity here: provider, rollout mode, owner, project, and team."
+          />
+          <Meaning
+            title="Gateway"
+            body="This is the live routing and verification surface. Use it to generate env blocks and adapter snippets."
+          />
+          <Meaning
+            title="Ledger and Reports"
+            body="These are the verification surfaces. They confirm the raw event and the spend views both updated."
           />
         </div>
       </Card>
@@ -81,7 +116,7 @@ export default async function SettingsPage() {
       </Card>
 
       <Card
-        title="Organization Profile"
+        title="Organization profile"
         description="Identity and base currency used across all reports."
       >
         <form className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -120,7 +155,7 @@ export default async function SettingsPage() {
       </Card>
 
       <Card
-        title="Platform Preferences"
+        title="Platform preferences"
         description="UX and operational toggles for this workspace."
       >
         <div className="space-y-4">
@@ -146,7 +181,7 @@ export default async function SettingsPage() {
       </Card>
 
       <Card
-        title="Cost Calculation Rules"
+        title="Cost calculation rules"
         description="Formulas used to estimate cost from raw token counts."
       >
         <div className="space-y-4">
@@ -267,8 +302,17 @@ function SettingsLink({
       </div>
       <p className="text-[12px] text-text-muted">{desc}</p>
       <span className="mt-1 text-[12px] font-semibold text-primary group-hover:underline">
-        Open →
+        Open -&gt;
       </span>
     </Link>
+  );
+}
+
+function Meaning({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-lg border border-border-subtle/60 bg-surface-elevated/30 p-4">
+      <strong className="block text-on-surface">{title}</strong>
+      <p className="mt-1 text-[12px] text-text-muted">{body}</p>
+    </div>
   );
 }
