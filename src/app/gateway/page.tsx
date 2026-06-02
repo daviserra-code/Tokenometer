@@ -5,7 +5,6 @@ import { Card, PageHeader } from "@/components/Card";
 import { DataTable, type Column } from "@/components/DataTable";
 import { KpiCard } from "@/components/KpiCard";
 import { ProviderTag } from "@/components/ProviderChip";
-import { SetupSurfaceGuide } from "@/components/SetupSurfaceGuide";
 import { liveUsageWhere, requireAdmin } from "@/lib/auth";
 import {
   formatCurrency,
@@ -327,137 +326,208 @@ export default async function GatewayPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Metering Gateway"
-        description="Choose a provider, choose a rollout mode, and let Tokenometer generate the cleanest path from first test to real production traffic."
+        title="Gateway"
+        description="Validate one app rollout at a time: identity, provider path, latest live calls, and the next operational step."
         action={
-          <Link
-            href="/settings/credentials"
-            className="inline-flex items-center gap-2 rounded-lg border border-primary-container/40 bg-primary-container/10 px-4 py-2 text-sm font-semibold text-primary-container hover:bg-primary-container/20"
-          >
-            <span className="material-symbols-outlined text-[18px]">key</span>
-            Vault keys
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/settings/integrations"
+              className="inline-flex items-center gap-2 rounded-lg border border-border-subtle bg-background px-4 py-2 text-sm font-semibold text-on-surface hover:border-primary/40 hover:bg-surface-2"
+            >
+              <span className="material-symbols-outlined text-[18px]">deployed_code</span>
+              Named integrations
+            </Link>
+            <Link
+              href="/settings/credentials"
+              className="inline-flex items-center gap-2 rounded-lg border border-primary-container/40 bg-primary-container/10 px-4 py-2 text-sm font-semibold text-primary-container hover:bg-primary-container/20"
+            >
+              <span className="material-symbols-outlined text-[18px]">key</span>
+              Vault keys
+            </Link>
+          </div>
         }
       />
 
-      <SetupSurfaceGuide
-        current="gateway"
-        nextHref="/ledger"
-        nextLabel="Confirm the request in Ledger and Reports"
-        nextBody="Gateway proves the request path and metadata. The final confidence check is making sure the raw event lands in Ledger and then shows up in the spend views you care about."
-      />
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.35fr,1fr]">
-        <Card title="Choose the provider you are wiring next" description="This is the integration surface for Epic 3. Pick one app, one provider, one rollout mode.">
-          <div className="flex flex-wrap gap-2">
-            {INTEGRATION_PROVIDERS.map((provider) => (
-              <SelectorPill
-                key={provider.slug}
-                href={buildGatewayHref(
-                  provider.slug,
-                  selectedRollout.slug,
-                  selectedIntegration?.provider.name === provider.name ? selectedIntegration.id : undefined,
-                )}
-                active={provider.slug === selectedProvider.slug}
-                label={provider.name}
-                sublabel={provider.model}
-              />
-            ))}
-          </div>
-
-          <div className="mt-4 rounded-lg border border-border-subtle bg-background p-4">
-            <div className="flex items-center gap-2">
-              <ProviderTag name={selectedProvider.name} />
-              <strong className="text-on-surface">{selectedProvider.model}</strong>
-            </div>
-            <p className="mt-2 text-sm text-text-muted">
-              {selectedProvider.name} uses <span className="font-mono text-[12px]">{selectedProvider.endpoint}</span>.
-              Historical sync is <strong>{selectedProvider.historical}</strong>, but the main story here is live metering
-              through response usage.
-            </p>
-          </div>
-        </Card>
-
-        <Card title="Choose the rollout mode" description="Product language first. Architecture second.">
-          <div className="space-y-2">
-            {INTEGRATION_ROLLOUTS.map((rollout) => (
-              <SelectorPill
-                key={rollout.slug}
-                href={buildGatewayHref(selectedProvider.slug, rollout.slug, selectedIntegration?.id)}
-                active={rollout.slug === selectedRollout.slug}
-                label={rollout.label}
-                sublabel={rollout.bestFor}
-                vertical
-              />
-            ))}
-          </div>
-        </Card>
-      </div>
-
-      {providerIntegrations.length > 0 && (
+      {selectedIntegration ? (
         <Card
-          title="Focus a named app"
-          description="Pick the exact integration you want to inspect. The recent traffic table below will stay focused on that app instead of mixing in unrelated live traffic."
+          title={selectedIntegration.name}
+          description="This is the app currently loaded into the rollout generator. If something looks off in Ledger or Reports, start here."
         >
-          <div className="flex flex-wrap gap-2">
-            <SelectorPill
-              href={buildGatewayHref(selectedProvider.slug, selectedRollout.slug)}
-              active={!selectedIntegration}
-              label={`All ${selectedProvider.name}`}
-              sublabel="Provider-wide view"
-            />
-            {providerIntegrations.map(({ integration }) => (
-              <SelectorPill
-                key={integration.id}
-                href={buildGatewayHref(selectedProvider.slug, selectedRollout.slug, integration.id)}
-                active={selectedIntegration?.id === integration.id}
-                label={integration.name}
-                sublabel={integration.project?.name ?? integration.environment ?? "Named integration"}
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <ProviderTag name={selectedProvider.name} />
+              <span className="rounded-full border border-border-subtle bg-background px-2.5 py-1 text-[12px] font-semibold text-on-surface">
+                {selectedRollout.label}
+              </span>
+              {selectedIntegrationHealth && (
+                <span
+                  className={clsx(
+                    "rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide",
+                    healthToneClasses(selectedIntegrationHealth.status),
+                  )}
+                >
+                  {selectedIntegrationHealth.label}
+                </span>
+              )}
+              <span className="font-mono text-[11px] text-text-muted">{selectedIntegration.id.slice(0, 10)}...</span>
+            </div>
+
+            {selectedIntegrationHealth && (
+              <div className="rounded-lg border border-border-subtle bg-background p-4 text-sm text-text-muted">
+                <p>{selectedIntegrationHealth.summary}</p>
+                <p className="mt-2">
+                  <strong className="text-on-surface">Next action:</strong> {selectedIntegrationHealth.nextAction}
+                </p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <ReadinessRow label="Project" ok={Boolean(selectedIntegration.project?.name)} value={selectedIntegration.project?.name ?? "Not pinned yet"} />
+              <ReadinessRow label="Team" ok={Boolean(selectedIntegration.team?.name)} value={selectedIntegration.team?.name ?? "Not pinned yet"} />
+              <ReadinessRow
+                label="Last seen"
+                ok={Boolean(selectedIntegration.lastSeenAt)}
+                value={
+                  selectedIntegration.lastSeenAt
+                    ? `${formatRelativeTime(selectedIntegration.lastSeenAt)} (${formatDateTime(selectedIntegration.lastSeenAt)})`
+                    : "No live traffic yet"
+                }
               />
-            ))}
+              <ReadinessRow label="Usage events" ok={selectedIntegration._count.usageEvents > 0} value={String(selectedIntegration._count.usageEvents)} />
+            </div>
+
+            {providerIntegrations.length > 1 && (
+              <div className="space-y-2">
+                <p className="text-[12px] uppercase tracking-wider text-text-muted">Switch app</p>
+                <div className="flex flex-wrap gap-2">
+                  {providerIntegrations.map(({ integration }) => (
+                    <SelectorPill
+                      key={integration.id}
+                      href={buildGatewayHref(selectedProvider.slug, selectedRollout.slug, integration.id)}
+                      active={selectedIntegration.id === integration.id}
+                      label={integration.name}
+                      sublabel={integration.project?.name ?? integration.environment ?? "Named integration"}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+      ) : (
+        <Card
+          title="Choose the app you are validating"
+          description="Start with one named integration. That keeps the rollout story anchored to one project, one team, and one stream of live calls."
+        >
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {INTEGRATION_PROVIDERS.map((provider) => (
+                <SelectorPill
+                  key={provider.slug}
+                  href={buildGatewayHref(provider.slug, selectedRollout.slug)}
+                  active={provider.slug === selectedProvider.slug}
+                  label={provider.name}
+                  sublabel={provider.model}
+                />
+              ))}
+            </div>
+
+            {providerIntegrations.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {providerIntegrations.map(({ integration }) => (
+                  <SelectorPill
+                    key={integration.id}
+                    href={buildGatewayHref(selectedProvider.slug, selectedRollout.slug, integration.id)}
+                    active={false}
+                    label={integration.name}
+                    sublabel={integration.project?.name ?? integration.environment ?? "Named integration"}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-border-subtle bg-background p-4 text-sm text-text-muted">
+                No named {selectedProvider.name} integrations yet. Create one in Settings -&gt; Integrations and come back here to validate it.
+              </div>
+            )}
           </div>
         </Card>
       )}
 
-      <Card
-        title={selectedIntegration ? "Selected app snapshot" : "Current gateway scope"}
-        description={
-          selectedIntegration
-            ? "This is the named app you are currently validating. If the rows below look wrong, this card tells you where the identity is coming from."
-            : "You are looking at a provider-wide view. Choose a named app above when you want one stable identity, one project, and one rollout story."
-        }
-      >
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <ReadinessRow
-            label="Current scope"
-            ok
-            value={selectedScopeLabel}
-          />
-          <ReadinessRow
-            label="Project"
-            ok={Boolean(selectedIntegration?.project?.name)}
-            value={selectedIntegration?.project?.name ?? "Not pinned to one project yet"}
-          />
-          <ReadinessRow
-            label="Team"
-            ok={Boolean(selectedIntegration?.team?.name)}
-            value={selectedIntegration?.team?.name ?? "Not pinned to one team yet"}
-          />
-          <ReadinessRow
-            label="Last seen"
-            ok={Boolean(selectedIntegration?.lastSeenAt ?? latestProxyEvent)}
-            value={
-              selectedIntegration?.lastSeenAt
-                ? `${formatRelativeTime(selectedIntegration.lastSeenAt)} (${formatDateTime(selectedIntegration.lastSeenAt)})`
-                : latestProxyEvent
-                  ? `${formatRelativeTime(latestProxyEvent.timestamp)} (${formatDateTime(latestProxyEvent.timestamp)})`
-                  : "No live traffic yet"
-            }
-          />
-        </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label="Recent calls" value={String(rows.length)} hint={selectedIntegration ? "for this app" : "for this provider"} icon="quick_reference" />
+        <KpiCard
+          label="Average latency"
+          value={avgLatencyMs !== null ? `${avgLatencyMs} ms` : "n/a"}
+          hint={p95LatencyMs !== null ? `p95 ${p95LatencyMs} ms` : "p95 n/a"}
+          icon="timer"
+          tone={avgLatencyMs !== null && avgLatencyMs > 2500 ? "warning" : "success"}
+          accent
+        />
+        <KpiCard
+          label="Streamed calls"
+          value={String(streamedRows)}
+          hint={`${rows.length ? Math.round((streamedRows / rows.length) * 100) : 0}% of recent traffic`}
+          icon="waterfall_chart"
+          tone="input"
+        />
+        <KpiCard label="Busiest provider" value={busiestProvider} hint="from current scope" icon="hub" />
+      </div>
+
+      <Card title={`Recent live calls - ${selectedScopeLabel}`} description={recentCallsDescription} noPadding>
+        <DataTable columns={cols} rows={rows} rowKey={(row) => row.id} />
       </Card>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr,1fr]">
+        <Card title="Wiring configuration" description="Provider and rollout mode stay configurable, but they are secondary once you have chosen the app.">
+          <div className="space-y-4">
+            <div>
+              <p className="mb-2 text-[12px] uppercase tracking-wider text-text-muted">Provider</p>
+              <div className="flex flex-wrap gap-2">
+                {INTEGRATION_PROVIDERS.map((provider) => (
+                  <SelectorPill
+                    key={provider.slug}
+                    href={buildGatewayHref(
+                      provider.slug,
+                      selectedRollout.slug,
+                      selectedIntegration?.provider.name === provider.name ? selectedIntegration.id : undefined,
+                    )}
+                    active={provider.slug === selectedProvider.slug}
+                    label={provider.name}
+                    sublabel={provider.model}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border-subtle bg-background p-4">
+              <div className="flex items-center gap-2">
+                <ProviderTag name={selectedProvider.name} />
+                <strong className="text-on-surface">{selectedProvider.model}</strong>
+              </div>
+              <p className="mt-2 text-sm text-text-muted">
+                {selectedProvider.name} uses <span className="font-mono text-[12px]">{selectedProvider.endpoint}</span>.
+                Historical sync is <strong>{selectedProvider.historical}</strong>, but the main story here is live metering through response usage.
+              </p>
+            </div>
+
+            <div>
+              <p className="mb-2 text-[12px] uppercase tracking-wider text-text-muted">Rollout mode</p>
+              <div className="space-y-2">
+                {INTEGRATION_ROLLOUTS.map((rollout) => (
+                  <SelectorPill
+                    key={rollout.slug}
+                    href={buildGatewayHref(selectedProvider.slug, rollout.slug, selectedIntegration?.id)}
+                    active={rollout.slug === selectedRollout.slug}
+                    label={rollout.label}
+                    sublabel={rollout.bestFor}
+                    vertical
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </Card>
+
         <Card title="Rollout readiness" description="This tells you whether the selected provider and mode are ready for a real app rollout.">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <ReadinessRow label="Vaulted provider key" ok={providerKeyReady} value={providerKeyReady ? `${selectedCredential?.label} / ****${selectedCredential?.keyHint}` : "Missing"} />
@@ -517,26 +587,6 @@ export default async function GatewayPage({
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Recent calls" value={String(rows.length)} hint="latest live traces" icon="quick_reference" />
-        <KpiCard
-          label="Average latency"
-          value={avgLatencyMs !== null ? `${avgLatencyMs} ms` : "n/a"}
-          hint={p95LatencyMs !== null ? `p95 ${p95LatencyMs} ms` : "p95 n/a"}
-          icon="timer"
-          tone={avgLatencyMs !== null && avgLatencyMs > 2500 ? "warning" : "success"}
-          accent
-        />
-        <KpiCard
-          label="Streamed calls"
-          value={String(streamedRows)}
-          hint={`${rows.length ? Math.round((streamedRows / rows.length) * 100) : 0}% of recent traffic`}
-          icon="waterfall_chart"
-          tone="input"
-        />
-        <KpiCard label="Busiest provider" value={busiestProvider} hint="from recent traces" icon="hub" />
-      </div>
-
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr,1fr]">
         <Card title="Environment block" description="This is the smallest useful env setup for the selected provider and rollout mode.">
           <pre className="overflow-auto rounded-lg border border-border-subtle bg-background p-4 font-mono text-[12px] leading-relaxed text-text-muted">
@@ -569,32 +619,6 @@ export default async function GatewayPage({
           agent: selectedIntegration.agentName ?? undefined,
         } : undefined)} />
       </div>
-
-      {selectedIntegration && selectedIntegrationHealth && (
-        <Card title="Selected integration health" description="This is the app-specific status view for the integration currently loaded into the setup generator.">
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr,1fr]">
-            <div className="rounded-lg border border-border-subtle bg-background p-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <strong className="text-on-surface">{selectedIntegration.name}</strong>
-                <span className={clsx("rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide", healthToneClasses(selectedIntegrationHealth.status))}>
-                  {selectedIntegrationHealth.label}
-                </span>
-                <span className="font-mono text-[11px] text-text-muted">{selectedIntegration.id.slice(0, 10)}...</span>
-              </div>
-              <div className="mt-2 text-sm text-text-muted">{selectedIntegrationHealth.summary}</div>
-              <div className="mt-2 text-sm text-text-muted">
-                <strong className="text-on-surface">Next action:</strong> {selectedIntegrationHealth.nextAction}
-              </div>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <ReadinessRow label="Resolved credential" ok={selectedIntegrationHealth.resolvedCredentialLabel !== "Missing"} value={selectedIntegrationHealth.resolvedCredentialLabel} />
-              <ReadinessRow label="Resolved ingest" ok={selectedIntegrationHealth.resolvedIngestLabel !== "Missing"} value={selectedIntegrationHealth.resolvedIngestLabel} />
-              <ReadinessRow label="Freshness threshold" ok value={`${selectedIntegrationHealth.staleThresholdHours}h`} />
-              <ReadinessRow label="Usage events" ok={selectedIntegration._count.usageEvents > 0} value={String(selectedIntegration._count.usageEvents)} />
-            </div>
-          </div>
-        </Card>
-      )}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.3fr,1fr]">
         <Card title="Verification loop" description="These are the four surfaces that should confirm a healthy rollout.">
@@ -635,7 +659,7 @@ export default async function GatewayPage({
 
       <Card
         title="Provider routes"
-        description="This is still the reference matrix. Epic 3 just wraps it in a cleaner rollout flow."
+        description="Reference matrix for provider endpoints, vault state, and the mode Tokenometer would currently recommend."
         noPadding
       >
         <div className="overflow-x-auto">
@@ -692,9 +716,6 @@ export default async function GatewayPage({
         </div>
       </Card>
 
-      <Card title={`Recent live calls - ${selectedScopeLabel}`} description={recentCallsDescription} noPadding>
-        <DataTable columns={cols} rows={rows} rowKey={(row) => row.id} />
-      </Card>
     </div>
   );
 }
