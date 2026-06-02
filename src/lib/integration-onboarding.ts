@@ -172,8 +172,10 @@ export function getRolloutConfig(slug?: string) {
   return INTEGRATION_ROLLOUTS.find((rollout) => rollout.slug === slug) ?? INTEGRATION_ROLLOUTS[1];
 }
 
-export function buildGatewayHref(provider: ProviderSlug, mode: RolloutSlug) {
-  return `/gateway?provider=${provider}&mode=${mode}`;
+export function buildGatewayHref(provider: ProviderSlug, mode: RolloutSlug, integrationId?: string) {
+  const params = new URLSearchParams({ provider, mode });
+  if (integrationId) params.set("integration", integrationId);
+  return `/gateway?${params.toString()}`;
 }
 
 export function getNextAction({

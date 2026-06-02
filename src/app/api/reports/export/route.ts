@@ -37,7 +37,9 @@ function section(title: string, headers: string[], rows: Array<Array<unknown>>) 
 }
 
 export async function GET(request: NextRequest) {
-  if (!isAdmin()) {
+  const modeParam = request.nextUrl.searchParams.get("mode");
+  const mode = modeParam === "live" || modeParam === "demo" ? modeParam : getAppMode();
+  if (mode === "live" && !isAdmin()) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
@@ -47,8 +49,6 @@ export async function GET(request: NextRequest) {
   }
 
   const period = getPeriod(request.nextUrl.searchParams.get("period") ?? undefined);
-  const modeParam = request.nextUrl.searchParams.get("mode");
-  const mode = modeParam === "live" || modeParam === "demo" ? modeParam : getAppMode();
   const where = {
     organizationId: org.id,
     ...modeUsageWhere(mode),

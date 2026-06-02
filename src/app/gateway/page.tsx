@@ -79,6 +79,8 @@ export default async function GatewayPage({
     searchParams && typeof (searchParams as Promise<SearchParams>).then === "function"
       ? await (searchParams as Promise<SearchParams>)
       : ((searchParams as SearchParams | undefined) ?? {});
+  const preferredProviderSlug = resolvedSearchParams.provider ?? "openai";
+  const preferredRolloutSlug = resolvedSearchParams.mode;
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.tokenometer.cloud";
   const ingest = await prisma.ingestSource.findFirst({
@@ -102,6 +104,22 @@ export default async function GatewayPage({
   });
   const providers = await prisma.provider.findMany();
   const providerById = new Map(providers.map((provider) => [provider.id, provider.name]));
+  const selectedIntegration =
+    integrations.find((integration) => integration.id === resolvedSearchParams.integration) ?? null;
+  const selectedProvider = getProviderConfig(
+    resolvedSearchParams.provider ?? providerNameToSlug(selectedIntegration?.provider.name ?? preferredProviderSlug),
+  );
+  const selectedRollout = getRolloutConfig(
+    preferredRolloutSlug ??
+      (selectedIntegration
+        ? selectedIntegration.mode === "OBSERVE"
+          ? "observe"
+          : selectedIntegration.mode === "ENFORCE"
+            ? "enforce"
+            : "fallback"
+        : undefined),
+  );
+  const selectedProviderId = providers.find((provider) => provider.name === selectedProvider.name)?.id ?? null;
   const credentialByProvider = new Map<
     string,
     { id: string; label: string; keyHint: string; active: boolean; lastUsedAt: Date | null; updatedAt: Date }
@@ -126,6 +144,11 @@ export default async function GatewayPage({
     where: {
       organizationId: org.id,
       ...liveUsageWhere(),
+      ...(selectedIntegration
+        ? { integrationId: selectedIntegration.id }
+        : selectedProviderId
+          ? { providerId: selectedProviderId }
+          : {}),
     },
     orderBy: { timestamp: "desc" },
     take: 50,
@@ -167,21 +190,6 @@ export default async function GatewayPage({
     };
   });
 
-  const selectedIntegration =
-    integrations.find((integration) => integration.id === resolvedSearchParams.integration) ?? null;
-  const selectedProvider = getProviderConfig(
-    resolvedSearchParams.provider ?? providerNameToSlug(selectedIntegration?.provider.name ?? "openai"),
-  );
-  const selectedRollout = getRolloutConfig(
-    resolvedSearchParams.mode ??
-      (selectedIntegration
-        ? selectedIntegration.mode === "OBSERVE"
-          ? "observe"
-          : selectedIntegration.mode === "ENFORCE"
-            ? "enforce"
-            : "fallback"
-        : undefined),
-  );
   const latestProxyEvent = rows[0] ?? null;
   const selectedCredential = credentialByProvider.get(selectedProvider.name) ?? null;
   const selectedLatestEvent = latestProxyByProvider.get(selectedProvider.name) ?? null;
@@ -338,7 +346,11 @@ export default async function GatewayPage({
             {INTEGRATION_PROVIDERS.map((provider) => (
               <SelectorPill
                 key={provider.slug}
-                href={buildGatewayHref(provider.slug, selectedRollout.slug)}
+                href={buildGatewayHref(
+                  provider.slug,
+                  selectedRollout.slug,
+                  selectedIntegration?.provider.name === provider.name ? selectedIntegration.id : undefined,
+                )}
                 active={provider.slug === selectedProvider.slug}
                 label={provider.name}
                 sublabel={provider.model}
@@ -364,7 +376,7 @@ export default async function GatewayPage({
             {INTEGRATION_ROLLOUTS.map((rollout) => (
               <SelectorPill
                 key={rollout.slug}
-                href={buildGatewayHref(selectedProvider.slug, rollout.slug)}
+                href={buildGatewayHref(selectedProvider.slug, rollout.slug, selectedIntegration?.id)}
                 active={rollout.slug === selectedRollout.slug}
                 label={rollout.label}
                 sublabel={rollout.bestFor}
@@ -374,6 +386,31 @@ export default async function GatewayPage({
           </div>
         </Card>
       </div>
+
+      {providerIntegrations.length > 0 && (
+        <Card
+          title="Focus a named app"
+          description="Pick the exact integration you want to inspect. The recent traffic table below will stay focused on that app instead of mixing in unrelated live traffic."
+        >
+          <div className="flex flex-wrap gap-2">
+            <SelectorPill
+              href={buildGatewayHref(selectedProvider.slug, selectedRollout.slug)}
+              active={!selectedIntegration}
+              label={`All ${selectedProvider.name}`}
+              sublabel="Provider-wide view"
+            />
+            {providerIntegrations.map(({ integration }) => (
+              <SelectorPill
+                key={integration.id}
+                href={buildGatewayHref(selectedProvider.slug, selectedRollout.slug, integration.id)}
+                active={selectedIntegration?.id === integration.id}
+                label={integration.name}
+                sublabel={integration.project?.name ?? integration.environment ?? "Named integration"}
+              />
+            ))}
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr,1fr]">
         <Card title="Integration health" description="This tells you whether the selected provider and mode are ready for a real app rollout.">
@@ -522,7 +559,7 @@ export default async function GatewayPage({
           {providerIntegrations.map(({ integration, health }) => (
               <Link
                 key={integration.id}
-                href={`/gateway?provider=${selectedProvider.slug}&mode=${selectedRollout.slug}&integration=${integration.id}`}
+              href={`/gateway?provider=${selectedProvider.slug}&mode=${selectedRollout.slug}&integration=${integration.id}`}
                 className={clsx(
                   "rounded-lg border p-4 transition",
                   selectedIntegration?.id === integration.id

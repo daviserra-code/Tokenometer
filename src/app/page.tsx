@@ -256,10 +256,11 @@ export default async function DashboardPage() {
             <AutoRefresh />
             <a
               href={reportHref}
+              download
               className="inline-flex items-center gap-2 rounded-lg border border-primary-container/40 bg-primary-container/10 px-4 py-2 font-display text-body-md font-semibold text-primary-container transition-colors hover:bg-primary-container/20"
             >
               <span className="material-symbols-outlined text-[18px]">download</span>
-              Generate Report
+              Download CSV report
             </a>
           </div>
         }
