@@ -412,6 +412,7 @@ model IngestSource {
   active          Boolean   @default(true)
   lastSeenAt      DateTime?
   createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now()) @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   integrations Integration[]
@@ -429,10 +430,14 @@ model Integration {
   teamId           String?
   name             String
   agentName        String?
+  ownerName        String?
+  ownerEmail       String?
+  runbookUrl       String?
   environment      String?
   mode             IntegrationMode @default(FALLBACK)
   active           Boolean         @default(true)
   lastSeenAt       DateTime?
+  lastVerifiedAt   DateTime?
   notes            String?
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt

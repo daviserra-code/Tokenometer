@@ -14,7 +14,7 @@ import {
 } from "@/lib/integration-onboarding";
 import { prisma } from "@/lib/prisma";
 
-import { deleteIntegrationAction, saveIntegrationAction } from "../actions";
+import { deleteIntegrationAction, markIntegrationVerifiedAction, saveIntegrationAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -70,7 +70,11 @@ export default async function IntegrationsPage() {
       mode: integration.mode,
       active: integration.active,
       lastSeenAt: integration.lastSeenAt,
+      lastVerifiedAt: integration.lastVerifiedAt,
       environment: integration.environment,
+      ownerName: integration.ownerName,
+      ownerEmail: integration.ownerEmail,
+      runbookUrl: integration.runbookUrl,
       teamId: integration.teamId,
       project: integration.project
         ? { id: integration.project.id, name: integration.project.name, teamId: integration.project.teamId }
@@ -178,12 +182,19 @@ export default async function IntegrationsPage() {
                       <span>Mode: {integration.mode.toLowerCase()}</span>
                       <span>Environment: {integration.environment ?? "not set"}</span>
                       <span>Agent: {integration.agentName ?? "not set"}</span>
+                      <span>Owner: {integration.ownerName ?? "not set"}</span>
                       <span>Usage events: {integration._count.usageEvents}</span>
                     </div>
                     <div className="mt-1 text-[12px] text-text-muted">
                       Last seen:{" "}
                       {integration.lastSeenAt
                         ? `${formatDateTime(integration.lastSeenAt)} (${formatRelativeTime(integration.lastSeenAt)})`
+                        : "never"}
+                    </div>
+                    <div className="mt-1 text-[12px] text-text-muted">
+                      Last verified:{" "}
+                      {integration.lastVerifiedAt
+                        ? `${formatDateTime(integration.lastVerifiedAt)} (${formatRelativeTime(integration.lastVerifiedAt)})`
                         : "never"}
                     </div>
                     <div className="mt-3 rounded-lg border border-border-subtle bg-surface-2 p-3 text-[12px] text-text-muted">
@@ -199,6 +210,21 @@ export default async function IntegrationsPage() {
                     >
                       Open onboarding
                     </Link>
+                    <Link
+                      href={`/settings/integrations/${integration.id}`}
+                      className="rounded-lg border border-border-subtle px-3 py-2 text-xs font-semibold text-on-surface hover:border-primary"
+                    >
+                      Details
+                    </Link>
+                    <form action={markIntegrationVerifiedAction}>
+                      <input type="hidden" name="id" value={integration.id} />
+                      <button
+                        type="submit"
+                        className="rounded-lg border border-status-normal/40 px-3 py-2 text-xs font-semibold text-status-normal hover:bg-status-normal/10"
+                      >
+                        Mark verified
+                      </button>
+                    </form>
                     <form action={deleteIntegrationAction}>
                       <input type="hidden" name="id" value={integration.id} />
                       <button
@@ -244,6 +270,18 @@ export default async function IntegrationsPage() {
 
                     <Field label="Agent name">
                       <input name="agentName" defaultValue={integration.agentName ?? ""} placeholder="support-bot" className={inputCls} />
+                    </Field>
+
+                    <Field label="Owner name">
+                      <input name="ownerName" defaultValue={integration.ownerName ?? ""} placeholder="Platform Team" className={inputCls} />
+                    </Field>
+
+                    <Field label="Owner email">
+                      <input name="ownerEmail" defaultValue={integration.ownerEmail ?? ""} placeholder="platform@example.com" className={inputCls} />
+                    </Field>
+
+                    <Field label="Runbook URL">
+                      <input name="runbookUrl" defaultValue={integration.runbookUrl ?? ""} placeholder="https://docs.example.com/tokenometer-runbook" className={inputCls} />
                     </Field>
 
                     <Field label="Active">
@@ -335,6 +373,9 @@ export default async function IntegrationsPage() {
                       <div className="mt-1 text-[12px] text-text-muted">
                         Freshness threshold: {health.staleThresholdHours}h
                       </div>
+                      <div className="mt-1 text-[12px] text-text-muted">
+                        Rotation window: {health.rotationWindowDays} days
+                      </div>
                     </div>
                     <div className="rounded-lg border border-border-subtle bg-surface-2 p-3">
                       <div className="text-[11px] uppercase tracking-wider text-text-muted">Health checks</div>
@@ -353,6 +394,14 @@ export default async function IntegrationsPage() {
                       <div className="mt-2 text-[12px] text-text-muted">{health.nextAction}</div>
                       <div className="mt-2 text-[12px] text-text-muted">
                         Provider fallback: {integration.credential ? "fixed credential" : "org default or app-managed"}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-border-subtle bg-surface-2 p-3">
+                      <div className="text-[11px] uppercase tracking-wider text-text-muted">Ownership</div>
+                      <div className="mt-1 text-[12px] text-text-muted">Owner: {integration.ownerName ?? "not set"}</div>
+                      <div className="mt-1 text-[12px] text-text-muted">Email: {integration.ownerEmail ?? "not set"}</div>
+                      <div className="mt-1 text-[12px] text-text-muted">
+                        Runbook: {integration.runbookUrl ? "attached" : "missing"}
                       </div>
                     </div>
                     <div className="rounded-lg border border-border-subtle bg-surface-2 p-3">
@@ -441,6 +490,18 @@ function IntegrationForm({
 
       <Field label="Agent name">
         <input name="agentName" placeholder="support-bot" className={inputCls} />
+      </Field>
+
+      <Field label="Owner name">
+        <input name="ownerName" placeholder="Platform Team" className={inputCls} />
+      </Field>
+
+      <Field label="Owner email">
+        <input name="ownerEmail" placeholder="platform@example.com" className={inputCls} />
+      </Field>
+
+      <Field label="Runbook URL">
+        <input name="runbookUrl" placeholder="https://docs.example.com/tokenometer-runbook" className={inputCls} />
       </Field>
 
       <Field label="Credential">

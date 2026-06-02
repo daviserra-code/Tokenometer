@@ -175,7 +175,11 @@ export default async function CredentialsPage({
       mode: integration.mode,
       active: integration.active,
       lastSeenAt: integration.lastSeenAt,
+      lastVerifiedAt: integration.lastVerifiedAt,
       environment: integration.environment,
+      ownerName: integration.ownerName,
+      ownerEmail: integration.ownerEmail,
+      runbookUrl: integration.runbookUrl,
       teamId: integration.teamId,
       project: integration.project
         ? { id: integration.project.id, name: integration.project.name, teamId: integration.project.teamId }

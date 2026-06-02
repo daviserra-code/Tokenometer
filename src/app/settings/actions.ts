@@ -110,6 +110,9 @@ const IntegrationSchema = z.object({
   teamId: z.string().optional(),
   name: z.string().min(2).max(80),
   agentName: z.string().max(80).optional(),
+  ownerName: z.string().max(80).optional(),
+  ownerEmail: z.string().email("Owner email must be valid.").max(120).optional().or(z.literal("")),
+  runbookUrl: z.string().url("Runbook URL must be a valid URL.").max(300).optional().or(z.literal("")),
   environment: z.string().max(40).optional(),
   mode: z.enum(["OBSERVE", "FALLBACK", "ENFORCE"]),
   active: z
@@ -193,6 +196,9 @@ export async function saveIntegrationAction(formData: FormData) {
     teamId,
     name,
     agentName,
+    ownerName,
+    ownerEmail,
+    runbookUrl,
     environment,
     mode,
     active,
@@ -239,6 +245,9 @@ export async function saveIntegrationAction(formData: FormData) {
     teamId: teamId || null,
     name,
     agentName: emptyToNull(agentName),
+    ownerName: emptyToNull(ownerName),
+    ownerEmail: emptyToNull(ownerEmail),
+    runbookUrl: emptyToNull(runbookUrl),
     environment: emptyToNull(environment),
     mode,
     active,
@@ -269,12 +278,36 @@ export async function saveIntegrationAction(formData: FormData) {
       projectId: projectId || null,
       teamId: teamId || null,
       environment: emptyToNull(environment),
+      ownerName: emptyToNull(ownerName),
+      ownerEmail: emptyToNull(ownerEmail),
+      runbookUrl: emptyToNull(runbookUrl),
     },
   });
   revalidatePath("/settings/integrations");
   revalidatePath("/settings/credentials");
   revalidatePath("/gateway");
   redirect("/settings/integrations");
+}
+
+export async function markIntegrationVerifiedAction(formData: FormData) {
+  requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) throw new Error("Integration id required.");
+  const integration = await prisma.integration.update({
+    where: { id },
+    data: { lastVerifiedAt: new Date() },
+  });
+  await auditLog({
+    action: "integration.verified",
+    organizationId: integration.organizationId,
+    targetType: "Integration",
+    targetId: integration.id,
+    metadata: { name: integration.name },
+  });
+  revalidatePath("/settings/integrations");
+  revalidatePath(`/settings/integrations/${integration.id}`);
+  revalidatePath("/settings/credentials");
+  revalidatePath("/gateway");
 }
 
 export async function deleteIntegrationAction(formData: FormData) {

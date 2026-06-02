@@ -17,6 +17,7 @@ type IngestLike = {
   secret: string | null;
   encryptedSecret: string | null;
   secretHint: string;
+  updatedAt: Date;
 };
 
 type ProjectLike = {
@@ -40,6 +41,7 @@ export type IntegrationHealthReport = {
   resolvedCredentialLabel: string;
   resolvedIngestLabel: string;
   staleThresholdHours: number;
+  rotationWindowDays: number;
 };
 
 export type IntegrationHealthInput = {
@@ -47,7 +49,11 @@ export type IntegrationHealthInput = {
   mode: IntegrationMode;
   active: boolean;
   lastSeenAt: Date | null;
+  lastVerifiedAt?: Date | null;
   environment?: string | null;
+  ownerName?: string | null;
+  ownerEmail?: string | null;
+  runbookUrl?: string | null;
   teamId?: string | null;
   project?: ProjectLike | null;
   provider: ProviderLike;
@@ -61,6 +67,9 @@ export function evaluateIntegrationHealth(
   input: IntegrationHealthInput,
   now = new Date(),
 ): IntegrationHealthReport {
+  const staleThresholdHours = getStaleThresholdHours(input.environment);
+  const rotationWindowDays = getRotationWindowDays(input.environment);
+
   if (!input.active) {
     return {
       status: "paused",
@@ -70,7 +79,8 @@ export function evaluateIntegrationHealth(
       issues: [],
       resolvedCredentialLabel: resolveCredentialLabel(input),
       resolvedIngestLabel: resolveIngestLabel(input),
-      staleThresholdHours: getStaleThresholdHours(input.environment),
+      staleThresholdHours,
+      rotationWindowDays,
     };
   }
 
@@ -78,7 +88,6 @@ export function evaluateIntegrationHealth(
   const warnings: string[] = [];
   const resolvedCredential = input.credential ?? input.fallbackCredential ?? null;
   const resolvedIngest = input.ingestSource ?? input.fallbackIngestSource ?? null;
-  const staleThresholdHours = getStaleThresholdHours(input.environment);
 
   if (input.credential && !input.credential.active) {
     issues.push("The fixed provider credential linked to this integration is inactive.");
@@ -102,6 +111,14 @@ export function evaluateIntegrationHealth(
     warnings.push("No vaulted provider credential is available. The app can still work if it keeps the provider key in its own environment.");
   }
 
+  if (!input.ownerName || !input.ownerEmail) {
+    warnings.push("Owner metadata is incomplete. Add an owner name and email so operational responsibility is explicit.");
+  }
+
+  if (!input.runbookUrl) {
+    warnings.push("No runbook URL is attached yet. Add one so rotation and incident steps are easier to follow.");
+  }
+
   if (input.project?.teamId && input.teamId && input.project.teamId !== input.teamId) {
     warnings.push("The fixed team does not match the selected project's team. Spend attribution may look confusing.");
   }
@@ -121,6 +138,26 @@ export function evaluateIntegrationHealth(
     warnings.push("The resolved vaulted credential has not been used yet through Tokenometer.");
   }
 
+  if (resolvedCredential && ageInDays(now, resolvedCredential.updatedAt) >= rotationWindowDays) {
+    warnings.push(
+      `The resolved provider credential is ${ageInDays(now, resolvedCredential.updatedAt)} days old. Consider rotating it soon.`,
+    );
+  }
+
+  if (resolvedIngest && ageInDays(now, resolvedIngest.updatedAt) >= rotationWindowDays) {
+    warnings.push(
+      `The resolved ingest secret is ${ageInDays(now, resolvedIngest.updatedAt)} days old. Consider rotating it soon.`,
+    );
+  }
+
+  if (!input.lastVerifiedAt) {
+    warnings.push("This integration has not been manually verified yet.");
+  } else if (ageInDays(now, input.lastVerifiedAt) >= rotationWindowDays) {
+    warnings.push(
+      `The last manual verification is ${ageInDays(now, input.lastVerifiedAt)} days old. Re-verify the integration after key or flow changes.`,
+    );
+  }
+
   if (issues.length > 0) {
     return {
       status: "broken",
@@ -131,6 +168,7 @@ export function evaluateIntegrationHealth(
       resolvedCredentialLabel: resolveCredentialLabel(input),
       resolvedIngestLabel: resolveIngestLabel(input),
       staleThresholdHours,
+      rotationWindowDays,
     };
   }
 
@@ -144,6 +182,7 @@ export function evaluateIntegrationHealth(
       resolvedCredentialLabel: resolveCredentialLabel(input),
       resolvedIngestLabel: resolveIngestLabel(input),
       staleThresholdHours,
+      rotationWindowDays,
     };
   }
 
@@ -157,18 +196,20 @@ export function evaluateIntegrationHealth(
       resolvedCredentialLabel: resolveCredentialLabel(input),
       resolvedIngestLabel: resolveIngestLabel(input),
       staleThresholdHours,
+      rotationWindowDays,
     };
   }
 
   return {
     status: "healthy",
     label: "Healthy",
-    summary: "The integration has usable secrets, clean mappings, and recent enough activity for its environment.",
+    summary: "The integration has usable secrets, clean mappings, recent activity, and an explicit operational owner.",
     nextAction: "Keep routing real traffic and use request IDs if you want to verify a specific call.",
     issues: [],
     resolvedCredentialLabel: resolveCredentialLabel(input),
     resolvedIngestLabel: resolveIngestLabel(input),
     staleThresholdHours,
+    rotationWindowDays,
   };
 }
 
@@ -197,6 +238,18 @@ function recommendNextAction(
   }
   if (issues.some((issue) => issue.includes("vaulted provider credential"))) {
     return "Vault or relink a provider credential before you keep pushing traffic through this integration.";
+  }
+  if (warnings.some((warning) => warning.includes("Owner metadata"))) {
+    return "Add an owner name and email so someone clearly owns this integration operationally.";
+  }
+  if (warnings.some((warning) => warning.includes("runbook URL"))) {
+    return "Attach a runbook URL with setup, rollback, and rotation notes.";
+  }
+  if (warnings.some((warning) => warning.includes("manual verification"))) {
+    return "Mark the integration verified after you confirm one fresh request in Gateway and Ledger.";
+  }
+  if (warnings.some((warning) => warning.includes("days old"))) {
+    return "Rotate the linked secret, then verify one fresh request so the integration stays trusted.";
   }
   if (warnings.some((warning) => warning.includes("never been seen"))) {
     return "Use the generated snippet or the guided provider test so this integration gets its first live request.";
@@ -238,4 +291,15 @@ function getStaleThresholdHours(environment?: string | null) {
   if (value.includes("prod")) return 48;
   if (value.includes("stage")) return 96;
   return 24 * 14;
+}
+
+function getRotationWindowDays(environment?: string | null) {
+  const value = environment?.toLowerCase() ?? "";
+  if (value.includes("prod")) return 90;
+  if (value.includes("stage")) return 120;
+  return 180;
+}
+
+function ageInDays(now: Date, value: Date) {
+  return Math.floor((now.getTime() - value.getTime()) / (24 * 60 * 60 * 1000));
 }

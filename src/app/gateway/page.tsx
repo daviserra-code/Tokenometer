@@ -212,7 +212,11 @@ export default async function GatewayPage({
         mode: selectedIntegration.mode,
         active: selectedIntegration.active,
         lastSeenAt: selectedIntegration.lastSeenAt,
+        lastVerifiedAt: selectedIntegration.lastVerifiedAt,
         environment: selectedIntegration.environment,
+        ownerName: selectedIntegration.ownerName,
+        ownerEmail: selectedIntegration.ownerEmail,
+        runbookUrl: selectedIntegration.runbookUrl,
         teamId: selectedIntegration.teamId,
         project: selectedIntegration.project
           ? { id: selectedIntegration.project.id, name: selectedIntegration.project.name, teamId: selectedIntegration.project.teamId }
@@ -234,7 +238,11 @@ export default async function GatewayPage({
         mode: integration.mode,
         active: integration.active,
         lastSeenAt: integration.lastSeenAt,
+        lastVerifiedAt: integration.lastVerifiedAt,
         environment: integration.environment,
+        ownerName: integration.ownerName,
+        ownerEmail: integration.ownerEmail,
+        runbookUrl: integration.runbookUrl,
         teamId: integration.teamId,
         project: integration.project
           ? { id: integration.project.id, name: integration.project.name, teamId: integration.project.teamId }
