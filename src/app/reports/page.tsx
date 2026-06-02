@@ -9,7 +9,7 @@ import { ProviderTag } from "@/components/ProviderChip";
 import { ModeSwitch } from "@/components/ModeSwitch";
 import { formatCurrency, formatDateTime, formatRelativeTime, formatTokens, toNumber } from "@/lib/format";
 import { startOfMonth } from "@/lib/calc";
-import { getAppMode, isAdmin, modeUsageWhere } from "@/lib/auth";
+import { getAppMode, isAdmin, liveUsageWhere, modeUsageWhere } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +62,7 @@ export default async function ReportsPage({
   const periodLabel =
     period === "daily" ? "last 24 hours" : period === "weekly" ? "last 7 days" : "current month";
   const kpiSuffix = period === "monthly" ? "MTD" : period === "weekly" ? "7D" : "24H";
+  const reportHref = `/api/reports/export?period=${period}&mode=${mode}`;
   const where = {
     organizationId: org.id,
     ...modeUsageWhere(mode),
@@ -112,7 +113,7 @@ export default async function ReportsPage({
     prisma.usageEvent.findFirst({
       where: {
         organizationId: org.id,
-        source: { startsWith: "byok-proxy" },
+        ...liveUsageWhere(),
       },
       orderBy: { timestamp: "desc" },
       include: {
@@ -236,10 +237,13 @@ export default async function ReportsPage({
         action={
           <div className="flex flex-wrap items-center gap-3">
             <ModeSwitch mode={mode} admin={admin} compact redirectTo={`/reports?period=${period}`} />
-            <button className="inline-flex items-center gap-2 rounded-lg border border-primary-container/40 bg-primary-container/10 px-4 py-2 font-display text-body-md font-semibold text-primary-container transition-colors hover:bg-primary-container/20">
+            <a
+              href={reportHref}
+              className="inline-flex items-center gap-2 rounded-lg border border-primary-container/40 bg-primary-container/10 px-4 py-2 font-display text-body-md font-semibold text-primary-container transition-colors hover:bg-primary-container/20"
+            >
               <span className="material-symbols-outlined text-[18px]">download</span>
               Generate Report
-            </button>
+            </a>
           </div>
         }
       />

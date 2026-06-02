@@ -122,6 +122,7 @@ export function liveUsageWhere(): Prisma.UsageEventWhereInput {
       { source: "csv" },
       { source: { startsWith: "byok-proxy" } },
       { source: { startsWith: "provider-sync" } },
+      { integrationId: { not: null } },
     ],
   };
 }

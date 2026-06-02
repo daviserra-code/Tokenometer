@@ -12,6 +12,7 @@ import {
   formatRelativeTime,
   toNumber,
 } from "@/lib/format";
+import { liveUsageWhere } from "@/lib/auth";
 import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +22,7 @@ type SearchParams = {
   to?: string;
   providerId?: string;
   modelId?: string;
+  integrationId?: string;
   projectId?: string;
   teamId?: string;
 };
@@ -63,10 +65,21 @@ export default async function LedgerPage({
     where.timestamp = { ...(where.timestamp as object), lte: new Date(sp.to) };
   if (sp.providerId) where.providerId = sp.providerId;
   if (sp.modelId) where.modelId = sp.modelId;
+  if (sp.integrationId) where.integrationId = sp.integrationId;
   if (sp.projectId) where.projectId = sp.projectId;
   if (sp.teamId) where.teamId = sp.teamId;
 
-  const [events, total, providers, models, projects, teams, latestLiveEvent] = await Promise.all([
+  const exportParams = new URLSearchParams();
+  if (sp.from) exportParams.set("from", sp.from);
+  if (sp.to) exportParams.set("to", sp.to);
+  if (sp.providerId) exportParams.set("providerId", sp.providerId);
+  if (sp.modelId) exportParams.set("modelId", sp.modelId);
+  if (sp.integrationId) exportParams.set("integrationId", sp.integrationId);
+  if (sp.projectId) exportParams.set("projectId", sp.projectId);
+  if (sp.teamId) exportParams.set("teamId", sp.teamId);
+  const exportHref = `/api/ledger/export${exportParams.size ? `?${exportParams.toString()}` : ""}`;
+
+  const [events, total, providers, models, integrations, projects, teams, latestLiveEvent] = await Promise.all([
     prisma.usageEvent.findMany({
       where,
       orderBy: { timestamp: "desc" },
@@ -74,6 +87,7 @@ export default async function LedgerPage({
       include: {
         provider: { select: { name: true } },
         model: { select: { name: true } },
+        integration: { select: { name: true } },
         project: { select: { name: true } },
         team: { select: { name: true } },
       },
@@ -81,6 +95,10 @@ export default async function LedgerPage({
     prisma.usageEvent.count({ where }),
     prisma.provider.findMany({ orderBy: { name: "asc" } }),
     prisma.model.findMany({ orderBy: { name: "asc" } }),
+    prisma.integration.findMany({
+      where: { organizationId: org.id, active: true },
+      orderBy: { name: "asc" },
+    }),
     prisma.project.findMany({
       where: { organizationId: org.id },
       orderBy: { name: "asc" },
@@ -92,7 +110,7 @@ export default async function LedgerPage({
     prisma.usageEvent.findFirst({
       where: {
         organizationId: org.id,
-        source: { startsWith: "byok-proxy" },
+        ...liveUsageWhere(),
       },
       orderBy: { timestamp: "desc" },
       include: {
@@ -139,6 +157,16 @@ export default async function LedgerPage({
       header: "Model",
       cell: (r) => (
         <span className="font-mono text-data text-on-surface">{r.model.name}</span>
+      ),
+    },
+    {
+      key: "integration",
+      header: "Integration",
+      cell: (r) => (
+        <div>
+          <div className="font-medium text-on-surface">{r.integration?.name ?? "—"}</div>
+          <div className="font-mono text-[11px] text-text-muted">{r.source ?? "—"}</div>
+        </div>
       ),
     },
     { key: "project", header: "Project", cell: (r) => r.project?.name ?? "—" },
@@ -202,10 +230,13 @@ export default async function LedgerPage({
           events.length
         )}.`}
         action={
-          <button className="inline-flex items-center gap-2 rounded-lg border border-border-subtle bg-surface-elevated px-4 py-2 font-display text-body-md text-on-surface transition-colors hover:border-primary-container/40 hover:text-primary-container">
+          <a
+            href={exportHref}
+            className="inline-flex items-center gap-2 rounded-lg border border-border-subtle bg-surface-elevated px-4 py-2 font-display text-body-md text-on-surface transition-colors hover:border-primary-container/40 hover:text-primary-container"
+          >
             <span className="material-symbols-outlined text-[18px]">file_download</span>
             Export CSV
-          </button>
+          </a>
         }
       />
 
@@ -254,10 +285,7 @@ export default async function LedgerPage({
       )}
 
       <Card title="Filters">
-        <form
-          method="get"
-          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6"
-        >
+        <form method="get" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7">
           <Field label="From">
             <input
               type="date"
@@ -302,6 +330,20 @@ export default async function LedgerPage({
               ))}
             </select>
           </Field>
+          <Field label="Integration">
+            <select
+              name="integrationId"
+              defaultValue={sp.integrationId ?? ""}
+              className={inputCls}
+            >
+              <option value="">All</option>
+              {integrations.map((integration) => (
+                <option key={integration.id} value={integration.id}>
+                  {integration.name}
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field label="Project">
             <select
               name="projectId"
@@ -330,7 +372,7 @@ export default async function LedgerPage({
               ))}
             </select>
           </Field>
-          <div className="flex items-center gap-2 sm:col-span-2 lg:col-span-6">
+          <div className="flex items-center gap-2 sm:col-span-2 lg:col-span-7">
             <button
               type="submit"
               className="rounded-lg bg-primary-container px-4 py-2 font-display text-body-md font-semibold text-on-primary transition-colors hover:bg-primary"

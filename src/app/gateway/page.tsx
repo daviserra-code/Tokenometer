@@ -6,7 +6,7 @@ import { DataTable, type Column } from "@/components/DataTable";
 import { KpiCard } from "@/components/KpiCard";
 import { ProviderTag } from "@/components/ProviderChip";
 import { SetupSurfaceGuide } from "@/components/SetupSurfaceGuide";
-import { requireAdmin } from "@/lib/auth";
+import { liveUsageWhere, requireAdmin } from "@/lib/auth";
 import {
   formatCurrency,
   formatDateTime,
@@ -39,6 +39,8 @@ type GatewayRow = {
   provider: string;
   model: string;
   source: string;
+  integration: string | null;
+  project: string | null;
   requestId: string;
   latencyMs: number | null;
   streamed: boolean;
@@ -123,11 +125,16 @@ export default async function GatewayPage({
   const events = await prisma.usageEvent.findMany({
     where: {
       organizationId: org.id,
-      source: { startsWith: "byok-proxy" },
+      ...liveUsageWhere(),
     },
     orderBy: { timestamp: "desc" },
     take: 50,
-    include: { provider: true, model: true },
+    include: {
+      provider: true,
+      model: true,
+      integration: { select: { name: true } },
+      project: { select: { name: true } },
+    },
   });
 
   const latestProxyByProvider = new Map<string, Date>();
@@ -149,6 +156,8 @@ export default async function GatewayPage({
       provider: event.provider.name,
       model: event.model.name,
       source: event.source ?? "byok-proxy",
+      integration: event.integration?.name ?? null,
+      project: event.project?.name ?? null,
       requestId: typeof metadata?.requestId === "string" ? metadata.requestId : "-",
       latencyMs: typeof metadata?.latencyMs === "number" ? metadata.latencyMs : null,
       streamed: Boolean(metadata?.streamed),
@@ -264,11 +273,16 @@ export default async function GatewayPage({
     },
     {
       key: "provider",
-      header: "Provider",
+      header: "Provider / Integration",
       cell: (row) => (
-        <div className="flex items-center gap-2">
-          <ProviderTag name={row.provider} />
-          <span>{row.model}</span>
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <ProviderTag name={row.provider} />
+            <span>{row.model}</span>
+          </div>
+          <div className="text-[12px] text-text-muted">
+            {row.integration ?? "No integration"}{row.project ? ` | ${row.project}` : ""}
+          </div>
         </div>
       ),
     },
@@ -644,7 +658,7 @@ export default async function GatewayPage({
         </div>
       </Card>
 
-      <Card title="Recent gateway calls" description="Only live metered BYOK proxy calls, not demo data." noPadding>
+      <Card title="Recent live metered calls" description="Recent live traffic from proxy, sync, import, or named integration ingest." noPadding>
         <DataTable columns={cols} rows={rows} rowKey={(row) => row.id} />
       </Card>
     </div>

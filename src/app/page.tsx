@@ -237,6 +237,7 @@ export default async function DashboardPage() {
     : null;
   const isStale = latestAgeHours == null || latestAgeHours > 24;
   const isLive = mode === "live";
+  const reportHref = `/api/reports/export?period=monthly&mode=${mode}`;
 
   return (
     <div className="space-y-section-gap">
@@ -253,10 +254,13 @@ export default async function DashboardPage() {
               <ModeSwitch mode={mode} admin={admin} />
             </div>
             <AutoRefresh />
-            <button className="inline-flex items-center gap-2 rounded-lg border border-primary-container/40 bg-primary-container/10 px-4 py-2 font-display text-body-md font-semibold text-primary-container transition-colors hover:bg-primary-container/20">
+            <a
+              href={reportHref}
+              className="inline-flex items-center gap-2 rounded-lg border border-primary-container/40 bg-primary-container/10 px-4 py-2 font-display text-body-md font-semibold text-primary-container transition-colors hover:bg-primary-container/20"
+            >
               <span className="material-symbols-outlined text-[18px]">download</span>
               Generate Report
-            </button>
+            </a>
           </div>
         }
       />
