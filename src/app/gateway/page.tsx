@@ -98,6 +98,7 @@ export default async function GatewayPage({
       credential: true,
       ingestSource: true,
       project: true,
+      team: true,
       _count: { select: { usageEvents: true } },
     },
     orderBy: [{ lastSeenAt: "desc" }, { updatedAt: "desc" }],
@@ -272,6 +273,12 @@ export default async function GatewayPage({
         fallbackIngestSource: ingest,
       }),
     }));
+  const selectedScopeLabel = selectedIntegration
+    ? selectedIntegration.name
+    : `All ${selectedProvider.name} integrations`;
+  const recentCallsDescription = selectedIntegration
+    ? `Recent live traffic for ${selectedIntegration.name}. This stays focused on that app so request IDs, latency, and spend are easier to reason about.`
+    : `Recent live ${selectedProvider.name} traffic across the organization. Pick a named app above if you want a narrower rollout view.`;
 
   const cols: Column<GatewayRow>[] = [
     {
@@ -412,8 +419,46 @@ export default async function GatewayPage({
         </Card>
       )}
 
+      <Card
+        title={selectedIntegration ? "Selected app snapshot" : "Current gateway scope"}
+        description={
+          selectedIntegration
+            ? "This is the named app you are currently validating. If the rows below look wrong, this card tells you where the identity is coming from."
+            : "You are looking at a provider-wide view. Choose a named app above when you want one stable identity, one project, and one rollout story."
+        }
+      >
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <ReadinessRow
+            label="Current scope"
+            ok
+            value={selectedScopeLabel}
+          />
+          <ReadinessRow
+            label="Project"
+            ok={Boolean(selectedIntegration?.project?.name)}
+            value={selectedIntegration?.project?.name ?? "Not pinned to one project yet"}
+          />
+          <ReadinessRow
+            label="Team"
+            ok={Boolean(selectedIntegration?.team?.name)}
+            value={selectedIntegration?.team?.name ?? "Not pinned to one team yet"}
+          />
+          <ReadinessRow
+            label="Last seen"
+            ok={Boolean(selectedIntegration?.lastSeenAt ?? latestProxyEvent)}
+            value={
+              selectedIntegration?.lastSeenAt
+                ? `${formatRelativeTime(selectedIntegration.lastSeenAt)} (${formatDateTime(selectedIntegration.lastSeenAt)})`
+                : latestProxyEvent
+                  ? `${formatRelativeTime(latestProxyEvent.timestamp)} (${formatDateTime(latestProxyEvent.timestamp)})`
+                  : "No live traffic yet"
+            }
+          />
+        </div>
+      </Card>
+
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr,1fr]">
-        <Card title="Integration health" description="This tells you whether the selected provider and mode are ready for a real app rollout.">
+        <Card title="Rollout readiness" description="This tells you whether the selected provider and mode are ready for a real app rollout.">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <ReadinessRow label="Vaulted provider key" ok={providerKeyReady} value={providerKeyReady ? `${selectedCredential?.label} / ****${selectedCredential?.keyHint}` : "Missing"} />
             <ReadinessRow label="Active ingest key" ok={Boolean(ingest)} value={ingest ? ingest.name : "Missing"} />
@@ -446,7 +491,7 @@ export default async function GatewayPage({
           </div>
         </Card>
 
-        <Card title="Mode summary" description="Just enough context to decide whether this rollout mode is the right one.">
+        <Card title="What this mode means" description="Just enough context to decide whether this rollout mode is the right one.">
           <div className="space-y-3 text-sm text-text-muted">
             <ModeCallout
               title="App-side requirement"
@@ -551,54 +596,6 @@ export default async function GatewayPage({
         </Card>
       )}
 
-      <Card
-        title="Named integrations for this provider"
-        description="Choose one if you want the generated setup to carry a stable integration ID, owned credential, and last-seen status."
-      >
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          {providerIntegrations.map(({ integration, health }) => (
-              <Link
-                key={integration.id}
-              href={`/gateway?provider=${selectedProvider.slug}&mode=${selectedRollout.slug}&integration=${integration.id}`}
-                className={clsx(
-                  "rounded-lg border p-4 transition",
-                  selectedIntegration?.id === integration.id
-                    ? "border-primary bg-primary/10"
-                    : "border-border-subtle bg-background hover:border-primary/40 hover:bg-surface-2",
-                )}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <strong className="block text-on-surface">{integration.name}</strong>
-                    <div className="mt-1 text-[12px] text-text-muted">
-                      Mode {integration.mode.toLowerCase()} | Agent {integration.agentName ?? "not set"}
-                    </div>
-                    <div className="mt-1 text-[12px] text-text-muted">
-                      Last seen {integration.lastSeenAt ? formatRelativeTime(integration.lastSeenAt) : "never"} | {integration._count.usageEvents} usage events
-                    </div>
-                    <div className="mt-2">
-                      <span
-                        className={clsx(
-                          "rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
-                          healthToneClasses(health.status),
-                        )}
-                      >
-                        {health.label}
-                      </span>
-                    </div>
-                  </div>
-                  <span className="font-mono text-[11px] text-text-muted">{integration.id.slice(0, 8)}...</span>
-                </div>
-              </Link>
-            ))}
-          {providerIntegrations.length === 0 && (
-            <div className="rounded-lg border border-dashed border-border-subtle bg-background p-4 text-sm text-text-muted">
-              No named {selectedProvider.name} integrations yet. Create one in Settings -&gt; Integrations to make onboarding and audit history more explicit.
-            </div>
-          )}
-        </div>
-      </Card>
-
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.3fr,1fr]">
         <Card title="Verification loop" description="These are the four surfaces that should confirm a healthy rollout.">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -608,7 +605,7 @@ export default async function GatewayPage({
               body={`Use the ${selectedProvider.name} test card to stamp a request ID and prove the path.`}
             />
             <VerifyTile
-              href={buildGatewayHref(selectedProvider.slug, selectedRollout.slug)}
+              href={buildGatewayHref(selectedProvider.slug, selectedRollout.slug, selectedIntegration?.id)}
               title="2. Check Gateway"
               body="Confirm provider, model, request ID, latency, and whether the call streamed."
             />
@@ -695,7 +692,7 @@ export default async function GatewayPage({
         </div>
       </Card>
 
-      <Card title="Recent live metered calls" description="Recent live traffic from proxy, sync, import, or named integration ingest." noPadding>
+      <Card title={`Recent live calls - ${selectedScopeLabel}`} description={recentCallsDescription} noPadding>
         <DataTable columns={cols} rows={rows} rowKey={(row) => row.id} />
       </Card>
     </div>
