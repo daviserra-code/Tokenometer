@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
+import type { ReactNode } from "react";
+import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/Card";
+import { KpiCard } from "@/components/KpiCard";
 import { DataTable, type Column } from "@/components/DataTable";
 import { ProviderTag } from "@/components/ProviderChip";
 import {
@@ -13,7 +16,6 @@ import {
   toNumber,
 } from "@/lib/format";
 import { liveUsageWhere } from "@/lib/auth";
-import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -59,66 +61,90 @@ export default async function LedgerPage({
   }
 
   const where: Prisma.UsageEventWhereInput = { organizationId: org.id };
-  if (sp.from)
-    where.timestamp = { ...(where.timestamp as object), gte: new Date(sp.from) };
-  if (sp.to)
-    where.timestamp = { ...(where.timestamp as object), lte: new Date(sp.to) };
+  if (sp.from) where.timestamp = { ...(where.timestamp as object), gte: new Date(sp.from) };
+  if (sp.to) where.timestamp = { ...(where.timestamp as object), lte: new Date(sp.to) };
   if (sp.providerId) where.providerId = sp.providerId;
   if (sp.modelId) where.modelId = sp.modelId;
   if (sp.integrationId) where.integrationId = sp.integrationId;
   if (sp.projectId) where.projectId = sp.projectId;
   if (sp.teamId) where.teamId = sp.teamId;
 
-  const exportParams = new URLSearchParams();
-  if (sp.from) exportParams.set("from", sp.from);
-  if (sp.to) exportParams.set("to", sp.to);
-  if (sp.providerId) exportParams.set("providerId", sp.providerId);
-  if (sp.modelId) exportParams.set("modelId", sp.modelId);
-  if (sp.integrationId) exportParams.set("integrationId", sp.integrationId);
-  if (sp.projectId) exportParams.set("projectId", sp.projectId);
-  if (sp.teamId) exportParams.set("teamId", sp.teamId);
-  const exportHref = `/api/ledger/export${exportParams.size ? `?${exportParams.toString()}` : ""}`;
+  const hasActiveFilters = Boolean(
+    sp.from ||
+      sp.to ||
+      sp.providerId ||
+      sp.modelId ||
+      sp.integrationId ||
+      sp.projectId ||
+      sp.teamId
+  );
 
-  const [events, total, providers, models, integrations, projects, teams, latestLiveEvent] = await Promise.all([
-    prisma.usageEvent.findMany({
-      where,
-      orderBy: { timestamp: "desc" },
-      take: PAGE_SIZE,
-      include: {
-        provider: { select: { name: true } },
-        model: { select: { name: true } },
-        integration: { select: { name: true } },
-        project: { select: { name: true } },
-        team: { select: { name: true } },
-      },
-    }),
-    prisma.usageEvent.count({ where }),
-    prisma.provider.findMany({ orderBy: { name: "asc" } }),
-    prisma.model.findMany({ orderBy: { name: "asc" } }),
-    prisma.integration.findMany({
-      where: { organizationId: org.id, active: true },
-      orderBy: { name: "asc" },
-    }),
-    prisma.project.findMany({
-      where: { organizationId: org.id },
-      orderBy: { name: "asc" },
-    }),
-    prisma.team.findMany({
-      where: { organizationId: org.id },
-      orderBy: { name: "asc" },
-    }),
-    prisma.usageEvent.findFirst({
-      where: {
-        organizationId: org.id,
-        ...liveUsageWhere(),
-      },
-      orderBy: { timestamp: "desc" },
-      include: {
-        provider: { select: { name: true } },
-        model: { select: { name: true } },
-      },
-    }),
-  ]);
+  const baseExportParams = new URLSearchParams();
+  if (sp.from) baseExportParams.set("from", sp.from);
+  if (sp.to) baseExportParams.set("to", sp.to);
+  if (sp.providerId) baseExportParams.set("providerId", sp.providerId);
+  if (sp.modelId) baseExportParams.set("modelId", sp.modelId);
+  if (sp.integrationId) baseExportParams.set("integrationId", sp.integrationId);
+  if (sp.projectId) baseExportParams.set("projectId", sp.projectId);
+  if (sp.teamId) baseExportParams.set("teamId", sp.teamId);
+
+  const csvParams = new URLSearchParams(baseExportParams);
+  csvParams.set("format", "csv");
+  const pdfParams = new URLSearchParams(baseExportParams);
+  pdfParams.set("format", "pdf");
+  const csvExportHref = `/api/ledger/export${csvParams.size ? `?${csvParams.toString()}` : ""}`;
+  const pdfExportHref = `/api/ledger/export${pdfParams.size ? `?${pdfParams.toString()}` : ""}`;
+
+  const [events, total, totals, providers, models, integrations, projects, teams, latestLiveEvent] =
+    await Promise.all([
+      prisma.usageEvent.findMany({
+        where,
+        orderBy: { timestamp: "desc" },
+        take: PAGE_SIZE,
+        include: {
+          provider: { select: { name: true } },
+          model: { select: { name: true } },
+          integration: { select: { name: true } },
+          project: { select: { name: true } },
+          team: { select: { name: true } },
+        },
+      }),
+      prisma.usageEvent.count({ where }),
+      prisma.usageEvent.aggregate({
+        where,
+        _sum: {
+          inputTokens: true,
+          outputTokens: true,
+          totalTokens: true,
+          estimatedTotalCost: true,
+        },
+      }),
+      prisma.provider.findMany({ orderBy: { name: "asc" } }),
+      prisma.model.findMany({ orderBy: { name: "asc" } }),
+      prisma.integration.findMany({
+        where: { organizationId: org.id, active: true },
+        orderBy: { name: "asc" },
+      }),
+      prisma.project.findMany({
+        where: { organizationId: org.id },
+        orderBy: { name: "asc" },
+      }),
+      prisma.team.findMany({
+        where: { organizationId: org.id },
+        orderBy: { name: "asc" },
+      }),
+      prisma.usageEvent.findFirst({
+        where: {
+          organizationId: org.id,
+          ...liveUsageWhere(),
+        },
+        orderBy: { timestamp: "desc" },
+        include: {
+          provider: { select: { name: true } },
+          model: { select: { name: true } },
+        },
+      }),
+    ]);
 
   const verificationRaw = cookies().get("verification-flash")?.value;
   let verification: VerificationFlashState | null = null;
@@ -132,51 +158,57 @@ export default async function LedgerPage({
 
   type Row = (typeof events)[number];
 
+  const totalInputTokens = toNumber(totals._sum.inputTokens);
+  const totalOutputTokens = toNumber(totals._sum.outputTokens);
+  const totalTokens = toNumber(totals._sum.totalTokens);
+  const totalCost = toNumber(totals._sum.estimatedTotalCost);
+  const averageCostPerEvent = total > 0 ? totalCost / total : 0;
+
   const columns: Column<Row>[] = [
     {
       key: "ts",
       header: "Timestamp",
-      cell: (r) => (
+      cell: (row) => (
         <span className="font-mono text-data text-text-muted">
-          {formatDateTime(r.timestamp)}
+          {formatDateTime(row.timestamp)}
         </span>
       ),
     },
     {
       key: "provider",
       header: "Provider",
-      cell: (r) => (
+      cell: (row) => (
         <div className="flex items-center gap-2">
-          <ProviderTag name={r.provider.name} />
-          <span>{r.provider.name}</span>
+          <ProviderTag name={row.provider.name} />
+          <span>{row.provider.name}</span>
         </div>
       ),
     },
     {
       key: "model",
       header: "Model",
-      cell: (r) => (
-        <span className="font-mono text-data text-on-surface">{r.model.name}</span>
+      cell: (row) => (
+        <span className="font-mono text-data text-on-surface">{row.model.name}</span>
       ),
     },
     {
       key: "integration",
       header: "Integration",
-      cell: (r) => (
+      cell: (row) => (
         <div>
-          <div className="font-medium text-on-surface">{r.integration?.name ?? "—"}</div>
-          <div className="font-mono text-[11px] text-text-muted">{r.source ?? "—"}</div>
+          <div className="font-medium text-on-surface">{row.integration?.name ?? "-"}</div>
+          <div className="font-mono text-[11px] text-text-muted">{row.source ?? "-"}</div>
         </div>
       ),
     },
-    { key: "project", header: "Project", cell: (r) => r.project?.name ?? "—" },
-    { key: "team", header: "Team", cell: (r) => r.team?.name ?? "—" },
+    { key: "project", header: "Project", cell: (row) => row.project?.name ?? "-" },
+    { key: "team", header: "Team", cell: (row) => row.team?.name ?? "-" },
     {
       key: "agent",
       header: "Agent / Workflow",
-      cell: (r) => (
+      cell: (row) => (
         <span className="font-mono text-data text-text-muted">
-          {r.agentName ?? "—"} · {r.workflowName ?? "—"}
+          {row.agentName ?? "-"} · {row.workflowName ?? "-"}
         </span>
       ),
     },
@@ -184,39 +216,31 @@ export default async function LedgerPage({
       key: "input",
       header: "Input",
       align: "right",
-      cell: (r) => (
-        <span className="text-input-token">{formatNumber(r.inputTokens)}</span>
-      ),
+      cell: (row) => <span className="text-input-token">{formatNumber(row.inputTokens)}</span>,
     },
     {
       key: "output",
       header: "Output",
       align: "right",
-      cell: (r) => (
-        <span className="text-output-token">{formatNumber(r.outputTokens)}</span>
-      ),
+      cell: (row) => <span className="text-output-token">{formatNumber(row.outputTokens)}</span>,
     },
     {
       key: "total",
       header: "Total",
       align: "right",
-      cell: (r) => (
-        <span className="font-semibold">{formatNumber(r.totalTokens)}</span>
-      ),
+      cell: (row) => <span className="font-semibold">{formatNumber(row.totalTokens)}</span>,
     },
     {
       key: "cost",
       header: "Est. Cost",
       align: "right",
-      cell: (r) => formatCurrency(toNumber(r.estimatedTotalCost), org.currency),
+      cell: (row) => formatCurrency(toNumber(row.estimatedTotalCost), org.currency),
     },
     {
       key: "owner",
       header: "Owner",
-      cell: (r) => (
-        <span className="font-mono text-data text-text-muted">
-          {r.requestOwner ?? "—"}
-        </span>
+      cell: (row) => (
+        <span className="font-mono text-data text-text-muted">{row.requestOwner ?? "-"}</span>
       ),
     },
   ];
@@ -230,15 +254,58 @@ export default async function LedgerPage({
           events.length
         )}.`}
         action={
-          <a
-            href={exportHref}
-            className="inline-flex items-center gap-2 rounded-lg border border-border-subtle bg-surface-elevated px-4 py-2 font-display text-body-md text-on-surface transition-colors hover:border-primary-container/40 hover:text-primary-container"
-          >
-            <span className="material-symbols-outlined text-[18px]">file_download</span>
-            Export CSV
-          </a>
+          <div className="flex flex-wrap items-center gap-3">
+            <a
+              href={csvExportHref}
+              className="inline-flex items-center gap-2 rounded-lg border border-border-subtle bg-surface-elevated px-4 py-2 font-display text-body-md text-on-surface transition-colors hover:border-primary-container/40 hover:text-primary-container"
+            >
+              <span className="material-symbols-outlined text-[18px]">table_view</span>
+              Export CSV
+            </a>
+            <a
+              href={pdfExportHref}
+              className="inline-flex items-center gap-2 rounded-lg border border-primary-container/40 bg-primary-container/10 px-4 py-2 font-display text-body-md font-semibold text-primary-container transition-colors hover:bg-primary-container/20"
+            >
+              <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+              Export PDF
+            </a>
+          </div>
         }
       />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          label={hasActiveFilters ? "Filtered spend" : "Visible spend"}
+          value={formatCurrency(totalCost, org.currency)}
+          hint={hasActiveFilters ? "updates with current filters" : "latest matching live usage"}
+          icon="payments"
+          tone="success"
+          accent
+        />
+        <KpiCard
+          label={hasActiveFilters ? "Filtered total tokens" : "Visible total tokens"}
+          value={formatNumber(totalTokens)}
+          hint={`${formatNumber(totalInputTokens)} in · ${formatNumber(totalOutputTokens)} out`}
+          icon="token"
+          tone="input"
+          accent
+        />
+        <KpiCard
+          label="Matching events"
+          value={formatNumber(total)}
+          hint={hasActiveFilters ? "current filter result size" : "all rows in this ledger view"}
+          icon="bolt"
+          tone="output"
+          accent
+        />
+        <KpiCard
+          label="Average cost / event"
+          value={formatCurrency(averageCostPerEvent, org.currency)}
+          hint="quick sanity check after each rollout"
+          icon="insights"
+          tone="default"
+        />
+      </div>
 
       {(verification || latestLiveEvent) && (
         <div
@@ -257,8 +324,9 @@ export default async function LedgerPage({
               )}
               {latestLiveEvent && (
                 <p className="text-[12px] text-text-muted">
-                  Latest live ledger event: {latestLiveEvent.provider.name} / {latestLiveEvent.model.name} at{" "}
-                  {formatDateTime(latestLiveEvent.timestamp)} ({formatRelativeTime(latestLiveEvent.timestamp)}).
+                  Latest live ledger event: {latestLiveEvent.provider.name} /{" "}
+                  {latestLiveEvent.model.name} at {formatDateTime(latestLiveEvent.timestamp)} (
+                  {formatRelativeTime(latestLiveEvent.timestamp)}).
                   {verification?.requestId ? ` Request ID to watch for: ${verification.requestId}.` : ""}
                 </p>
               )}
@@ -287,55 +355,33 @@ export default async function LedgerPage({
       <Card title="Filters">
         <form method="get" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7">
           <Field label="From">
-            <input
-              type="date"
-              name="from"
-              defaultValue={sp.from ?? ""}
-              className={inputCls}
-            />
+            <input type="date" name="from" defaultValue={sp.from ?? ""} className={inputCls} />
           </Field>
           <Field label="To">
-            <input
-              type="date"
-              name="to"
-              defaultValue={sp.to ?? ""}
-              className={inputCls}
-            />
+            <input type="date" name="to" defaultValue={sp.to ?? ""} className={inputCls} />
           </Field>
           <Field label="Provider">
-            <select
-              name="providerId"
-              defaultValue={sp.providerId ?? ""}
-              className={inputCls}
-            >
+            <select name="providerId" defaultValue={sp.providerId ?? ""} className={inputCls}>
               <option value="">All</option>
-              {providers.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
+              {providers.map((provider) => (
+                <option key={provider.id} value={provider.id}>
+                  {provider.name}
                 </option>
               ))}
             </select>
           </Field>
           <Field label="Model">
-            <select
-              name="modelId"
-              defaultValue={sp.modelId ?? ""}
-              className={inputCls}
-            >
+            <select name="modelId" defaultValue={sp.modelId ?? ""} className={inputCls}>
               <option value="">All</option>
-              {models.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
+              {models.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.name}
                 </option>
               ))}
             </select>
           </Field>
           <Field label="Integration">
-            <select
-              name="integrationId"
-              defaultValue={sp.integrationId ?? ""}
-              className={inputCls}
-            >
+            <select name="integrationId" defaultValue={sp.integrationId ?? ""} className={inputCls}>
               <option value="">All</option>
               {integrations.map((integration) => (
                 <option key={integration.id} value={integration.id}>
@@ -345,29 +391,21 @@ export default async function LedgerPage({
             </select>
           </Field>
           <Field label="Project">
-            <select
-              name="projectId"
-              defaultValue={sp.projectId ?? ""}
-              className={inputCls}
-            >
+            <select name="projectId" defaultValue={sp.projectId ?? ""} className={inputCls}>
               <option value="">All</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
                 </option>
               ))}
             </select>
           </Field>
           <Field label="Team">
-            <select
-              name="teamId"
-              defaultValue={sp.teamId ?? ""}
-              className={inputCls}
-            >
+            <select name="teamId" defaultValue={sp.teamId ?? ""} className={inputCls}>
               <option value="">All</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
+              {teams.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.name}
                 </option>
               ))}
             </select>
@@ -393,7 +431,7 @@ export default async function LedgerPage({
         <DataTable
           columns={columns}
           rows={events}
-          rowKey={(r) => r.id}
+          rowKey={(row) => row.id}
           empty="No usage events match your filters."
         />
       </Card>
@@ -409,7 +447,7 @@ function Field({
   children,
 }: {
   label: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <label className="flex flex-col gap-1.5">

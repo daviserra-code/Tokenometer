@@ -2,14 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getAppMode, isAdmin, modeUsageWhere } from "@/lib/auth";
 import { startOfMonth } from "@/lib/calc";
+import { formatCurrency, formatNumber, formatTokens, toNumber } from "@/lib/format";
+import { renderPdfBuffer } from "@/lib/pdf-export";
 import { prisma } from "@/lib/prisma";
+
+export const runtime = "nodejs";
 
 type Period = "daily" | "weekly" | "monthly";
 
 function getPeriod(value?: string): Period {
-  return value === "daily" || value === "weekly" || value === "monthly"
-    ? value
-    : "monthly";
+  return value === "daily" || value === "weekly" || value === "monthly" ? value : "monthly";
 }
 
 function getPeriodStart(period: Period) {
@@ -49,6 +51,9 @@ export async function GET(request: NextRequest) {
   }
 
   const period = getPeriod(request.nextUrl.searchParams.get("period") ?? undefined);
+  const format = (request.nextUrl.searchParams.get("format") ?? "csv").toLowerCase();
+  const periodLabel =
+    period === "daily" ? "Last 24 hours" : period === "weekly" ? "Last 7 days" : "Current month";
   const where = {
     organizationId: org.id,
     ...modeUsageWhere(mode),
@@ -107,6 +112,124 @@ export async function GET(request: NextRequest) {
   const projectMap = new Map(projects.map((project) => [project.id, project.name]));
   const teamMap = new Map(teams.map((team) => [team.id, team.name]));
   const integrationMap = new Map(integrations.map((integration) => [integration.id, integration.name]));
+
+  const providerRows = byProvider
+    .map((row) => ({
+      name: providerMap.get(row.providerId) ?? row.providerId,
+      tokens: toNumber(row._sum.totalTokens),
+      cost: toNumber(row._sum.estimatedTotalCost),
+    }))
+    .sort((a, b) => b.cost - a.cost);
+
+  const modelRows = byModel
+    .map((row) => ({
+      name: modelMap.get(row.modelId) ?? row.modelId,
+      tokens: toNumber(row._sum.totalTokens),
+      cost: toNumber(row._sum.estimatedTotalCost),
+    }))
+    .sort((a, b) => b.cost - a.cost);
+
+  const projectRows = byProject
+    .map((row) => ({
+      name: projectMap.get(row.projectId!) ?? row.projectId ?? "unassigned",
+      tokens: toNumber(row._sum.totalTokens),
+      cost: toNumber(row._sum.estimatedTotalCost),
+    }))
+    .sort((a, b) => b.cost - a.cost);
+
+  const teamRows = byTeam
+    .map((row) => ({
+      name: teamMap.get(row.teamId!) ?? row.teamId ?? "unassigned",
+      tokens: toNumber(row._sum.totalTokens),
+      cost: toNumber(row._sum.estimatedTotalCost),
+    }))
+    .sort((a, b) => b.cost - a.cost);
+
+  const integrationRows = byIntegration
+    .map((row) => ({
+      name: integrationMap.get(row.integrationId!) ?? row.integrationId ?? "unlinked",
+      tokens: toNumber(row._sum.totalTokens),
+      cost: toNumber(row._sum.estimatedTotalCost),
+    }))
+    .sort((a, b) => b.cost - a.cost);
+
+  if (format === "pdf") {
+    const pdf = await renderPdfBuffer({
+      title: "Spend Report",
+      subtitle: `${periodLabel} · ${mode === "live" ? "Live mode" : "Demo mode"}`,
+      metrics: [
+        {
+          label: "Total spend",
+          value: formatCurrency(toNumber(totals._sum.estimatedTotalCost), org.currency),
+        },
+        { label: "Total tokens", value: formatTokens(toNumber(totals._sum.totalTokens)) },
+        { label: "Events", value: formatNumber(totals._count) },
+        { label: "Currency", value: org.currency },
+      ],
+      sections: [
+        {
+          title: "Top providers",
+          columns: ["Provider", "Tokens", "Cost"],
+          columnWeights: [1.7, 1, 1],
+          rows: providerRows.slice(0, 12).map((row) => [
+            row.name,
+            formatTokens(row.tokens),
+            formatCurrency(row.cost, org.currency),
+          ]),
+        },
+        {
+          title: "Top models",
+          columns: ["Model", "Tokens", "Cost"],
+          columnWeights: [2.1, 1, 1],
+          rows: modelRows.slice(0, 12).map((row) => [
+            row.name,
+            formatTokens(row.tokens),
+            formatCurrency(row.cost, org.currency),
+          ]),
+        },
+        {
+          title: "Top integrations",
+          columns: ["Integration", "Tokens", "Cost"],
+          columnWeights: [1.8, 1, 1],
+          rows: integrationRows.slice(0, 12).map((row) => [
+            row.name,
+            formatTokens(row.tokens),
+            formatCurrency(row.cost, org.currency),
+          ]),
+        },
+        {
+          title: "Project breakdown",
+          columns: ["Project", "Tokens", "Cost"],
+          columnWeights: [1.8, 1, 1],
+          rows: projectRows.slice(0, 12).map((row) => [
+            row.name,
+            formatTokens(row.tokens),
+            formatCurrency(row.cost, org.currency),
+          ]),
+        },
+        {
+          title: "Team breakdown",
+          columns: ["Team", "Tokens", "Cost"],
+          columnWeights: [1.8, 1, 1],
+          rows: teamRows.slice(0, 12).map((row) => [
+            row.name,
+            formatTokens(row.tokens),
+            formatCurrency(row.cost, org.currency),
+          ]),
+        },
+      ],
+      footerNote: "Formatted export for finance and operator review.",
+    });
+
+    return new NextResponse(new Uint8Array(pdf), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="tokenometer-spend-report-${period}-${new Date()
+          .toISOString()
+          .slice(0, 10)}.pdf"`,
+      },
+    });
+  }
 
   const csv = [
     section(

@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 
 import { isAdmin } from "@/lib/auth";
+import { formatCurrency, formatDateTime, formatNumber, toNumber } from "@/lib/format";
+import { renderPdfBuffer } from "@/lib/pdf-export";
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
+
+export const runtime = "nodejs";
 
 function csvEscape(value: unknown) {
   const str = value == null ? "" : String(value);
@@ -19,6 +23,26 @@ function toCsv(headers: string[], rows: Array<Array<unknown>>) {
   ].join("\n");
 }
 
+function buildSubtitle(filters: {
+  from: string | null;
+  to: string | null;
+  providerId: string | null;
+  modelId: string | null;
+  integrationId: string | null;
+  projectId: string | null;
+  teamId: string | null;
+}) {
+  const parts: string[] = [];
+  if (filters.from) parts.push(`From ${filters.from}`);
+  if (filters.to) parts.push(`To ${filters.to}`);
+  if (filters.providerId) parts.push(`Provider filtered`);
+  if (filters.modelId) parts.push(`Model filtered`);
+  if (filters.integrationId) parts.push(`Integration filtered`);
+  if (filters.projectId) parts.push(`Project filtered`);
+  if (filters.teamId) parts.push(`Team filtered`);
+  return parts.length ? parts.join(" · ") : "No filters applied";
+}
+
 export async function GET(request: NextRequest) {
   if (!isAdmin()) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
@@ -30,36 +54,109 @@ export async function GET(request: NextRequest) {
   }
 
   const search = request.nextUrl.searchParams;
+  const format = (search.get("format") ?? "csv").toLowerCase();
   const where: Prisma.UsageEventWhereInput = { organizationId: org.id };
 
-  const from = search.get("from");
-  const to = search.get("to");
-  const providerId = search.get("providerId");
-  const modelId = search.get("modelId");
-  const integrationId = search.get("integrationId");
-  const projectId = search.get("projectId");
-  const teamId = search.get("teamId");
+  const filters = {
+    from: search.get("from"),
+    to: search.get("to"),
+    providerId: search.get("providerId"),
+    modelId: search.get("modelId"),
+    integrationId: search.get("integrationId"),
+    projectId: search.get("projectId"),
+    teamId: search.get("teamId"),
+  };
 
-  if (from) where.timestamp = { ...(where.timestamp as object), gte: new Date(from) };
-  if (to) where.timestamp = { ...(where.timestamp as object), lte: new Date(to) };
-  if (providerId) where.providerId = providerId;
-  if (modelId) where.modelId = modelId;
-  if (integrationId) where.integrationId = integrationId;
-  if (projectId) where.projectId = projectId;
-  if (teamId) where.teamId = teamId;
+  if (filters.from) where.timestamp = { ...(where.timestamp as object), gte: new Date(filters.from) };
+  if (filters.to) where.timestamp = { ...(where.timestamp as object), lte: new Date(filters.to) };
+  if (filters.providerId) where.providerId = filters.providerId;
+  if (filters.modelId) where.modelId = filters.modelId;
+  if (filters.integrationId) where.integrationId = filters.integrationId;
+  if (filters.projectId) where.projectId = filters.projectId;
+  if (filters.teamId) where.teamId = filters.teamId;
 
-  const events = await prisma.usageEvent.findMany({
-    where,
-    orderBy: { timestamp: "desc" },
-    take: 5000,
-    include: {
-      provider: { select: { name: true } },
-      model: { select: { name: true } },
-      integration: { select: { name: true } },
-      project: { select: { name: true } },
-      team: { select: { name: true } },
-    },
-  });
+  const [events, totals] = await Promise.all([
+    prisma.usageEvent.findMany({
+      where,
+      orderBy: { timestamp: "desc" },
+      take: 5000,
+      include: {
+        provider: { select: { name: true } },
+        model: { select: { name: true } },
+        integration: { select: { name: true } },
+        project: { select: { name: true } },
+        team: { select: { name: true } },
+      },
+    }),
+    prisma.usageEvent.aggregate({
+      where,
+      _sum: {
+        inputTokens: true,
+        outputTokens: true,
+        totalTokens: true,
+        estimatedTotalCost: true,
+      },
+      _count: true,
+    }),
+  ]);
+
+  if (format === "pdf") {
+    const pdf = await renderPdfBuffer({
+      title: "Token Ledger Export",
+      subtitle: buildSubtitle(filters),
+      landscape: true,
+      metrics: [
+        { label: "Matching events", value: formatNumber(totals._count) },
+        { label: "Input tokens", value: formatNumber(toNumber(totals._sum.inputTokens)) },
+        { label: "Output tokens", value: formatNumber(toNumber(totals._sum.outputTokens)) },
+        {
+          label: "Total spend",
+          value: formatCurrency(toNumber(totals._sum.estimatedTotalCost), org.currency),
+        },
+      ],
+      sections: [
+        {
+          title: "Ledger rows",
+          columns: [
+            "Timestamp",
+            "Provider",
+            "Model",
+            "Integration",
+            "Project",
+            "Team",
+            "Workflow",
+            "Tokens",
+            "Cost",
+          ],
+          columnWeights: [1.35, 0.9, 1.1, 1.2, 1, 1, 1.4, 0.8, 0.9],
+          rows: events.slice(0, 1000).map((event) => [
+            formatDateTime(event.timestamp),
+            event.provider.name,
+            event.model.name,
+            event.integration?.name ?? "-",
+            event.project?.name ?? "-",
+            event.team?.name ?? "-",
+            `${event.agentName ?? "-"} / ${event.workflowName ?? "-"}`,
+            formatNumber(event.totalTokens),
+            formatCurrency(toNumber(event.estimatedTotalCost), org.currency),
+          ]),
+        },
+      ],
+      footerNote:
+        events.length > 1000
+          ? "PDF trimmed to the first 1,000 rows for readability."
+          : "Generated by Tokenometer.",
+    });
+
+    return new NextResponse(new Uint8Array(pdf), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="tokenometer-ledger-${new Date()
+          .toISOString()
+          .slice(0, 10)}.pdf"`,
+      },
+    });
+  }
 
   const csv = toCsv(
     [

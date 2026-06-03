@@ -62,7 +62,8 @@ export default async function ReportsPage({
   const periodLabel =
     period === "daily" ? "last 24 hours" : period === "weekly" ? "last 7 days" : "current month";
   const kpiSuffix = period === "monthly" ? "MTD" : period === "weekly" ? "7D" : "24H";
-  const reportHref = `/api/reports/export?period=${period}&mode=${mode}`;
+  const csvReportHref = `/api/reports/export?period=${period}&mode=${mode}&format=csv`;
+  const pdfReportHref = `/api/reports/export?period=${period}&mode=${mode}&format=pdf`;
   const where = {
     organizationId: org.id,
     ...modeUsageWhere(mode),
@@ -238,12 +239,19 @@ export default async function ReportsPage({
           <div className="flex flex-wrap items-center gap-3">
             <ModeSwitch mode={mode} admin={admin} compact redirectTo={`/reports?period=${period}`} />
             <a
-              href={reportHref}
+              href={csvReportHref}
               download
               className="inline-flex items-center gap-2 rounded-lg border border-primary-container/40 bg-primary-container/10 px-4 py-2 font-display text-body-md font-semibold text-primary-container transition-colors hover:bg-primary-container/20"
             >
               <span className="material-symbols-outlined text-[18px]">download</span>
               Download CSV report
+            </a>
+            <a
+              href={pdfReportHref}
+              className="inline-flex items-center gap-2 rounded-lg border border-border-subtle bg-surface-elevated px-4 py-2 font-display text-body-md text-on-surface transition-colors hover:border-primary-container/40 hover:text-primary-container"
+            >
+              <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+              Download PDF report
             </a>
           </div>
         }
