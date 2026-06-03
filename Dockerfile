@@ -23,5 +23,7 @@ COPY --from=builder /app/package-lock.json ./package-lock.json
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/prisma ./prisma
+RUN mkdir -p /app/.next/server/chunks/data \
+  && cp -r /app/node_modules/pdfkit/js/data/. /app/.next/server/chunks/data/
 EXPOSE 3000
 CMD ["npm", "run", "start"]
