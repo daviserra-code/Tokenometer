@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 
 import { isAdmin } from "@/lib/auth";
 import { formatCurrency, formatDateTime, formatNumber, toNumber } from "@/lib/format";
+import { classifyMeteringPath } from "@/lib/provider-capabilities";
 import { renderLedgerPdfBuffer } from "@/lib/pdf-export";
 import { prisma } from "@/lib/prisma";
 
@@ -115,13 +116,22 @@ export async function GET(request: NextRequest) {
         },
       ],
       entries: events.slice(0, 120).map((event) => ({
+        ...(() => {
+          const metadata =
+            event.metadataJson && typeof event.metadataJson === "object"
+              ? (event.metadataJson as Record<string, unknown>)
+              : null;
+          const metering = classifyMeteringPath(event.source, metadata);
+          return {
+            source: `${metering.label} / ${event.source ?? "-"}`,
+          };
+        })(),
         timestamp: formatDateTime(event.timestamp),
         provider: event.provider.name,
         model: event.model.name,
         integration: event.integration?.name ?? "-",
         project: event.project?.name ?? "-",
         team: event.team?.name ?? "-",
-        source: event.source ?? "-",
         agent: event.agentName ?? "-",
         workflow: event.workflowName ?? "-",
         owner: event.requestOwner ?? "-",
@@ -155,6 +165,8 @@ export async function GET(request: NextRequest) {
       "project",
       "team",
       "source",
+      "metering_source",
+      "metering_confidence",
       "agent",
       "workflow",
       "owner",
@@ -170,6 +182,7 @@ export async function GET(request: NextRequest) {
         event.metadataJson && typeof event.metadataJson === "object"
           ? (event.metadataJson as Record<string, unknown>)
           : {};
+      const metering = classifyMeteringPath(event.source, metadata);
 
       return [
         event.timestamp.toISOString(),
@@ -179,6 +192,8 @@ export async function GET(request: NextRequest) {
         event.project?.name ?? "",
         event.team?.name ?? "",
         event.source ?? "",
+        metering.label,
+        metering.confidence,
         event.agentName ?? "",
         event.workflowName ?? "",
         event.requestOwner ?? "",

@@ -16,6 +16,7 @@ import {
   toNumber,
 } from "@/lib/format";
 import { liveUsageWhere } from "@/lib/auth";
+import { classifyMeteringPath, meteringPathToneClasses } from "@/lib/provider-capabilities";
 
 export const dynamic = "force-dynamic";
 
@@ -200,6 +201,29 @@ export default async function LedgerPage({
           <div className="font-mono text-[11px] text-text-muted">{row.source ?? "-"}</div>
         </div>
       ),
+    },
+    {
+      key: "metering",
+      header: "Metering",
+      cell: (row) => {
+        const path = classifyMeteringPath(
+          row.source,
+          row.metadataJson && typeof row.metadataJson === "object"
+            ? (row.metadataJson as Record<string, unknown>)
+            : null,
+        );
+
+        return (
+          <div className="space-y-1">
+            <span
+              className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${meteringPathToneClasses(path)}`}
+            >
+              {path.label}
+            </span>
+            <div className="max-w-[220px] text-[11px] text-text-muted">{path.detail}</div>
+          </div>
+        );
+      },
     },
     { key: "project", header: "Project", cell: (row) => row.project?.name ?? "-" },
     { key: "team", header: "Team", cell: (row) => row.team?.name ?? "-" },

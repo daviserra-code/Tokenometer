@@ -15,6 +15,11 @@ import {
 } from "@/lib/format";
 import { evaluateIntegrationHealth, healthToneClasses } from "@/lib/integration-health";
 import {
+  classifyMeteringPath,
+  getProviderCapability,
+  meteringPathToneClasses,
+} from "@/lib/provider-capabilities";
+import {
   buildGatewayHref,
   buildRolloutChecklist,
   envBlock,
@@ -38,6 +43,9 @@ type GatewayRow = {
   provider: string;
   model: string;
   source: string;
+  meteringLabel: string;
+  meteringDetail: string;
+  meteringConfidence: "high" | "medium" | "low";
   integration: string | null;
   project: string | null;
   requestId: string;
@@ -179,6 +187,18 @@ export default async function GatewayPage({
       provider: event.provider.name,
       model: event.model.name,
       source: event.source ?? "byok-proxy",
+      meteringLabel: classifyMeteringPath(
+        event.source,
+        metadata,
+      ).label,
+      meteringDetail: classifyMeteringPath(
+        event.source,
+        metadata,
+      ).detail,
+      meteringConfidence: classifyMeteringPath(
+        event.source,
+        metadata,
+      ).confidence,
       integration: event.integration?.name ?? null,
       project: event.project?.name ?? null,
       requestId: typeof metadata?.requestId === "string" ? metadata.requestId : "-",
@@ -313,7 +333,28 @@ export default async function GatewayPage({
         </div>
       ),
     },
-    { key: "source", header: "Source", cell: (row) => row.source },
+    {
+      key: "source",
+      header: "Metering path",
+      cell: (row) => {
+        const tone = meteringPathToneClasses({
+          kind: "unknown",
+          label: row.meteringLabel,
+          detail: row.meteringDetail,
+          confidence: row.meteringConfidence,
+        });
+        return (
+          <div className="space-y-1">
+            <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${tone}`}>
+              {row.meteringLabel}
+            </span>
+            <div className="max-w-[220px] text-[12px] text-text-muted">
+              {row.source}
+            </div>
+          </div>
+        );
+      },
+    },
     { key: "tokens", header: "Tokens", align: "right", cell: (row) => formatTokens(row.tokens) },
     {
       key: "cost",
@@ -679,6 +720,7 @@ export default async function GatewayPage({
               {INTEGRATION_PROVIDERS.map((provider) => {
                 const credential = credentialByProvider.get(provider.name);
                 const latestEvent = latestProxyByProvider.get(provider.name);
+                const capability = getProviderCapability(provider.name);
 
                 return (
                   <tr key={provider.slug}>
@@ -701,7 +743,12 @@ export default async function GatewayPage({
                     <td className="px-4 py-3 text-text-muted">
                       {latestEvent ? formatDateTime(latestEvent) : "No live event"}
                     </td>
-                    <td className="px-4 py-3 text-text-muted">{provider.historical}</td>
+                    <td className="px-4 py-3 text-text-muted">
+                      <div>{capability.historicalSync}</div>
+                      <div className="text-[11px]">
+                        {capability.adminKeyRequired ? "Admin access usually required" : "No admin-only dependency by default"}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-text-muted">{provider.streaming}</td>
                     <td className="px-4 py-3">
                       <span className={provider.name === selectedProvider.name ? "text-status-normal" : "text-text-muted"}>

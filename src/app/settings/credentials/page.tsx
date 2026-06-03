@@ -19,6 +19,7 @@ import {
   type ProviderSlug,
   type RolloutSlug,
 } from "@/lib/integration-onboarding";
+import { getProviderCapability } from "@/lib/provider-capabilities";
 import { PROVIDER_TESTS } from "@/lib/provider-tests";
 import { prisma } from "@/lib/prisma";
 import { ensureRuntimeProviderCatalog } from "@/lib/runtime-provider-catalog";
@@ -799,6 +800,47 @@ export default async function CredentialsPage({
           </div>
         </Card>
       </div>
+
+      <Card title="Provider capability matrix" description="This keeps the provider reality explicit without changing the integration flow. Live metering is the primary path; provider history is reconciliation when available.">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="text-[12px] uppercase tracking-wider text-text-muted">
+              <tr>
+                <th className="px-4 py-3 text-left">Provider</th>
+                <th className="px-4 py-3 text-left">Live metering</th>
+                <th className="px-4 py-3 text-left">Historical sync</th>
+                <th className="px-4 py-3 text-left">Admin key</th>
+                <th className="px-4 py-3 text-left">Best fallback</th>
+                <th className="px-4 py-3 text-left">Recommended path</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-subtle">
+              {INTEGRATION_PROVIDERS.map((provider) => {
+                const capability = getProviderCapability(provider.name);
+                return (
+                  <tr key={provider.slug}>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <ProviderChip name={provider.name} />
+                        <span className="text-text-muted">{provider.model}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-text-muted">{capability.liveMetering}</td>
+                    <td className="px-4 py-3 text-text-muted">{capability.historicalSync}</td>
+                    <td className="px-4 py-3">
+                      <span className={capability.adminKeyRequired ? "text-status-warning" : "text-status-normal"}>
+                        {capability.adminKeyRequired ? "Usually required" : "Not usually required"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-text-muted">{capability.fallback}</td>
+                    <td className="px-4 py-3 text-on-surface">{capability.recommended}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
       <Card
         title="Observed app traffic fallback view"
