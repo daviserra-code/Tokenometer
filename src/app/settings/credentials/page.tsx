@@ -6,7 +6,7 @@ import { KpiCard } from "@/components/KpiCard";
 import { ProviderChip } from "@/components/ProviderChip";
 import { SetupSurfaceGuide } from "@/components/SetupSurfaceGuide";
 import { requireAdmin } from "@/lib/auth";
-import { formatDateTime, formatRelativeTime } from "@/lib/format";
+import { formatCurrency, formatDateTime, formatRelativeTime, formatTokens } from "@/lib/format";
 import { evaluateIntegrationHealth, healthToneClasses } from "@/lib/integration-health";
 import {
   buildGatewayHref,
@@ -22,6 +22,7 @@ import {
 import { getProviderCapability } from "@/lib/provider-capabilities";
 import { PROVIDER_TESTS } from "@/lib/provider-tests";
 import { prisma } from "@/lib/prisma";
+import { getReconciliationSnapshot, type ReconciliationStatus } from "@/lib/reconciliation";
 import { ensureRuntimeProviderCatalog } from "@/lib/runtime-provider-catalog";
 
 import {
@@ -204,6 +205,8 @@ export default async function CredentialsPage({
     >,
   );
   const topNamedIntegrationRows = namedIntegrationRows.slice(0, 6);
+  const reconciliation = await getReconciliationSnapshot(org.id, 30);
+  const reconciliationRows = reconciliation.rows.slice(0, 6);
 
   const flashRaw = cookies().get("sync-flash")?.value;
   const verificationRaw = cookies().get("verification-flash")?.value;
@@ -278,6 +281,14 @@ export default async function CredentialsPage({
         <KpiCard label="Stale" value={String(healthCounts.stale)} hint="no recent traffic" icon="schedule" tone="input" />
         <KpiCard label="Needs fixing" value={String(healthCounts.broken)} hint="blocked by setup issues" icon="error" tone="danger" />
         <KpiCard label="Paused" value={String(healthCounts.paused)} hint="intentionally inactive" icon="pause_circle" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <KpiCard label="In range" value={String(reconciliation.counts.matched)} hint="live and provider history broadly agree" icon="sync" tone="success" />
+        <KpiCard label="Drift" value={String(reconciliation.counts.drift)} hint="worth reconciling before finance use" icon="compare_arrows" tone="warning" />
+        <KpiCard label="Live only" value={String(reconciliation.counts.live_only)} hint="metered live, no provider history rows yet" icon="bolt" tone="input" />
+        <KpiCard label="History only" value={String(reconciliation.counts.history_only)} hint="provider history exists without matching live traffic" icon="history" tone="danger" />
+        <KpiCard label="Manual only" value={String(reconciliation.counts.manual_only)} hint="just CSV or backfill in this window" icon="upload_file" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.6fr,1fr]">
@@ -801,6 +812,92 @@ export default async function CredentialsPage({
         </Card>
       </div>
 
+      <Card
+        title="Reconciliation snapshot"
+        description={`Last ${reconciliation.days} days. Live metering remains the truth source; provider history is used here as a confidence and drift check when it exists.`}
+      >
+        <div className="mb-4 rounded-lg border border-border-subtle bg-background p-3 text-sm text-text-muted">
+          Window starts {formatDateTime(reconciliation.since)}. Missing provider history is not automatically a problem; it often just means admin access is unavailable, sync has not run, or the provider is best treated as live-only.
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="text-[12px] uppercase tracking-wider text-text-muted">
+              <tr>
+                <th className="px-4 py-3 text-left">Provider</th>
+                <th className="px-4 py-3 text-left">Live metering</th>
+                <th className="px-4 py-3 text-left">Provider history</th>
+                <th className="px-4 py-3 text-left">Manual backfill</th>
+                <th className="px-4 py-3 text-left">Drift</th>
+                <th className="px-4 py-3 text-left">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-subtle">
+              {reconciliationRows.map((row) => (
+                <tr key={row.providerId}>
+                  <td className="px-4 py-3 align-top">
+                    <div className="space-y-1">
+                      <ProviderChip name={row.provider} />
+                      <div className="text-[12px] text-text-muted">{getProviderCapability(row.provider).recommended}</div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 align-top text-text-muted">
+                    <div>{formatCurrency(row.liveCost, org.currency)}</div>
+                    <div className="text-[12px]">
+                      {formatTokens(row.liveTokens)} across {row.liveEvents} event{row.liveEvents === 1 ? "" : "s"}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 align-top text-text-muted">
+                    <div>{formatCurrency(row.providerHistoryCost, org.currency)}</div>
+                    <div className="text-[12px]">
+                      {formatTokens(row.providerHistoryTokens)} across {row.providerHistoryEvents} row{row.providerHistoryEvents === 1 ? "" : "s"}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 align-top text-text-muted">
+                    <div>{formatCurrency(row.manualImportCost, org.currency)}</div>
+                    <div className="text-[12px]">
+                      {formatTokens(row.manualImportTokens)} across {row.manualImportEvents} row{row.manualImportEvents === 1 ? "" : "s"}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    {row.comparable ? (
+                      <div className={row.status === "drift" ? "text-status-warning" : "text-text-muted"}>
+                        <div>
+                          {row.deltaCost >= 0 ? "+" : "-"}
+                          {formatCurrency(Math.abs(row.deltaCost), org.currency)}
+                        </div>
+                        <div className="text-[12px] text-text-muted">
+                          {row.deltaPct === null ? "n/a" : `${row.deltaPct.toFixed(1)}%`}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-text-muted">n/a</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    <span
+                      className={[
+                        "inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
+                        reconciliationToneClasses(row.status),
+                      ].join(" ")}
+                    >
+                      {row.label}
+                    </span>
+                    <div className="mt-2 max-w-[28rem] text-[12px] text-text-muted">{row.note}</div>
+                  </td>
+                </tr>
+              ))}
+              {reconciliationRows.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-6 text-center text-text-muted">
+                    No live, provider-sync, or CSV-backfill usage to compare in the current window yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
       <Card title="Provider capability matrix" description="This keeps the provider reality explicit without changing the integration flow. Live metering is the primary path; provider history is reconciliation when available.">
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
@@ -965,6 +1062,22 @@ function VerifyLink({ href, title, body }: { href: string; title: string; body: 
       <span className="mt-1 block text-[12px] text-text-muted">{body}</span>
     </Link>
   );
+}
+
+function reconciliationToneClasses(status: ReconciliationStatus) {
+  switch (status) {
+    case "matched":
+      return "border-status-normal/40 bg-status-normal/10 text-status-normal";
+    case "drift":
+      return "border-status-warning/40 bg-status-warning/10 text-status-warning";
+    case "history_only":
+      return "border-status-exceeded/40 bg-status-exceeded/10 text-status-exceeded";
+    case "live_only":
+      return "border-border-subtle bg-background text-text-muted";
+    case "manual_only":
+    default:
+      return "border-primary/30 bg-primary/10 text-primary";
+  }
 }
 
 function ChoiceLink({

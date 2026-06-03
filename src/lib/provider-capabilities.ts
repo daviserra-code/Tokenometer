@@ -113,6 +113,15 @@ export function classifyMeteringPath(
     };
   }
 
+  if (typeof source === "string" && source.startsWith("provider-sync:")) {
+    return {
+      kind: "imported",
+      label: "Provider sync",
+      detail: "Imported from the provider's own history or sync endpoint.",
+      confidence: "medium",
+    };
+  }
+
   if (typeof source === "string" && source.startsWith("byok-proxy:")) {
     return {
       kind: "proxy_captured",
@@ -134,7 +143,7 @@ export function classifyMeteringPath(
     };
   }
 
-  if (metadata?.importJobId) {
+  if (metadata?.ingestJobId || metadata?.importJobId) {
     return {
       kind: "shadow_reported",
       label: "Signed ingest",
