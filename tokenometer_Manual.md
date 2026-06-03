@@ -1,474 +1,495 @@
 # Tokenometer Manual
 
-## 1. Introduction
+## 1. What Tokenometer Is
 
-Tokenometer is an AI FinOps web app for measuring, organizing, and governing AI usage.
+Tokenometer is a web app for measuring and governing AI usage.
 
-Its core job is simple:
+Its main job is:
 
-> record AI token usage and estimated cost as close as possible to the real model call
+> measure tokens and estimated cost as close as possible to the real model call
 
-Tokenometer is not a crypto product. In this app, "tokens" means AI model consumption units from providers such as OpenAI, Anthropic, Google, Mistral, DeepSeek, and GitHub Models.
+In practice, Tokenometer helps you:
 
-Today, Tokenometer combines four product roles:
+- meter real AI traffic
+- see raw usage events
+- attribute usage to apps, projects, teams, agents, and workflows
+- compare live metering with provider-side history when available
+- organize usage into budgets, wallets, allocations, and chargeback
 
-- a live metering gateway
-- a usage ledger
-- a wallet and budget controls layer
-- an early internal chargeback and settlement system
-
-Primary production URL:
+Primary URL:
 
 - [https://www.tokenometer.cloud](https://www.tokenometer.cloud)
 
-## 2. What Problem It Solves
+## 2. The Most Important Mental Model
 
-Most AI products show usage only after the fact, often only through provider dashboards.
+There are **three different ways** usage can arrive in Tokenometer.
 
-That creates predictable problems:
-
-- historical APIs are inconsistent
-- some providers require admin keys for usage export
-- spend is hard to attribute to projects, teams, bots, or workflows
-- usage may be visible without being governable
-
-Tokenometer solves this by becoming the measurement and control layer between your apps and the model providers.
-
-## 3. Core Product Idea
-
-The cleanest version of Tokenometer works like this:
-
-1. your app sends an AI request to Tokenometer
-2. Tokenometer forwards the request to the provider
-3. the provider returns the result and token usage
-4. Tokenometer records the event immediately
-5. Tokenometer turns that event into spend, reporting, budgets, wallet logic, and internal accountability
-
-That is called **live metering**.
-
-Live metering is the main engine of the product.
-
-## 4. Demo Mode and Live Mode
-
-Tokenometer intentionally supports two modes.
-
-### Demo mode
-
-Demo mode exists to show the product shape with seeded, realistic-looking data.
-
-Use it when you want to:
-
-- show the product to someone
-- inspect the UI without setup
-- keep the MVP visually rich before real integrations are connected
-
-### Live mode
-
-Live mode is for real usage.
-
-Use it when you want to:
-
-- vault real provider keys
-- run guided tests
-- meter real app traffic
-- review actual spend
-- use wallet, allocation, and chargeback features with real data
-
-## 5. The Three Measurement Paths
-
-Tokenometer can record usage in three different ways.
-
-### A. Live metering gateway
+### A. Live metering
 
 This is the preferred path.
 
-The app routes AI calls through Tokenometer proxy endpoints such as:
+Your app either:
 
-- `/api/proxy/openai/chat/completions`
-- `/api/proxy/anthropic/v1/messages`
-- `/api/proxy/google/v1beta/models/...`
+- sends the request through Tokenometer, or
+- calls the provider directly and then sends the usage back to Tokenometer
 
-This gives the strongest result because Tokenometer sees the request as it happens.
+This is the product’s main truth source.
 
-### B. Shadow ingest
+### B. Provider history
 
-In shadow mode, the app still talks directly to the provider, but then sends a signed usage event back to Tokenometer through:
+This means usage imported from the provider’s own history endpoints.
 
-- `/api/ingest`
+Important:
 
-This is useful when you want a safer first rollout without changing the live request path immediately.
+- some providers support this well
+- some support it only with admin-level keys
+- some barely support it at all
 
-### C. Historical sync or CSV import
+This is mainly for **reconciliation**, not the core engine.
 
-This is strategically secondary, but still useful.
+### C. CSV/manual backfill
 
-Use it for:
+This is for:
 
-- importing older usage
-- reconciling against provider data
-- backfilling historical records
+- older data
+- manual imports
+- provider exports
+- historical cleanup
 
-Important: this depends on provider support, and some providers require elevated admin keys.
+Useful, but not the main path.
 
-## 6. Main Concepts
+## 3. Demo Mode vs Live Mode
 
-### Provider credential
+### Demo mode
 
-A vaulted API key for a provider such as OpenAI or Anthropic.
+Use Demo mode when you want to:
 
-Tokenometer stores these encrypted and uses them for testing, syncing, or proxying.
+- present the app
+- inspect the UI
+- keep the seeded MVP data visible
 
-### Ingest source
+### Live mode
 
-A Tokenometer-side source identity made of:
+Use Live mode when you want to:
 
-- an ingest key
-- an HMAC signing secret
+- vault real keys
+- test providers
+- wire real apps
+- inspect real token spending
 
-This is used to authenticate apps or services sending usage into Tokenometer.
+## 4. The Pages and What They Are For
 
-### Named integration
+## Setup
 
-A first-class app identity inside Tokenometer.
+Page:
 
-A named integration can define:
+- `/setup`
 
-- provider
-- rollout mode
-- linked credential
-- linked ingest source
-- project
-- team
-- environment
-- agent name
-- owner
-- status and freshness
+Use it as the orientation hub.
 
-This is the bridge from onboarding into operational confidence. It turns observed app traffic into a stored product object.
+It tells you the control-plane flow:
 
-### Wallet
+1. Credentials
+2. Integrations
+3. Gateway
 
-A provider-level operating balance used inside Tokenometer.
+If you feel lost, start here.
 
-Wallets are not external bank accounts. They are internal control objects used to model spendable capacity, reserves, approvals, and policy.
+## Credentials
 
-### Allocation
-
-A reserved portion of a provider wallet assigned to a project or team.
-
-### Chargeback
-
-An internal usage statement that shows who consumed AI value and from which provider.
-
-## 7. Main Areas of the Product
-
-### Setup
-
-Purpose:
-
-- explain the control-plane flow
-- show current readiness
-- route you to the right surface
-
-### Dashboard
-
-Purpose:
-
-- show top-line status
-- show freshness of usage data
-- summarize recent activity
-
-### Settings -> Credentials
-
-Purpose:
-
-- vault provider keys
-- run guided provider tests
-- run historical sync where supported
-- generate setup context for a selected provider and rollout mode
-
-### Settings -> Ingest
-
-Purpose:
-
-- create ingest sources
-- rotate ingest secrets
-- obtain `X-Ingest-Key`
-- understand signed shadow ingest
-
-### Settings -> Integrations
-
-Purpose:
-
-- create named integrations
-- link them to provider credentials and ingest sources
-- assign project and team ownership
-- review health, freshness, and status
-
-### Gateway
-
-Purpose:
-
-- choose provider
-- choose rollout mode
-- generate env blocks
-- generate Node and Python snippets
-- inspect recent live traffic
-- inspect request IDs and latency
-- inspect selected integration health
-
-### Ledger
-
-Purpose:
-
-- inspect raw usage events
-- confirm request timestamps
-- confirm provider and model attribution
-
-### Reports
-
-Purpose:
-
-- review spend in daily, weekly, and monthly views
-- compare live traffic with current reporting windows
-
-### Wallet
-
-Purpose:
-
-- manage provider balances
-- transfer, top up, and exchange balances
-- watch budget guardrails
-- review allocations and chargeback summaries
-
-## 8. Recommended First Workflow
-
-This is the best first-time path through the product.
-
-### Step 1: Log in as admin
-
-Use the admin login flow and 2FA if enabled.
-
-### Step 2: Vault one provider key
-
-Go to:
+Page:
 
 - `/settings/credentials`
 
-Start with one easy provider, usually OpenAI, Gemini, or DeepSeek.
+This page is for:
 
-### Step 3: Confirm one ingest source exists
+- vaulting provider keys
+- running guided provider tests
+- running historical sync when supported
+- seeing provider capability reality
+- seeing reconciliation snapshots
 
-Go to:
+Think of it as:
 
-- `/settings/ingest`
+> provider truth + setup truth
 
-Make sure there is at least one active ingest source.
+### What the buttons mean
 
-### Step 4: Create a named integration
+#### Test
 
-Go to:
+Sends one tiny real request.
+
+Use it to answer:
+
+> “Can this key really call the provider?”
+
+#### Sync now
+
+Tries to import provider-side usage history.
+
+Use it to answer:
+
+> “Can this provider expose past usage directly?”
+
+Important: this is often limited by provider rules, not by Tokenometer.
+
+#### Vault credential
+
+Stores the provider key in Tokenometer securely so it can be used for tests, sync, or proxy paths.
+
+## Integrations
+
+Page:
 
 - `/settings/integrations`
 
-Create a named integration for the real app you want to wire.
+This is where an app becomes a first-class object inside Tokenometer.
 
-### Step 5: Run a guided provider test
+A named integration stores:
 
-Back on Credentials, click **Test** on a vaulted provider credential.
+- app identity
+- provider
+- rollout mode
+- project
+- team
+- environment
+- owner
+- health
+- last seen
 
-This sends one tiny real request and proves the pipeline works end to end.
+Think of it as:
 
-### Step 6: Use the generated env block
+> “This app is real, known, and trackable.”
 
-Open:
+Examples:
+
+- `Shopfloor-Copilot (staging)`
+- `AI-Radar (production)`
+- `MachinaOS Demo (production)`
+
+## Gateway
+
+Page:
 
 - `/gateway`
 
-Pick:
+This is the rollout and live-validation surface.
 
+Use it to:
+
+- choose provider
+- choose rollout mode
+- choose a named integration
+- copy env blocks
+- copy Python or Node snippets
+- inspect recent live calls
+- inspect latency, request IDs, and metering path
+
+Think of it as:
+
+> “How do I wire this app, and what is it doing right now?”
+
+## Ledger
+
+Page:
+
+- `/ledger`
+
+This is the raw event view.
+
+Use it to inspect:
+
+- timestamp
 - provider
-- rollout mode
-- optional named integration
+- model
+- project
+- team
+- integration
+- workflow
+- tokens
+- cost
+- metering path
 
-Then copy the env block and the Node or Python snippet.
+Ledger is the best place to answer:
 
-### Step 7: Verify the result
+> “Did the event really land?”
 
-Check:
+## Reports
 
-- Gateway
-- Ledger
-- Reports
+Page:
 
-You should see a fresh request and current timestamp.
+- `/reports`
 
-## 9. Rollout Modes
+This is the spend view.
 
-Tokenometer currently presents three rollout modes in product language.
+Use it for:
+
+- daily view
+- weekly view
+- monthly view
+- CSV and PDF exports
+
+Reports answer:
+
+> “How is spending moving over time?”
+
+## Wallet
+
+Page:
+
+- `/wallet`
+
+This is the control layer around provider balances and governance.
+
+Use it for:
+
+- balances
+- reserves
+- allocations
+- approvals
+- transfers
+- exchanges
+- chargeback
+
+This matters, but it is not the first place to go when validating a new app integration.
+
+## 5. The Current Recommended Workflow
+
+If you are wiring a real app, this is the clean path:
+
+1. Go to **Credentials**
+2. Vault the provider key
+3. Create or confirm an **Ingest source**
+4. Create a **Named integration**
+5. Go to **Gateway**
+6. Choose provider + rollout mode + integration
+7. Copy the env block or adapter
+8. Trigger real app traffic
+9. Verify in:
+   - Gateway
+   - Ledger
+   - Reports
+
+## 6. The Rollout Modes
+
+Tokenometer uses three rollout modes.
 
 ### Observe only
 
-Meaning:
+The app still calls the provider directly.
 
-- app calls provider directly
-- app sends signed usage to Tokenometer afterward
+Then it reports usage back to Tokenometer afterward.
 
-Best for:
+Use this when:
 
-- first production validation
-- low-risk rollout
+- the app is already in production
+- continuity matters a lot
+- you want the safest first rollout
+
+This is how we integrated your sensitive production apps first.
 
 ### Observe + fallback
 
-Meaning:
+Tokenometer becomes the preferred path, but the app can still fall back.
 
-- app prefers Tokenometer proxy
-- app can still fall back to direct provider access if needed
+Use this when:
 
-Best for:
+- you want stronger control
+- but still want continuity protection
 
-- continuity-sensitive production rollout
+### Enforce
 
-### Enforce through Tokenometer
+Tokenometer becomes the actual request path.
 
-Meaning:
+Use this when:
 
-- measured traffic must pass through Tokenometer
-- app can rely more on vaulted provider credentials
+- you trust the integration
+- you want stronger control and cleaner metering
 
-Best for:
+## 7. What the New Metering Labels Mean
 
-- mature production flow after confidence is established
+You now see metering-path labels in Ledger and Gateway.
 
-## 10. Integration Health
+### Proxy captured
 
-Named integrations now have health evaluation.
+The request passed through Tokenometer directly.
 
-Possible states include:
+Best confidence.
 
-- `Healthy`
-- `Needs attention`
-- `Stale`
-- `Needs fixing`
-- `Paused`
+### Signed ingest
 
-Health is based on factors such as:
+The app made the provider call itself, then sent the usage back to Tokenometer through the ingest API.
 
-- whether a usable credential exists
-- whether a usable ingest source exists
-- whether observe mode has a signing secret
-- whether the integration has recent traffic
-- whether project and team mappings are coherent
-- whether ownership and runbook metadata exist
+Also strong confidence.
 
-This helps answer:
+### Shadow reported
 
-> Is this app integration ready, drifting, stale, or broken?
+Very similar spirit to signed ingest: provider call happens in-app, usage is then reported back.
 
-## 11. Wallet, Budgets, and Allocations
+### Provider sync
 
-Once usage is being measured, Tokenometer can govern it.
+Usage was imported from the provider’s own historical or sync path.
 
-### Wallets
+Useful for reconciliation, but not the core live truth.
 
-Wallets support:
+### CSV import
 
-- provider balances
-- reserve floors
-- reserved balances
-- outgoing locks
-- top-ups
-- transfers
-- exchange actions
-- approval requests
+Usage came from a manual file import.
 
-### Budget guardrails
+### Estimated
 
-Budgets are not just visual warnings.
+Tokens were estimated rather than returned directly by the provider.
 
-Depending on status, they can:
+Lower confidence than provider-returned usage.
 
-- require approvals
-- restrict transfer behavior
-- pause exchange behavior
-- auto-lock wallets
+## 8. What the New Reconciliation Section Means
 
-### Allocations
+On **Credentials**, there is now a **Reconciliation snapshot**.
 
-Allocations let you reserve provider wallet capacity for:
+This compares, per provider:
 
-- projects
-- teams
+- live metering totals
+- provider-history totals
+- manual backfill totals
 
-This makes downstream spend more explainable and governable.
+It gives you statuses like:
 
-## 12. Chargeback and Internal Settlement
+### In range
 
-Tokenometer can generate internal monthly usage statements.
+Live metering and provider history are close enough for the selected time window.
 
-These statements help answer:
+Good sign.
 
-- which project consumed what
-- which team should be accountable
-- which provider carried the spend
-- what the estimated cost was
+### Drift
 
-This is internal chargeback, not external payment processing.
+There is a meaningful mismatch between live totals and provider-history totals.
 
-## 13. Security Model
+This does **not** automatically mean Tokenometer is wrong.
 
-The current production product includes:
+Possible reasons:
 
-- admin authentication
-- hashed admin password storage
-- optional TOTP 2FA
-- rate limiting
-- encrypted provider credentials
-- encrypted ingest secrets
-- audit logs
-- HTTPS behind Nginx
+- provider history is delayed
+- imported history covers a different scope
+- live metering saw app-level traffic that provider history groups differently
+- sync/import has gaps
 
-For MVP and internal production testing, this is a solid base.
+### Live only
 
-For future enterprise-grade hardening, likely next steps include:
+Tokenometer has live traffic, but no provider-history rows for that provider in the current window.
 
-- richer user auth models
-- stronger rotation workflows
-- external KMS or Vault backends
-- more detailed integration event history
+Usually fine.
 
-## 14. Current Product Phase
+This often means:
 
-Plainly:
+- no admin key
+- no useful provider-history API
+- sync has not been run
 
-- Epic 1 is done enough
-- Epic 2 is done enough
-- Epic 3 is strong
-- Epic 4 is complete enough for this phase
-- Epic 5 is underway
+### History only
 
-Product-wise, Tokenometer is already beyond dashboard MVP.
+Provider-history rows exist, but Tokenometer did not see matching live traffic in the same window.
 
-It is now:
+This deserves inspection.
 
-- a metering system
-- a control layer
-- a wallet layer
-- an early internal settlement layer
+### Manual only
 
-## 15. Best Way to Think About Tokenometer
+Only CSV/manual backfill exists in that window.
 
-The cleanest mental model is this:
+## 9. Provider Reality, Plainly
 
-### Tokenometer is the operating system for AI spend.
+This is the key product truth:
 
-It does three big things:
+- **live metering is the main truth source**
+- **provider history is reconciliation**
 
-1. **measures** usage
-2. **organizes** usage
-3. **governs** usage
+Why?
 
-If you remember only one sentence from this manual, make it this:
+Because providers differ a lot.
 
-> provider sync is helpful, but live metering is the engine
+Examples:
+
+- OpenAI: live usage is good, historical org usage often needs admin access
+- Anthropic: same story
+- Gemini: live usage is good, historical direct usage is weaker
+- DeepSeek: live usage is good, exports are available but not the same as rich admin history
+
+So Tokenometer is built to be strongest when it meters the real app traffic itself.
+
+## 10. Real Apps Already Integrated
+
+At this point, Tokenometer is already seeing real traffic from apps such as:
+
+- `Shopfloor-Copilot (staging)`
+- `AI-Portable (production)`
+- `AI-Radar (production)`
+- `MachinaOS Demo (production)`
+
+That is why Ledger, Gateway, and Reports are becoming much more meaningful now.
+
+## 11. If You Feel Lost, Use This Rule
+
+If your question is:
+
+### “Can the provider key work?”
+
+Go to:
+
+- **Credentials**
+
+### “Is this app wired correctly?”
+
+Go to:
+
+- **Gateway**
+
+### “Did the event really land?”
+
+Go to:
+
+- **Ledger**
+
+### “Is spend increasing over time?”
+
+Go to:
+
+- **Reports**
+
+### “Why do live totals and provider totals differ?”
+
+Go to:
+
+- **Credentials -> Reconciliation snapshot**
+
+## 12. The Simplest Practical Loop
+
+When in doubt, do this:
+
+1. pick one app integration
+2. open **Gateway**
+3. filter to that integration
+4. trigger one real workflow
+5. open **Ledger**
+6. confirm provider, model, tokens, project, integration, and metering path
+7. open **Reports**
+8. confirm the spend shows up in the right period
+
+That is the clearest way to validate Tokenometer today.
+
+## 13. Final Product Principle
+
+Tokenometer is not just:
+
+- a dashboard
+- or a key vault
+- or a billing import tool
+
+It is becoming:
+
+> the operating layer that measures, attributes, explains, and governs AI consumption
+
+If you only remember one thing, remember this:
+
+> **Credentials explains the provider reality.  
+> Gateway validates the app wiring.  
+> Ledger proves the event.  
+> Reports show the spend.**
