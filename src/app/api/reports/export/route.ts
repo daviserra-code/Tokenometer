@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAppMode, isAdmin, modeUsageWhere } from "@/lib/auth";
 import { startOfMonth } from "@/lib/calc";
 import { formatCurrency, formatNumber, formatTokens, toNumber } from "@/lib/format";
-import { renderPdfBuffer } from "@/lib/pdf-export";
+import { renderSpendPdfBuffer } from "@/lib/pdf-export";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -154,71 +154,67 @@ export async function GET(request: NextRequest) {
     .sort((a, b) => b.cost - a.cost);
 
   if (format === "pdf") {
-    const pdf = await renderPdfBuffer({
+    const totalCost = toNumber(totals._sum.estimatedTotalCost);
+    const toSpendRows = (rows: Array<{ name: string; tokens: number; cost: number }>) =>
+      rows.slice(0, 10).map((row) => ({
+        name: row.name,
+        tokens: formatTokens(row.tokens),
+        cost: formatCurrency(row.cost, org.currency),
+        share: totalCost > 0 ? `${((row.cost / totalCost) * 100).toFixed(1)}%` : "-",
+      }));
+
+    const pdf = await renderSpendPdfBuffer({
       title: "Spend Report",
-      subtitle: `${periodLabel} · ${mode === "live" ? "Live mode" : "Demo mode"}`,
+      subtitle: `${periodLabel} - ${mode === "live" ? "Live mode" : "Demo mode"}`,
       metrics: [
         {
           label: "Total spend",
-          value: formatCurrency(toNumber(totals._sum.estimatedTotalCost), org.currency),
+          value: formatCurrency(totalCost, org.currency),
+          tone: "success",
         },
-        { label: "Total tokens", value: formatTokens(toNumber(totals._sum.totalTokens)) },
-        { label: "Events", value: formatNumber(totals._count) },
-        { label: "Currency", value: org.currency },
+        {
+          label: "Total tokens",
+          value: formatTokens(toNumber(totals._sum.totalTokens)),
+          tone: "input",
+        },
+        {
+          label: "Events",
+          value: formatNumber(totals._count),
+          tone: "output",
+        },
+        {
+          label: "Currency",
+          value: org.currency,
+        },
       ],
       sections: [
         {
           title: "Top providers",
-          columns: ["Provider", "Tokens", "Cost"],
-          columnWeights: [1.7, 1, 1],
-          rows: providerRows.slice(0, 12).map((row) => [
-            row.name,
-            formatTokens(row.tokens),
-            formatCurrency(row.cost, org.currency),
-          ]),
+          description: "Where the spend is landing first.",
+          rows: toSpendRows(providerRows),
         },
         {
           title: "Top models",
-          columns: ["Model", "Tokens", "Cost"],
-          columnWeights: [2.1, 1, 1],
-          rows: modelRows.slice(0, 12).map((row) => [
-            row.name,
-            formatTokens(row.tokens),
-            formatCurrency(row.cost, org.currency),
-          ]),
+          description: "Model-level breakdown for the selected period.",
+          rows: toSpendRows(modelRows),
         },
         {
           title: "Top integrations",
-          columns: ["Integration", "Tokens", "Cost"],
-          columnWeights: [1.8, 1, 1],
-          rows: integrationRows.slice(0, 12).map((row) => [
-            row.name,
-            formatTokens(row.tokens),
-            formatCurrency(row.cost, org.currency),
-          ]),
+          description: "Useful when multiple apps or rollouts share the same provider.",
+          rows: toSpendRows(integrationRows),
         },
         {
           title: "Project breakdown",
-          columns: ["Project", "Tokens", "Cost"],
-          columnWeights: [1.8, 1, 1],
-          rows: projectRows.slice(0, 12).map((row) => [
-            row.name,
-            formatTokens(row.tokens),
-            formatCurrency(row.cost, org.currency),
-          ]),
+          description: "Project view for reporting and chargeback.",
+          rows: toSpendRows(projectRows),
         },
         {
           title: "Team breakdown",
-          columns: ["Team", "Tokens", "Cost"],
-          columnWeights: [1.8, 1, 1],
-          rows: teamRows.slice(0, 12).map((row) => [
-            row.name,
-            formatTokens(row.tokens),
-            formatCurrency(row.cost, org.currency),
-          ]),
+          description: "Team view for ownership and budget tracking.",
+          rows: toSpendRows(teamRows),
         },
       ],
-      footerNote: "Formatted export for finance and operator review.",
+      footerNote: "Formatted spend report for finance and operator review.",
     });
 
     return new NextResponse(new Uint8Array(pdf), {
