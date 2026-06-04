@@ -84,16 +84,15 @@ export default function MarketingSitePage() {
     <div className="bg-[#06101b] text-on-background">
       <section className="relative overflow-hidden border-b border-white/10">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_18%,rgba(34,211,238,0.14),transparent_32%),radial-gradient(circle_at_88%_12%,rgba(124,58,237,0.16),transparent_34%),linear-gradient(180deg,#08111d_0%,#06101b_62%,#07111d_100%)]" />
-        <div className="absolute inset-y-0 right-0 hidden w-[46%] border-l border-white/6 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))] lg:block" />
 
-        <div className="relative mx-auto max-w-[1380px] px-6 pb-10 pt-8 sm:px-8 lg:px-12 lg:pb-12">
+        <div className="relative mx-auto max-w-[1380px] px-6 pb-12 pt-8 sm:px-8 lg:px-12 lg:pb-16">
           <header className="flex items-center justify-between gap-5">
             <Link href="/site" className="flex items-center gap-3">
               <Image
-                src="/marketing/tokenometer-logo-gradient.png"
+                src="/marketing/tokenometer-logo-gradient-transparent.png"
                 alt="Tokenometer"
-                width={232}
-                height={48}
+                width={280}
+                height={84}
                 className="h-10 w-auto sm:h-11"
                 priority
               />
@@ -114,7 +113,7 @@ export default function MarketingSitePage() {
             </div>
           </header>
 
-          <div className="grid gap-12 pb-10 pt-12 lg:grid-cols-[0.96fr,1.04fr] lg:items-end lg:pt-16">
+          <div className="grid gap-10 pb-10 pt-12 lg:grid-cols-[0.95fr,1.05fr] lg:items-center lg:pt-16">
             <div className="max-w-3xl">
               <div className="mb-5 inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
                 Live AI usage operating layer
@@ -168,38 +167,45 @@ export default function MarketingSitePage() {
               </div>
             </div>
 
-            <div className="relative lg:pl-6">
-              <div className="mb-4 flex items-center justify-between gap-3 border-b border-white/10 pb-3">
-                <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-                    Operator surface
+            <div className="relative">
+              <div className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(12,21,38,0.92),rgba(8,15,27,0.82))] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.35)] sm:p-5">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+                      Inside the product
+                    </div>
+                    <div className="mt-1 font-display text-2xl text-white">
+                      Product proof, not a mockup
+                    </div>
                   </div>
-                  <div className="mt-1 font-display text-2xl text-white">
-                    Real product proof, already live
+                  <div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+                    Demo + live modes
                   </div>
                 </div>
-                <div className="hidden rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary sm:inline-flex">
-                  Demo + live modes
-                </div>
-              </div>
 
-              <div className="relative overflow-hidden rounded-xl border border-white/10 bg-[#0b1626] shadow-[0_24px_80px_rgba(0,0,0,0.4)]">
-                <div className="absolute inset-x-0 top-0 z-10 h-20 bg-[linear-gradient(180deg,rgba(6,16,27,0.16),rgba(6,16,27,0))]" />
-                <div className="relative aspect-[16/10]">
-                  <Image
-                    src="/marketing/dashboard.png"
-                    alt="Tokenometer dashboard"
-                    fill
-                    priority
-                    className="object-cover object-top"
-                  />
-                </div>
-              </div>
+                <p className="mb-4 max-w-2xl text-sm leading-7 text-slate-300">
+                  Tokenometer already ships the operator surfaces that matter: rollout,
+                  verification, reporting, reconciliation, and governance.
+                </p>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <BadgeRow title="Gateway" body="Roll out safely" />
-                <BadgeRow title="Ledger" body="Verify the raw event" />
-                <BadgeRow title="Reports" body="Read spend with context" />
+                <div className="relative overflow-hidden rounded-xl border border-white/10 bg-[#0b1626]">
+                  <div className="absolute inset-x-0 top-0 z-10 h-20 bg-[linear-gradient(180deg,rgba(6,16,27,0.16),rgba(6,16,27,0))]" />
+                  <div className="relative aspect-[16/10]">
+                    <Image
+                      src="/marketing/dashboard.png"
+                      alt="Tokenometer dashboard"
+                      fill
+                      priority
+                      className="object-cover object-top"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <BadgeRow title="Gateway" body="Wire and validate one app safely" />
+                  <BadgeRow title="Ledger" body="Verify the raw usage event" />
+                  <BadgeRow title="Reports" body="Read spend with reconciliation context" />
+                </div>
               </div>
             </div>
           </div>
