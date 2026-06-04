@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Manrope, Inter } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
 import { Topbar } from "@/components/Topbar";
@@ -37,6 +38,9 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const surface = headers().get("x-tokenometer-surface");
+  const isMarketing = surface === "marketing";
+
   return (
     <html
       lang="en"
@@ -52,16 +56,22 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-background font-sans text-on-background antialiased selection:bg-primary-container/30">
-        <Topbar />
-        <div className="flex min-h-[calc(100vh-64px)] w-full">
-          <Sidebar />
-          <main className="relative flex-1 overflow-x-hidden bg-background pb-24 lg:pb-8">
-            <div className="brand-glow relative mx-auto max-w-[1600px] p-container-margin">
-              {children}
+        {isMarketing ? (
+          <main className="min-h-screen bg-background">{children}</main>
+        ) : (
+          <>
+            <Topbar />
+            <div className="flex min-h-[calc(100vh-64px)] w-full">
+              <Sidebar />
+              <main className="relative flex-1 overflow-x-hidden bg-background pb-24 lg:pb-8">
+                <div className="brand-glow relative mx-auto max-w-[1600px] p-container-margin">
+                  {children}
+                </div>
+              </main>
             </div>
-          </main>
-        </div>
-        <MobileNav />
+            <MobileNav />
+          </>
+        )}
       </body>
     </html>
   );
