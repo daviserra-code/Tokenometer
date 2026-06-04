@@ -87,7 +87,7 @@ export default function MarketingSitePage() {
 
         <div className="relative mx-auto max-w-[1380px] px-6 pb-12 pt-8 sm:px-8 lg:px-12 lg:pb-16">
           <header className="flex items-center justify-between gap-5">
-            <Link href="/site" className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-3">
               <Image
                 src="/marketing/tokenometer-logo-gradient-transparent.png"
                 alt="Tokenometer"
@@ -99,13 +99,13 @@ export default function MarketingSitePage() {
             </Link>
             <div className="flex items-center gap-2">
               <Link
-                href="/"
+                href="/demo"
                 className="rounded-lg border border-white/12 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-white/90 transition hover:border-primary/40 hover:text-primary"
               >
                 Open Demo
               </Link>
               <Link
-                href="/login"
+                href="/app"
                 className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-primary-container"
               >
                 Open App
@@ -129,13 +129,13 @@ export default function MarketingSitePage() {
 
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
-                  href="/"
+                  href="/demo"
                   className="rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-primary-container"
                 >
                   Explore the demo
                 </Link>
                 <Link
-                  href="/login"
+                  href="/app"
                   className="rounded-lg border border-white/15 bg-white/[0.04] px-5 py-3 text-sm font-semibold text-white transition hover:border-primary/50 hover:text-primary"
                 >
                   Open the app
@@ -373,13 +373,13 @@ export default function MarketingSitePage() {
 
             <div className="flex flex-wrap gap-3 lg:justify-end">
               <Link
-                href="/"
+                href="/demo"
                 className="rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-primary-container"
               >
                 Open demo mode
               </Link>
               <Link
-                href="/login"
+                href="/app"
                 className="rounded-lg border border-white/15 bg-white/[0.04] px-5 py-3 text-sm font-semibold text-white transition hover:border-primary/50 hover:text-primary"
               >
                 Open the app
