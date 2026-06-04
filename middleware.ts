@@ -19,7 +19,9 @@ function getOriginHost(url: string, fallbackHost: string) {
 }
 
 export function middleware(request: NextRequest) {
-  const host = normalizeHost(request.headers.get("host"));
+  const host = normalizeHost(
+    request.headers.get("x-forwarded-host") ?? request.headers.get("host"),
+  );
   const pathname = request.nextUrl.pathname;
   const marketingHost = process.env.NEXT_PUBLIC_MARKETING_HOST ?? DEFAULT_MARKETING_HOST;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? DEFAULT_APP_URL;
