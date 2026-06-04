@@ -22,7 +22,7 @@ import {
 import { getProviderCapability } from "@/lib/provider-capabilities";
 import { PROVIDER_TESTS } from "@/lib/provider-tests";
 import { prisma } from "@/lib/prisma";
-import { getReconciliationSnapshot, type ReconciliationStatus } from "@/lib/reconciliation";
+import { getReconciliationSnapshot, reconciliationToneClasses } from "@/lib/reconciliation";
 import { ensureRuntimeProviderCatalog } from "@/lib/runtime-provider-catalog";
 
 import {
@@ -1062,22 +1062,6 @@ function VerifyLink({ href, title, body }: { href: string; title: string; body: 
       <span className="mt-1 block text-[12px] text-text-muted">{body}</span>
     </Link>
   );
-}
-
-function reconciliationToneClasses(status: ReconciliationStatus) {
-  switch (status) {
-    case "matched":
-      return "border-status-normal/40 bg-status-normal/10 text-status-normal";
-    case "drift":
-      return "border-status-warning/40 bg-status-warning/10 text-status-warning";
-    case "history_only":
-      return "border-status-exceeded/40 bg-status-exceeded/10 text-status-exceeded";
-    case "live_only":
-      return "border-border-subtle bg-background text-text-muted";
-    case "manual_only":
-    default:
-      return "border-primary/30 bg-primary/10 text-primary";
-  }
 }
 
 function ChoiceLink({

@@ -47,6 +47,68 @@ export type ReconciliationSnapshot = {
   counts: Record<ReconciliationStatus, number>;
 };
 
+export function reconciliationToneClasses(status: ReconciliationStatus) {
+  switch (status) {
+    case "matched":
+      return "border-status-normal/40 bg-status-normal/10 text-status-normal";
+    case "drift":
+      return "border-status-warning/40 bg-status-warning/10 text-status-warning";
+    case "history_only":
+      return "border-status-exceeded/40 bg-status-exceeded/10 text-status-exceeded";
+    case "live_only":
+      return "border-border-subtle bg-background text-text-muted";
+    case "manual_only":
+    default:
+      return "border-primary/30 bg-primary/10 text-primary";
+  }
+}
+
+export function summarizeReconciliation(snapshot: ReconciliationSnapshot) {
+  const hasDrift = snapshot.counts.drift > 0;
+  const hasHistoryOnly = snapshot.counts.history_only > 0;
+  const hasLiveOnly = snapshot.counts.live_only > 0;
+  const hasMatched = snapshot.counts.matched > 0;
+  const comparedProviders = snapshot.counts.matched + snapshot.counts.drift;
+
+  if (hasDrift) {
+    return {
+      tone: "warning" as const,
+      title: "Reconciliation needs review",
+      body: `${snapshot.counts.drift} provider${snapshot.counts.drift === 1 ? "" : "s"} show meaningful drift between live metering and provider history in the current window.`,
+    };
+  }
+
+  if (hasHistoryOnly) {
+    return {
+      tone: "danger" as const,
+      title: "Provider history exists without matching live traffic",
+      body: `${snapshot.counts.history_only} provider${snapshot.counts.history_only === 1 ? "" : "s"} have provider-history rows but no matching live traffic in the current window.`,
+    };
+  }
+
+  if (hasMatched && comparedProviders > 0) {
+    return {
+      tone: "success" as const,
+      title: "Reconciliation is broadly in range",
+      body: `${snapshot.counts.matched} provider${snapshot.counts.matched === 1 ? "" : "s"} have live totals that broadly align with imported provider history in the current window.`,
+    };
+  }
+
+  if (hasLiveOnly) {
+    return {
+      tone: "neutral" as const,
+      title: "This view is mainly live-metered",
+      body: `${snapshot.counts.live_only} provider${snapshot.counts.live_only === 1 ? "" : "s"} currently show live-only usage. That is often expected when provider history is weak or admin access is unavailable.`,
+    };
+  }
+
+  return {
+    tone: "neutral" as const,
+    title: "No reconciliation signal yet",
+    body: "There is not enough live or provider-history data in the current window to compare reliably yet.",
+  };
+}
+
 function aggregateMap(groups: AggregateBucket[]) {
   return new Map(
     groups.map((group) => [

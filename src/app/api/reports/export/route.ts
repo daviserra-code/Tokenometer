@@ -5,6 +5,7 @@ import { startOfMonth } from "@/lib/calc";
 import { formatCurrency, formatNumber, formatTokens, toNumber } from "@/lib/format";
 import { renderSpendPdfBuffer } from "@/lib/pdf-export";
 import { prisma } from "@/lib/prisma";
+import { getReconciliationSnapshot, summarizeReconciliation } from "@/lib/reconciliation";
 
 export const runtime = "nodejs";
 
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
     timestamp: { gte: getPeriodStart(period) },
   };
 
-  const [totals, byProvider, byModel, byProject, byTeam, byIntegration] = await Promise.all([
+  const [totals, byProvider, byModel, byProject, byTeam, byIntegration, reconciliation] = await Promise.all([
     prisma.usageEvent.aggregate({
       where,
       _sum: { totalTokens: true, estimatedTotalCost: true, inputTokens: true, outputTokens: true },
@@ -91,6 +92,7 @@ export async function GET(request: NextRequest) {
       where: { ...where, integrationId: { not: null } },
       _sum: { totalTokens: true, estimatedTotalCost: true },
     }),
+    getReconciliationSnapshot(org.id, period === "daily" ? 1 : period === "weekly" ? 7 : 30),
   ]);
 
   const providerIds = byProvider.map((row) => row.providerId);
@@ -152,6 +154,17 @@ export async function GET(request: NextRequest) {
       cost: toNumber(row._sum.estimatedTotalCost),
     }))
     .sort((a, b) => b.cost - a.cost);
+  const reconciliationSummary = summarizeReconciliation(reconciliation);
+  const reconciliationRows = reconciliation.rows
+    .slice(0, 8)
+    .map((row) => ({
+      provider: row.provider,
+      liveCost: row.liveCost,
+      providerHistoryCost: row.providerHistoryCost,
+      driftCost: row.deltaCost,
+      driftPct: row.deltaPct,
+      label: row.label,
+    }));
 
   if (format === "pdf") {
     const totalCost = toNumber(totals._sum.estimatedTotalCost);
@@ -186,6 +199,16 @@ export async function GET(request: NextRequest) {
           label: "Currency",
           value: org.currency,
         },
+        {
+          label: "Reconciliation",
+          value: reconciliationSummary.title,
+          tone:
+            reconciliationSummary.tone === "success"
+              ? "success"
+              : reconciliationSummary.tone === "danger"
+                ? "output"
+                : "input",
+        },
       ],
       sections: [
         {
@@ -213,8 +236,21 @@ export async function GET(request: NextRequest) {
           description: "Team view for ownership and budget tracking.",
           rows: toSpendRows(teamRows),
         },
+        {
+          title: "Reconciliation snapshot",
+          description: `${reconciliationSummary.title}. ${reconciliationSummary.body}`,
+          rows: reconciliationRows.map((row) => ({
+            name: row.provider,
+            tokens: `Live ${formatCurrency(row.liveCost, org.currency)} / History ${formatCurrency(row.providerHistoryCost, org.currency)}`,
+            cost:
+              row.driftPct == null
+                ? row.label
+                : `${row.label} / ${row.driftCost >= 0 ? "+" : "-"}${formatCurrency(Math.abs(row.driftCost), org.currency)} / ${row.driftPct.toFixed(1)}%`,
+            share: "-",
+          })),
+        },
       ],
-      footerNote: "Formatted spend report for finance and operator review.",
+      footerNote: "Formatted spend report for finance and operator review, including reconciliation context where available.",
     });
 
     return new NextResponse(new Uint8Array(pdf), {
@@ -241,6 +277,24 @@ export async function GET(request: NextRequest) {
         totals._sum.estimatedTotalCost?.toString() ?? "0",
         org.currency,
       ]]
+    ),
+    section(
+      "reconciliation_summary",
+      ["title", "body", "window_start"],
+      [[reconciliationSummary.title, reconciliationSummary.body, reconciliation.since.toISOString()]]
+    ),
+    section(
+      "reconciliation_by_provider",
+      ["provider", "status", "live_cost", "provider_history_cost", "drift_cost", "drift_pct", "currency"],
+      reconciliation.rows.map((row) => [
+        row.provider,
+        row.label,
+        row.liveCost.toFixed(6),
+        row.providerHistoryCost.toFixed(6),
+        row.deltaCost.toFixed(6),
+        row.deltaPct == null ? "" : row.deltaPct.toFixed(2),
+        org.currency,
+      ])
     ),
     section(
       "by_provider",

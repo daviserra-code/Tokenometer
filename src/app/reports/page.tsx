@@ -10,6 +10,11 @@ import { ModeSwitch } from "@/components/ModeSwitch";
 import { formatCurrency, formatDateTime, formatRelativeTime, formatTokens, toNumber } from "@/lib/format";
 import { startOfMonth } from "@/lib/calc";
 import { getAppMode, isAdmin, liveUsageWhere, modeUsageWhere } from "@/lib/auth";
+import {
+  getReconciliationSnapshot,
+  reconciliationToneClasses,
+  summarizeReconciliation,
+} from "@/lib/reconciliation";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +86,7 @@ export default async function ReportsPage({
     teams,
     providers,
     latestLiveEvent,
+    reconciliation,
   ] = await Promise.all([
     prisma.usageEvent.groupBy({
       by: ["providerId"],
@@ -122,6 +128,7 @@ export default async function ReportsPage({
         model: true,
       },
     }),
+    getReconciliationSnapshot(org.id, period === "daily" ? 1 : period === "weekly" ? 7 : 30),
   ]);
 
   const verificationRaw = cookies().get("verification-flash")?.value;
@@ -225,6 +232,8 @@ export default async function ReportsPage({
   ];
 
   const latestLiveInPeriod = latestLiveEvent ? latestLiveEvent.timestamp >= periodStart : false;
+  const reconciliationSummary = summarizeReconciliation(reconciliation);
+  const reconciliationRows = reconciliation.rows.slice(0, 4);
 
   return (
     <div className="space-y-section-gap">
@@ -297,6 +306,100 @@ export default async function ReportsPage({
           </div>
         </div>
       )}
+
+      <Card
+        title="Reconciliation"
+        description="This adds confidence context to spend. Live metering stays primary; provider history is compared when it exists."
+      >
+        <div
+          className={`rounded-lg border px-4 py-3 ${
+            reconciliationSummary.tone === "success"
+              ? "border-status-normal/40 bg-status-normal/10"
+              : reconciliationSummary.tone === "warning"
+                ? "border-status-warning/40 bg-status-warning/10"
+                : reconciliationSummary.tone === "danger"
+                  ? "border-status-exceeded/40 bg-status-exceeded/10"
+                  : "border-border-subtle bg-background"
+          }`}
+        >
+          <p className="text-sm text-on-surface">
+            <strong>{reconciliationSummary.title}.</strong> {reconciliationSummary.body}
+          </p>
+          <p className="mt-1 text-[12px] text-text-muted">
+            Window starts {formatDateTime(reconciliation.since)}. Missing provider history often just means the provider is being treated as live-only or no sync/import has been run for this period.
+          </p>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-4">
+          <KpiCard label="In range" value={String(reconciliation.counts.matched)} hint="live and provider history broadly agree" icon="sync" tone="success" />
+          <KpiCard label="Drift" value={String(reconciliation.counts.drift)} hint="needs finance review" icon="compare_arrows" tone="warning" />
+          <KpiCard label="Live only" value={String(reconciliation.counts.live_only)} hint="normal for live-first providers" icon="bolt" tone="input" />
+          <KpiCard label="History only" value={String(reconciliation.counts.history_only)} hint="check missing live traffic" icon="history" tone="danger" />
+        </div>
+
+        <div className="mt-4 overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="text-[12px] uppercase tracking-wider text-text-muted">
+              <tr>
+                <th className="px-4 py-3 text-left">Provider</th>
+                <th className="px-4 py-3 text-left">Live</th>
+                <th className="px-4 py-3 text-left">Provider history</th>
+                <th className="px-4 py-3 text-left">Drift</th>
+                <th className="px-4 py-3 text-left">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-subtle">
+              {reconciliationRows.map((row) => (
+                <tr key={row.providerId}>
+                  <td className="px-4 py-3">
+                    <div className="font-semibold text-on-surface">{row.provider}</div>
+                  </td>
+                  <td className="px-4 py-3 text-text-muted">
+                    <div>{formatCurrency(row.liveCost, org.currency)}</div>
+                    <div className="text-[12px]">{formatTokens(row.liveTokens)}</div>
+                  </td>
+                  <td className="px-4 py-3 text-text-muted">
+                    <div>{formatCurrency(row.providerHistoryCost, org.currency)}</div>
+                    <div className="text-[12px]">{formatTokens(row.providerHistoryTokens)}</div>
+                  </td>
+                  <td className="px-4 py-3 text-text-muted">
+                    {row.comparable ? (
+                      <>
+                        <div>
+                          {row.deltaCost >= 0 ? "+" : "-"}
+                          {formatCurrency(Math.abs(row.deltaCost), org.currency)}
+                        </div>
+                        <div className="text-[12px]">
+                          {row.deltaPct === null ? "n/a" : `${row.deltaPct.toFixed(1)}%`}
+                        </div>
+                      </>
+                    ) : (
+                      "n/a"
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={[
+                        "inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
+                        reconciliationToneClasses(row.status),
+                      ].join(" ")}
+                    >
+                      {row.label}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {reconciliationRows.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-center text-text-muted">
+                    No reconciliation rows yet for this period.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
       <div className="inline-flex rounded-lg border border-border-subtle bg-surface-elevated/70 p-1 text-[12px] font-semibold">
         {(["daily", "weekly", "monthly"] as const).map((p) => (
