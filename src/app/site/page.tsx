@@ -91,9 +91,9 @@ export default function MarketingSitePage() {
               <Image
                 src="/marketing/tokenometer-logo-gradient-transparent.png"
                 alt="Tokenometer"
-                width={280}
-                height={84}
-                className="h-10 w-auto sm:h-11"
+                width={303}
+                height={40}
+                className="h-8 w-auto sm:h-9"
                 priority
               />
             </Link>
@@ -118,7 +118,7 @@ export default function MarketingSitePage() {
               <div className="mb-5 inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
                 Live AI usage operating layer
               </div>
-              <h1 className="font-display text-[42px] leading-[0.96] text-white sm:text-[58px] lg:text-[82px]">
+              <h1 className="font-display text-[42px] leading-[0.96] text-white sm:text-[58px] lg:text-[76px]">
                 AI spend that starts from the request, not the invoice.
               </h1>
               <p className="mt-6 max-w-2xl text-base leading-7 text-slate-200 sm:text-lg">
@@ -222,14 +222,18 @@ export default function MarketingSitePage() {
               <h2 className="mt-3 font-display text-3xl text-white sm:text-4xl">
                 Provider billing surfaces are part of the picture, not the whole picture.
               </h2>
+              <p className="mt-4 max-w-md text-sm leading-7 text-slate-300">
+                Tokenometer exists because the operational truth usually lives closer to the
+                request than to the monthly statement.
+              </p>
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-white/10">
+            <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0a1423]/70">
               {comparisonRows.map((row, index) => (
                 <div
                   key={row.problem}
                   className={`grid gap-4 px-5 py-5 lg:grid-cols-[0.92fr,1.08fr] ${
-                    index % 2 === 0 ? "bg-[#0b1627]" : "bg-[#0d1a2d]"
+                    index % 2 === 0 ? "bg-white/[0.02]" : "bg-transparent"
                   }`}
                 >
                   <div className="text-sm leading-7 text-slate-400">{row.problem}</div>
@@ -257,7 +261,7 @@ export default function MarketingSitePage() {
               {operatorLoop.map((item) => (
                 <article
                   key={item.step}
-                  className="min-h-[220px] border-t border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0))] px-5 py-5"
+                  className="min-h-[220px] rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] px-5 py-5"
                 >
                   <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
                     {item.step}
@@ -345,7 +349,7 @@ export default function MarketingSitePage() {
             {audiences.map((item) => (
               <article
                 key={item.name}
-                className="border-t border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0))] px-5 py-6"
+                className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.01))] px-5 py-6"
               >
                 <h3 className="font-display text-xl text-white">{item.name}</h3>
                 <p className="mt-3 text-sm leading-7 text-slate-300">{item.body}</p>
