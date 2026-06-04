@@ -11,8 +11,7 @@ export function MobileNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-16 items-stretch justify-around border-t border-slate-800/80 bg-slate-950/95 backdrop-blur-md lg:hidden">
       {MOBILE_NAV_ITEMS.map((item) => {
-        const active =
-          item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+        const active = pathname.startsWith(item.href);
         return (
           <Link
             key={item.href}

@@ -10,7 +10,7 @@ export function Topbar() {
   return (
     <header className="sticky top-0 z-50 flex h-16 w-full items-center gap-3 border-b border-slate-800/50 bg-slate-950/80 px-4 backdrop-blur-md sm:px-6">
       <Link
-        href="/"
+        href="/dashboard"
         className="flex shrink-0 items-center gap-2 font-display text-lg font-bold tracking-tighter text-primary-container sm:text-xl"
       >
         <span className="material-symbols-outlined text-[22px] text-primary-container">

@@ -9,7 +9,7 @@ export default function NotFound() {
         The page you&apos;re looking for doesn&apos;t exist or has moved.
       </p>
       <Link
-        href="/"
+        href="/dashboard"
         className="mt-6 inline-flex items-center gap-2 rounded-lg border border-primary-container/40 bg-primary-container/10 px-4 py-2 font-display text-body-md font-semibold text-primary-container transition-colors hover:bg-primary-container/20"
       >
         <span className="material-symbols-outlined text-[18px]">arrow_back</span>

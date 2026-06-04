@@ -6,7 +6,7 @@ import { isAdmin } from "@/lib/auth";
 export const dynamic = "force-dynamic";
 
 export default function LoginPage() {
-  if (isAdmin()) redirect("/");
+  if (isAdmin()) redirect("/dashboard");
 
   return (
     <div className="mx-auto flex min-h-[calc(100vh-160px)] max-w-md flex-col justify-center">

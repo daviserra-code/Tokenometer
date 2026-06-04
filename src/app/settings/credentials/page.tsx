@@ -788,10 +788,10 @@ export default async function CredentialsPage({
 
         <Card title="Where to verify spend">
           <div className="space-y-3 text-sm text-text-muted">
-            <VerifyLink
-              href="/"
-              title="Dashboard"
-              body="Freshness banner, top-line totals, and the latest usage timestamp."
+              <VerifyLink
+                href="/dashboard"
+                title="Dashboard"
+                body="Freshness banner, top-line totals, and the latest usage timestamp."
             />
             <VerifyLink
               href="/gateway"

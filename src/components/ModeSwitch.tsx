@@ -6,7 +6,7 @@ export function ModeSwitch({
   mode,
   admin,
   compact = false,
-  redirectTo = "/",
+  redirectTo = "/dashboard",
 }: {
   mode: AppMode;
   admin: boolean;

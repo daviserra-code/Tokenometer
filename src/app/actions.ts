@@ -64,7 +64,7 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     data: { lastLoginAt: new Date() },
   });
   setAdminUserCookie(user.id);
-  redirect("/");
+  redirect("/dashboard");
 }
 
 export async function logoutAction() {

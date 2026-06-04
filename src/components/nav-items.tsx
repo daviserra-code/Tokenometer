@@ -1,5 +1,5 @@
 export const NAV_ITEMS = [
-  { href: "/", label: "Dashboard", icon: "dashboard" },
+  { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
   { href: "/setup", label: "Setup", icon: "checklist" },
   { href: "/gateway", label: "Gateway", icon: "api" },
   { href: "/ledger", label: "Token Ledger", icon: "receipt_long" },
@@ -28,7 +28,7 @@ export const NAV_SECTIONS = [
 ] as const;
 
 export const MOBILE_NAV_ITEMS = [
-  { href: "/", label: "Home", icon: "home" },
+  { href: "/dashboard", label: "Home", icon: "home" },
   { href: "/setup", label: "Setup", icon: "checklist" },
   { href: "/gateway", label: "Meter", icon: "api" },
   { href: "/reports", label: "Spend", icon: "query_stats" },

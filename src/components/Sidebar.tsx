@@ -7,7 +7,7 @@ import { NAV_SECTIONS, SECONDARY_NAV } from "./nav-items";
 
 export function Sidebar() {
   const pathname = usePathname();
-  const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+  const isActive = (href: string) => pathname.startsWith(href);
 
   return (
     <aside className="sticky top-16 hidden h-[calc(100vh-64px)] w-64 shrink-0 flex-col border-r border-slate-800/80 bg-slate-950 lg:flex">
