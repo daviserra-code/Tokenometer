@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -421,7 +422,6 @@ export async function testCredentialAction(formData: FormData) {
     message = "No active ingest source for this organization. Create one in Settings -> Ingest first.";
   } else {
     const headersToken = ingest.apiKey;
-    const base = process.env.NEXT_PUBLIC_APP_URL ?? `http://localhost:${process.env.PORT ?? "3000"}`;
     const testConfig = getProviderTestConfig(provider.name);
 
     try {
@@ -433,6 +433,13 @@ export async function testCredentialAction(formData: FormData) {
       const candidateModels = testConfig.candidateModels?.length
         ? testConfig.candidateModels
         : [testConfig.model];
+      const requestHeaders = headers();
+      const forwardedProto = requestHeaders.get("x-forwarded-proto");
+      const forwardedHost = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+      const localBase =
+        forwardedProto && forwardedHost
+          ? `${forwardedProto}://${forwardedHost}`
+          : process.env.NEXT_PUBLIC_APP_URL ?? `http://127.0.0.1:${process.env.PORT ?? "3000"}`;
 
       let finalModel = candidateModels[0];
       let res: Response | null = null;
@@ -443,7 +450,7 @@ export async function testCredentialAction(formData: FormData) {
         finalModel = candidateModel;
         const endpoint = rewriteGuidedTestEndpoint(testConfig.endpoint, provider.name, candidateModel);
         const body = rewriteGuidedTestBody(testConfig.body, provider.name, candidateModel);
-        res = await fetch(`${base}${endpoint}`, {
+        res = await fetch(`${localBase}${endpoint}`, {
           method: "POST",
           headers: {
             "content-type": "application/json",
