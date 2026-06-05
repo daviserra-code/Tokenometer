@@ -15,6 +15,7 @@ import {
   reconciliationToneClasses,
   summarizeReconciliation,
 } from "@/lib/reconciliation";
+import { summarizeRealtimeProviders } from "@/lib/realtime-metering";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +88,7 @@ export default async function ReportsPage({
     providers,
     latestLiveEvent,
     reconciliation,
+    realtimeEvents,
   ] = await Promise.all([
     prisma.usageEvent.groupBy({
       by: ["providerId"],
@@ -129,6 +131,21 @@ export default async function ReportsPage({
       },
     }),
     getReconciliationSnapshot(org.id, period === "daily" ? 1 : period === "weekly" ? 7 : 30),
+    prisma.usageEvent.findMany({
+      where: {
+        ...where,
+        provider: {
+          name: {
+            in: ["Google", "Anthropic"],
+          },
+        },
+      },
+      orderBy: { timestamp: "desc" },
+      take: 500,
+      include: {
+        provider: { select: { name: true } },
+      },
+    }),
   ]);
 
   const verificationRaw = cookies().get("verification-flash")?.value;
@@ -234,6 +251,7 @@ export default async function ReportsPage({
   const latestLiveInPeriod = latestLiveEvent ? latestLiveEvent.timestamp >= periodStart : false;
   const reconciliationSummary = summarizeReconciliation(reconciliation);
   const reconciliationRows = reconciliation.rows.slice(0, 4);
+  const realtimeProviderRows = summarizeRealtimeProviders(realtimeEvents);
 
   return (
     <div className="space-y-section-gap">
@@ -393,6 +411,61 @@ export default async function ReportsPage({
                 <tr>
                   <td colSpan={5} className="px-4 py-6 text-center text-text-muted">
                     No reconciliation rows yet for this period.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <Card
+        title="Live metering detail"
+        description="Provider-specific realtime signals for Gemini and Anthropic in the current window."
+      >
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="text-[12px] uppercase tracking-wider text-text-muted">
+              <tr>
+                <th className="px-4 py-3 text-left">Provider</th>
+                <th className="px-4 py-3 text-left">Calls</th>
+                <th className="px-4 py-3 text-left">Streamed</th>
+                <th className="px-4 py-3 text-left">Realtime signals</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-subtle">
+              {realtimeProviderRows.map((row) => (
+                <tr key={row.provider}>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <ProviderTag name={row.provider} />
+                      <span className="font-semibold text-on-surface">{row.provider}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-text-muted">{row.calls.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-text-muted">{row.streamedCalls.toLocaleString()}</td>
+                  <td className="px-4 py-3">
+                    {row.signals.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {row.signals.map((signal) => (
+                          <span
+                            key={`${row.provider}-${signal.label}`}
+                            className="inline-flex rounded-full border border-border-subtle bg-background px-2 py-0.5 text-[11px] font-medium text-text-muted"
+                          >
+                            {signal.label}: {signal.value}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-text-muted">No provider-specific realtime signals yet.</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {realtimeProviderRows.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-6 text-center text-text-muted">
+                    No Gemini or Anthropic live detail in this period yet.
                   </td>
                 </tr>
               )}

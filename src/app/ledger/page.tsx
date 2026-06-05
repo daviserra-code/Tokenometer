@@ -17,6 +17,7 @@ import {
 } from "@/lib/format";
 import { liveUsageWhere } from "@/lib/auth";
 import { classifyMeteringPath, meteringPathToneClasses } from "@/lib/provider-capabilities";
+import { getRealtimeSignals } from "@/lib/realtime-metering";
 
 export const dynamic = "force-dynamic";
 
@@ -206,12 +207,15 @@ export default async function LedgerPage({
       key: "metering",
       header: "Metering",
       cell: (row) => {
-        const path = classifyMeteringPath(
-          row.source,
+        const metadata =
           row.metadataJson && typeof row.metadataJson === "object"
             ? (row.metadataJson as Record<string, unknown>)
-            : null,
+            : null;
+        const path = classifyMeteringPath(
+          row.source,
+          metadata,
         );
+        const realtimeSignals = getRealtimeSignals(row.provider.name, metadata);
 
         return (
           <div className="space-y-1">
@@ -221,6 +225,18 @@ export default async function LedgerPage({
               {path.label}
             </span>
             <div className="max-w-[220px] text-[11px] text-text-muted">{path.detail}</div>
+            {realtimeSignals.length > 0 && (
+              <div className="flex max-w-[220px] flex-wrap gap-1 pt-1">
+                {realtimeSignals.map((signal) => (
+                  <span
+                    key={`${row.id}-${signal.label}`}
+                    className="inline-flex rounded-full border border-border-subtle bg-background px-2 py-0.5 text-[10px] font-medium text-text-muted"
+                  >
+                    {signal.label}: {signal.value}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         );
       },
