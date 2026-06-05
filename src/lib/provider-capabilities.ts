@@ -35,7 +35,7 @@ const PROVIDER_CAPABILITIES: ProviderCapability[] = [
   },
   {
     provider: "Google",
-    liveMetering: "usageMetadata returned",
+    liveMetering: "usageMetadata returned, including streaming final chunks",
     historicalSync: "Weaker direct API history",
     adminKeyRequired: false,
     fallback: "Cloud Billing export on GCP or Vertex",
@@ -56,6 +56,14 @@ const PROVIDER_CAPABILITIES: ProviderCapability[] = [
     adminKeyRequired: false,
     fallback: "Usage page export",
     recommended: "Live metering and export backfill",
+  },
+  {
+    provider: "MiniMax",
+    liveMetering: "Response usage returned",
+    historicalSync: "No public historical usage API",
+    adminKeyRequired: false,
+    fallback: "Token Plan or pay-as-you-go reconciliation",
+    recommended: "Proxy or shadow metering first",
   },
   {
     provider: "GitHub",
@@ -123,6 +131,15 @@ export function classifyMeteringPath(
   }
 
   if (typeof source === "string" && source.startsWith("byok-proxy:")) {
+    return {
+      kind: "proxy_captured",
+      label: "Proxy captured",
+      detail: "Metered in-path through the Tokenometer gateway.",
+      confidence: "high",
+    };
+  }
+
+  if (source === "byok-proxy") {
     return {
       kind: "proxy_captured",
       label: "Proxy captured",

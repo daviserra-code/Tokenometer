@@ -17,7 +17,7 @@ type SseStreamOptions = {
   upstreamRes: Response;
   state: ProxyRequestState;
   onJson?: (payload: unknown) => void;
-  onComplete?: () => void;
+  onComplete?: () => void | Promise<void>;
 };
 
 export function createProxyState(
@@ -131,10 +131,11 @@ export function createSseProxyResponse(options: SseStreamOptions) {
           },
           true
         );
-        onComplete?.();
-        logProxyResult(state, upstreamRes.status, {
-          durationMs: elapsedMs(state),
-          streamed: true,
+        return Promise.resolve(onComplete?.()).finally(() => {
+          logProxyResult(state, upstreamRes.status, {
+            durationMs: elapsedMs(state),
+            streamed: true,
+          });
         });
       },
     })
@@ -281,10 +282,18 @@ export function extractAnthropicUsage(payload: unknown) {
       message?.usage && typeof message.usage === "object"
         ? (message.usage as Record<string, unknown>)
         : null;
+    const cacheCreation =
+      usage?.cache_creation && typeof usage.cache_creation === "object"
+        ? (usage.cache_creation as Record<string, unknown>)
+        : null;
     return {
       kind: type,
       messageId: typeof message?.id === "string" ? message.id : undefined,
       inputTokens: asNumber(usage?.input_tokens),
+      cacheReadInputTokens: asNumber(usage?.cache_read_input_tokens),
+      cacheCreationInputTokens: asNumber(usage?.cache_creation_input_tokens),
+      cacheCreation5mInputTokens: asNumber(cacheCreation?.ephemeral_5m_input_tokens),
+      cacheCreation1hInputTokens: asNumber(cacheCreation?.ephemeral_1h_input_tokens),
       outputTokens: 0,
       stopReason: undefined as string | undefined,
     };
@@ -303,12 +312,43 @@ export function extractAnthropicUsage(payload: unknown) {
       kind: type,
       messageId: undefined,
       inputTokens: 0,
+      cacheReadInputTokens: 0,
+      cacheCreationInputTokens: 0,
+      cacheCreation5mInputTokens: 0,
+      cacheCreation1hInputTokens: 0,
       outputTokens: asNumber(usage?.output_tokens),
       stopReason: typeof delta?.stop_reason === "string" ? delta.stop_reason : undefined,
     };
   }
 
   return null;
+}
+
+export function extractGeminiUsage(payload: unknown) {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const json = payload as Record<string, unknown>;
+  const usage =
+    json.usageMetadata && typeof json.usageMetadata === "object"
+      ? (json.usageMetadata as Record<string, unknown>)
+      : null;
+  if (!usage) {
+    return null;
+  }
+
+  const inputTokens = asNumber(usage.promptTokenCount);
+  const outputTokens = asNumber(usage.candidatesTokenCount);
+  const totalTokens = asNumber(usage.totalTokenCount) || inputTokens + outputTokens;
+
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens,
+    thoughtsTokenCount: asNumber(usage.thoughtsTokenCount),
+    cachedContentTokenCount: asNumber(usage.cachedContentTokenCount),
+    toolUsePromptTokenCount: asNumber(usage.toolUsePromptTokenCount),
+  };
 }
 
 function asNumber(value: unknown) {

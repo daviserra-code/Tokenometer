@@ -155,6 +155,9 @@ export async function meterUsage(args: {
   agent?: string | null;
   metadata?: Record<string, unknown>;
   source?: string;
+  estimatedInputCost?: number;
+  estimatedOutputCost?: number;
+  estimatedTotalCost?: number;
 }) {
   try {
     const totT =
@@ -173,9 +176,12 @@ export async function meterUsage(args: {
 
     const inP = Number(model.inputPricePerMillion);
     const outP = Number(model.outputPricePerMillion);
-    const inCost = (args.inputTokens / 1_000_000) * inP;
-    const outCost = (args.outputTokens / 1_000_000) * outP;
-    const totalCost = inCost + outCost;
+    const inCost =
+      typeof args.estimatedInputCost === "number" ? args.estimatedInputCost : (args.inputTokens / 1_000_000) * inP;
+    const outCost =
+      typeof args.estimatedOutputCost === "number" ? args.estimatedOutputCost : (args.outputTokens / 1_000_000) * outP;
+    const totalCost =
+      typeof args.estimatedTotalCost === "number" ? args.estimatedTotalCost : inCost + outCost;
 
     const projectRow = args.project
       ? await prisma.project.findFirst({

@@ -271,6 +271,8 @@ function providerNameToSlug(name: string) {
       return "mistral";
     case "deepseek":
       return "deepseek";
+    case "minimax":
+      return "minimax";
     case "github":
       return "github";
     default:

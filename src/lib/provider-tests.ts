@@ -79,6 +79,20 @@ export const PROVIDER_TESTS: ProviderTestConfig[] = [
     },
   },
   {
+    providerName: "MiniMax",
+    endpoint: "/api/proxy/minimax/chat/completions",
+    model: "MiniMax-M2.7",
+    title: "MiniMax guided test",
+    summary: "Runs one tiny OpenAI-compatible chat completion through Tokenometer using MiniMax-M2.7.",
+    verifyHint: "Expect a fresh request ID, a small usage event, and immediate live metering in Gateway and Ledger.",
+    historicalNote: "MiniMax does not expose a public historical usage API, so guided testing is the main proof path.",
+    body: {
+      model: "MiniMax-M2.7",
+      max_tokens: 5,
+      messages: [{ role: "user", content: "ping" }],
+    },
+  },
+  {
     providerName: "GitHub",
     endpoint: "/api/proxy/github/chat/completions",
     model: "openai/gpt-4o-mini",

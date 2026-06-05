@@ -308,7 +308,7 @@ export default async function CredentialsPage({
             <QuickStep
               n="1"
               title="Vault one key"
-              body="Add one provider credential below. OpenAI, Gemini, or DeepSeek is the easiest first pass."
+              body="Add one provider credential below. OpenAI, Gemini, DeepSeek, or MiniMax is the easiest first pass."
             />
             <QuickStep
               n="2"
@@ -672,7 +672,7 @@ export default async function CredentialsPage({
               <strong className="text-on-surface">OpenAI and Anthropic:</strong> historical sync needs admin usage access. Normal app keys still work for <strong className="text-on-surface">Test</strong>.
             </li>
             <li>
-              <strong className="text-on-surface">Google, Mistral, and DeepSeek:</strong> there is no strong public historical usage API, so live metering matters more than sync.
+              <strong className="text-on-surface">Google, Mistral, DeepSeek, and MiniMax:</strong> there is no strong public historical usage API, so live metering matters more than sync.
             </li>
             <li>
               <strong className="text-on-surface">GitHub Models:</strong> use a PAT with <code className="mx-1 rounded bg-surface-2 px-1">models:read</code>. Paid usage still depends on GitHub billing being enabled.

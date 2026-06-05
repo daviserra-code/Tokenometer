@@ -1,6 +1,6 @@
 import type { LanguageModel } from "ai";
 
-export type CopilotProvider = "openai" | "anthropic" | "google" | "mistral" | "deepseek" | "github";
+export type CopilotProvider = "openai" | "anthropic" | "google" | "mistral" | "deepseek" | "minimax" | "github";
 
 export type CopilotConfig = {
   provider: CopilotProvider;
@@ -17,8 +17,8 @@ export type CopilotConfig = {
 export function resolveCopilotConfig(): CopilotConfig {
   const explicit = (process.env.AI_PROVIDER ?? "").toLowerCase() as CopilotProvider;
   const order: CopilotProvider[] = explicit
-    ? [explicit, "openai", "anthropic", "google", "mistral", "deepseek", "github"]
-    : ["openai", "anthropic", "google", "mistral", "deepseek", "github"];
+    ? [explicit, "openai", "anthropic", "google", "mistral", "deepseek", "minimax", "github"]
+    : ["openai", "anthropic", "google", "mistral", "deepseek", "minimax", "github"];
 
   for (const provider of order) {
     if (provider === "openai" && process.env.OPENAI_API_KEY) {
@@ -56,6 +56,13 @@ export function resolveCopilotConfig(): CopilotConfig {
         configured: true,
       };
     }
+    if (provider === "minimax" && process.env.MINIMAX_API_KEY) {
+      return {
+        provider,
+        modelId: process.env.MINIMAX_MODEL ?? "MiniMax-M2.7",
+        configured: true,
+      };
+    }
     if (provider === "github" && (process.env.GITHUB_MODELS_API_KEY || process.env.GITHUB_TOKEN)) {
       return {
         provider,
@@ -70,7 +77,7 @@ export function resolveCopilotConfig(): CopilotConfig {
     modelId: "",
     configured: false,
     reason:
-      "No AI provider key found. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, MISTRAL_API_KEY, DEEPSEEK_API_KEY, or GITHUB_MODELS_API_KEY/GITHUB_TOKEN in .env.",
+      "No AI provider key found. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, MISTRAL_API_KEY, DEEPSEEK_API_KEY, MINIMAX_API_KEY, or GITHUB_MODELS_API_KEY/GITHUB_TOKEN in .env.",
   };
 }
 
@@ -97,6 +104,14 @@ export async function getCopilotModel(cfg: CopilotConfig): Promise<LanguageModel
       const provider = createOpenAI({
         apiKey: process.env.DEEPSEEK_API_KEY ?? "",
         baseURL: "https://api.deepseek.com",
+      });
+      return provider(cfg.modelId);
+    }
+    case "minimax": {
+      const { createOpenAI } = await import("@ai-sdk/openai");
+      const provider = createOpenAI({
+        apiKey: process.env.MINIMAX_API_KEY ?? "",
+        baseURL: "https://api.minimax.io/v1",
       });
       return provider(cfg.modelId);
     }

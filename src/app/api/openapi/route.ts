@@ -144,7 +144,7 @@ export async function GET(req: Request) {
         post: {
           summary: "BYOK proxy for Google Generative Language API (Gemini)",
           description:
-            "Path segment must be of the form `<model>:<action>` e.g. `gemini-2.0-flash:generateContent`. Forwards to generativelanguage.googleapis.com using the vaulted Google credential. Responses expose X-Request-Id for tracing.",
+            "Path segment must be of the form `<model>:<action>` e.g. `gemini-2.0-flash:generateContent` or `gemini-2.0-flash:streamGenerateContent`. Forwards to generativelanguage.googleapis.com using the vaulted Google credential. Streaming is supported and responses expose X-Request-Id for tracing.",
           security: [{ IngestKey: [] }],
           parameters: [
             {
@@ -197,6 +197,23 @@ export async function GET(req: Request) {
             },
           },
           responses: { "200": { description: "Upstream DeepSeek response (passed through)" } },
+        },
+      },
+      "/api/proxy/minimax/chat/completions": {
+        post: {
+          summary: "BYOK proxy for MiniMax chat completions",
+          description:
+            "Forwards to api.minimax.io/v1/chat/completions using the vaulted MiniMax credential. OpenAI-compatible request shape. Streaming is supported and responses expose X-Request-Id for tracing.",
+          security: [{ IngestKey: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { type: "object", description: "Standard MiniMax OpenAI-compatible chat completion request" },
+              },
+            },
+          },
+          responses: { "200": { description: "Upstream MiniMax response (passed through)" } },
         },
       },
       "/api/proxy/github/chat/completions": {

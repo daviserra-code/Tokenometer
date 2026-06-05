@@ -23,6 +23,19 @@ const RUNTIME_PROVIDERS = [
       { name: "deepseek-reasoner", contextWindow: 1_000_000, input: 0.14, output: 0.28 },
     ],
   },
+  {
+    name: "MiniMax",
+    type: ProviderType.HOSTED,
+    models: [
+      { name: "MiniMax-M2.7", contextWindow: 204_800, input: 0.3, output: 1.2 },
+      { name: "MiniMax-M2.7-highspeed", contextWindow: 204_800, input: 0.6, output: 2.4 },
+      { name: "MiniMax-M2.5", contextWindow: 204_800, input: 0.3, output: 1.2 },
+      { name: "MiniMax-M2.5-highspeed", contextWindow: 204_800, input: 0.6, output: 2.4 },
+      { name: "MiniMax-M2.1", contextWindow: 204_800, input: 0.3, output: 1.2 },
+      { name: "MiniMax-M2.1-highspeed", contextWindow: 204_800, input: 0.6, output: 2.4 },
+      { name: "M2-her", contextWindow: 64_000, input: 0.3, output: 1.2 },
+    ],
+  },
 ] as const;
 
 export async function ensureRuntimeProviderCatalog(organizationId: string, currency: string) {

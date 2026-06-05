@@ -158,6 +158,19 @@ async function main() {
       ],
     },
     {
+      name: "MiniMax",
+      type: ProviderType.HOSTED,
+      models: [
+        { name: "MiniMax-M2.7",           ctx: 204800, in: 0.30, out: 1.20 },
+        { name: "MiniMax-M2.7-highspeed", ctx: 204800, in: 0.60, out: 2.40 },
+        { name: "MiniMax-M2.5",           ctx: 204800, in: 0.30, out: 1.20 },
+        { name: "MiniMax-M2.5-highspeed", ctx: 204800, in: 0.60, out: 2.40 },
+        { name: "MiniMax-M2.1",           ctx: 204800, in: 0.30, out: 1.20 },
+        { name: "MiniMax-M2.1-highspeed", ctx: 204800, in: 0.60, out: 2.40 },
+        { name: "M2-her",                 ctx: 64000,  in: 0.30, out: 1.20 },
+      ],
+    },
+    {
       name: "Self-hosted Llama",
       type: ProviderType.SELF_HOSTED,
       models: [

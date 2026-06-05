@@ -28,6 +28,12 @@ const PROVIDER_STYLES: Record<
     text: "text-output-token",
     dot: "bg-output-token",
   },
+  minimax: {
+    code: "MMX",
+    bg: "bg-secondary/15",
+    text: "text-secondary",
+    dot: "bg-secondary",
+  },
   meta: {
     code: "META",
     bg: "bg-secondary/15",

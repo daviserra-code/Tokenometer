@@ -318,7 +318,7 @@ export default async function SetupPage() {
 
       <Card title="Jump to the right place" description="Use this when you know the task, not the page name.">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <JumpTile href="/settings/credentials" icon="vpn_key" title="Add provider key" body="Vault OpenAI, Anthropic, Gemini, Mistral, DeepSeek, or GitHub credentials." />
+          <JumpTile href="/settings/credentials" icon="vpn_key" title="Add provider key" body="Vault OpenAI, Anthropic, Gemini, Mistral, DeepSeek, MiniMax, or GitHub credentials." />
           <JumpTile href="/settings/integrations" icon="deployed_code" title="Create app identity" body="Name the app integration and bind ownership, environment, and rollout mode." />
           <JumpTile href="/gateway" icon="api" title="Generate rollout snippets" body="Get env blocks and Node/Python examples for observe, fallback, or enforce." />
           <JumpTile href="/reports" icon="query_stats" title="Check spend freshness" body="Use daily, weekly, and monthly views to confirm the live spend loop." />

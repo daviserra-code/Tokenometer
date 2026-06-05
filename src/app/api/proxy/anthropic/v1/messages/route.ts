@@ -10,6 +10,7 @@ import {
   jsonProxyError,
   queueMetering,
 } from "@/lib/proxy-runtime";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -73,6 +74,10 @@ export async function POST(req: NextRequest) {
 
     const usage = {
       inputTokens: 0,
+      cacheReadInputTokens: 0,
+      cacheCreationInputTokens: 0,
+      cacheCreation5mInputTokens: 0,
+      cacheCreation1hInputTokens: 0,
       outputTokens: 0,
       messageId: undefined as string | undefined,
       stopReason: undefined as string | undefined,
@@ -92,6 +97,18 @@ export async function POST(req: NextRequest) {
         if (parsed.inputTokens) {
           usage.inputTokens = parsed.inputTokens;
         }
+        if (parsed.cacheReadInputTokens) {
+          usage.cacheReadInputTokens = parsed.cacheReadInputTokens;
+        }
+        if (parsed.cacheCreationInputTokens) {
+          usage.cacheCreationInputTokens = parsed.cacheCreationInputTokens;
+        }
+        if (parsed.cacheCreation5mInputTokens) {
+          usage.cacheCreation5mInputTokens = parsed.cacheCreation5mInputTokens;
+        }
+        if (parsed.cacheCreation1hInputTokens) {
+          usage.cacheCreation1hInputTokens = parsed.cacheCreation1hInputTokens;
+        }
         if (parsed.outputTokens) {
           usage.outputTokens = parsed.outputTokens;
         }
@@ -99,20 +116,43 @@ export async function POST(req: NextRequest) {
           usage.stopReason = parsed.stopReason;
         }
       },
-      onComplete() {
-        if (usage.inputTokens === 0 && usage.outputTokens === 0) {
+      async onComplete() {
+        const effectiveInputTokens =
+          usage.inputTokens + usage.cacheReadInputTokens + usage.cacheCreationInputTokens;
+        if (effectiveInputTokens === 0 && usage.outputTokens === 0) {
           return;
         }
+        const { inputCost, outputCost, totalCost } = await estimateAnthropicCosts(
+          auth.providerId,
+          body.model!,
+          {
+            baseInputTokens: usage.inputTokens,
+            cacheReadInputTokens: usage.cacheReadInputTokens,
+            cacheCreationInputTokens: usage.cacheCreationInputTokens,
+            cacheCreation5mInputTokens: usage.cacheCreation5mInputTokens,
+            cacheCreation1hInputTokens: usage.cacheCreation1hInputTokens,
+            outputTokens: usage.outputTokens,
+          }
+        );
         queueMetering({
           ctx: auth,
           modelName: body.model!,
-          inputTokens: usage.inputTokens,
+          inputTokens: effectiveInputTokens,
           outputTokens: usage.outputTokens,
+          totalTokens: effectiveInputTokens + usage.outputTokens,
           project: state.project,
           agent: state.agent,
+          source: "byok-proxy:anthropic",
+          estimatedInputCost: inputCost,
+          estimatedOutputCost: outputCost,
+          estimatedTotalCost: totalCost,
           metadata: enrichMeteringMetadata(state, {
             messageId: usage.messageId,
             stopReason: usage.stopReason,
+            cacheReadInputTokens: usage.cacheReadInputTokens,
+            cacheCreationInputTokens: usage.cacheCreationInputTokens,
+            cacheCreation5mInputTokens: usage.cacheCreation5mInputTokens,
+            cacheCreation1hInputTokens: usage.cacheCreation1hInputTokens,
             upstreamStatus: upstreamRes.status,
           }),
         });
@@ -126,18 +166,45 @@ export async function POST(req: NextRequest) {
     try {
       const json = JSON.parse(responseText);
       const usage = json.usage ?? {};
-      const inputTokens: number = usage.input_tokens ?? 0;
+      const baseInputTokens: number = usage.input_tokens ?? 0;
+      const cacheReadInputTokens: number = usage.cache_read_input_tokens ?? 0;
+      const cacheCreationInputTokens: number = usage.cache_creation_input_tokens ?? 0;
+      const cacheCreation5mInputTokens: number = usage.cache_creation?.ephemeral_5m_input_tokens ?? 0;
+      const cacheCreation1hInputTokens: number = usage.cache_creation?.ephemeral_1h_input_tokens ?? 0;
       const outputTokens: number = usage.output_tokens ?? 0;
+      const inputTokens =
+        baseInputTokens + cacheReadInputTokens + cacheCreationInputTokens;
+      const { inputCost, outputCost, totalCost } = await estimateAnthropicCosts(
+        auth.providerId,
+        body.model,
+        {
+          baseInputTokens,
+          cacheReadInputTokens,
+          cacheCreationInputTokens,
+          cacheCreation5mInputTokens,
+          cacheCreation1hInputTokens,
+          outputTokens,
+        }
+      );
       queueMetering({
         ctx: auth,
         modelName: body.model,
         inputTokens,
         outputTokens,
+        totalTokens: inputTokens + outputTokens,
         project: state.project,
         agent: state.agent,
+        source: "byok-proxy:anthropic",
+        estimatedInputCost: inputCost,
+        estimatedOutputCost: outputCost,
+        estimatedTotalCost: totalCost,
         metadata: enrichMeteringMetadata(state, {
           messageId: json.id,
           stopReason: json.stop_reason,
+          cacheReadInputTokens,
+          cacheCreationInputTokens,
+          cacheCreation5mInputTokens,
+          cacheCreation1hInputTokens,
           upstreamStatus: upstreamRes.status,
         }),
       });
@@ -149,4 +216,51 @@ export async function POST(req: NextRequest) {
   return createTextProxyResponse(upstreamRes, responseText, state, {
     upstreamStatus: upstreamRes.status,
   });
+}
+
+async function estimateAnthropicCosts(
+  providerId: string,
+  modelName: string,
+  usage: {
+    baseInputTokens: number;
+    cacheReadInputTokens: number;
+    cacheCreationInputTokens: number;
+    cacheCreation5mInputTokens: number;
+    cacheCreation1hInputTokens: number;
+    outputTokens: number;
+  }
+) {
+  const model = await prisma.model.upsert({
+    where: {
+      providerId_name: {
+        providerId,
+        name: modelName,
+      },
+    },
+    create: { providerId, name: modelName },
+    update: {},
+  });
+
+  const baseInputRate = Number(model.inputPricePerMillion);
+  const outputRate = Number(model.outputPricePerMillion);
+  const unspecifiedCacheCreationTokens = Math.max(
+    0,
+    usage.cacheCreationInputTokens -
+      usage.cacheCreation5mInputTokens -
+      usage.cacheCreation1hInputTokens
+  );
+
+  const inputCost =
+    (usage.baseInputTokens / 1_000_000) * baseInputRate +
+    (usage.cacheReadInputTokens / 1_000_000) * baseInputRate * 0.1 +
+    (usage.cacheCreation5mInputTokens / 1_000_000) * baseInputRate * 1.25 +
+    (usage.cacheCreation1hInputTokens / 1_000_000) * baseInputRate * 2 +
+    (unspecifiedCacheCreationTokens / 1_000_000) * baseInputRate * 1.25;
+  const outputCost = (usage.outputTokens / 1_000_000) * outputRate;
+
+  return {
+    inputCost,
+    outputCost,
+    totalCost: inputCost + outputCost,
+  };
 }

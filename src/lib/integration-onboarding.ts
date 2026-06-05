@@ -1,4 +1,4 @@
-export type ProviderSlug = "openai" | "anthropic" | "google" | "mistral" | "deepseek" | "github";
+export type ProviderSlug = "openai" | "anthropic" | "google" | "mistral" | "deepseek" | "minimax" | "github";
 export type RolloutSlug = "observe" | "fallback" | "enforce";
 
 export type ProviderConfig = {
@@ -110,6 +110,21 @@ export const INTEGRATION_PROVIDERS: ProviderConfig[] = [
     pythonFunction: "call_deepseek_chat",
     defaultProject: "coding-agent",
     defaultAgent: "deepseek-worker",
+  },
+  {
+    slug: "minimax",
+    name: "MiniMax",
+    endpoint: "/api/proxy/minimax/chat/completions",
+    historical: "No public usage API",
+    live: "Response usage",
+    streaming: "Yes",
+    model: "MiniMax-M2.7",
+    modelEnvVar: "MINIMAX_MODEL",
+    envVar: "MINIMAX_API_KEY",
+    nodeFunction: "callMiniMaxChat",
+    pythonFunction: "call_minimax_chat",
+    defaultProject: "agent-platform",
+    defaultAgent: "minimax-worker",
   },
   {
     slug: "github",
