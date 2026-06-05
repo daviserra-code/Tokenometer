@@ -455,7 +455,7 @@ async function pingGoogle(
   providerId: string,
   apiKey: string
 ): Promise<SyncResult> {
-  const modelName = process.env.GOOGLE_MODEL ?? "gemini-2.0-flash";
+  const modelName = process.env.GOOGLE_MODEL ?? "gemini-2.5-flash";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`;
   try {
     const res = await fetch(url, {

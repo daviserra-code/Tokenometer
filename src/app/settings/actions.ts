@@ -462,9 +462,12 @@ export async function testCredentialAction(formData: FormData) {
           },
           body: JSON.stringify(body),
         });
-        text = await res.text();
         echoedRequestId = res.headers.get("x-request-id")?.trim() || requestId;
-        if (res.ok || !shouldRetryGuidedModel(res.status, text)) {
+        if (res.ok) {
+          break;
+        }
+        text = await res.text();
+        if (!shouldRetryGuidedModel(res.status, text)) {
           break;
         }
       }
@@ -511,11 +514,7 @@ export async function testCredentialAction(formData: FormData) {
     }
   }
 
-  cookies().set(
-    "sync-flash",
-    JSON.stringify({ provider: providerName, ok, message, inserted: ok ? 1 : 0, skipped: 0 }),
-    { path: "/settings/credentials", maxAge: 30, httpOnly: false }
-  );
+  cookies().delete("sync-flash");
   await auditLog({
     action: "credential.test",
     organizationId: cred?.organizationId,
