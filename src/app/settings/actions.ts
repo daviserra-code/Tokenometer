@@ -430,42 +430,63 @@ export async function testCredentialAction(formData: FormData) {
       }
 
       const requestId = crypto.randomUUID();
-      const res = await fetch(`${base}${testConfig.endpoint}`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-ingest-key": headersToken,
-          "x-credential-id": cred.id,
-          "x-project": "Tokenometer Self-Test",
-          "x-agent": "guided-provider-test",
-          "x-request-id": requestId,
-        },
-        body: JSON.stringify(testConfig.body),
-      });
-      const text = await res.text();
-      const echoedRequestId = res.headers.get("x-request-id")?.trim() || requestId;
+      const candidateModels = testConfig.candidateModels?.length
+        ? testConfig.candidateModels
+        : [testConfig.model];
+
+      let finalModel = candidateModels[0];
+      let res: Response | null = null;
+      let text = "";
+      let echoedRequestId = requestId;
+
+      for (const candidateModel of candidateModels) {
+        finalModel = candidateModel;
+        const endpoint = rewriteGuidedTestEndpoint(testConfig.endpoint, provider.name, candidateModel);
+        const body = rewriteGuidedTestBody(testConfig.body, provider.name, candidateModel);
+        res = await fetch(`${base}${endpoint}`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-ingest-key": headersToken,
+            "x-credential-id": cred.id,
+            "x-project": "Tokenometer Self-Test",
+            "x-agent": "guided-provider-test",
+            "x-request-id": requestId,
+          },
+          body: JSON.stringify(body),
+        });
+        text = await res.text();
+        echoedRequestId = res.headers.get("x-request-id")?.trim() || requestId;
+        if (res.ok || !shouldRetryGuidedModel(res.status, text)) {
+          break;
+        }
+      }
+
+      if (!res) {
+        throw new Error("No guided test request could be sent.");
+      }
 
       if (res.ok) {
         ok = true;
-        message = `Sent a guided ${provider.name} test through ${testConfig.model}. Request ${echoedRequestId} should now appear in Gateway, Ledger, and Live reports.`;
+        message = `Sent a guided ${provider.name} test through ${finalModel}. Request ${echoedRequestId} should now appear in Gateway, Ledger, and Live reports.`;
         setVerificationFlash({
           kind: "guided-test",
           provider: provider.name,
           ok: true,
           message,
           requestId: echoedRequestId,
-          model: testConfig.model,
+          model: finalModel,
           timestamp: new Date().toISOString(),
         });
       } else {
-        message = `${provider.name} upstream rejected the call (${res.status}): ${text.slice(0, 200)}`;
+        message = `${provider.name} upstream rejected the call on ${finalModel} (${res.status}): ${text.slice(0, 200)}`;
         setVerificationFlash({
           kind: "guided-test",
           provider: provider.name,
           ok: false,
           message,
           requestId: echoedRequestId,
-          model: testConfig.model,
+          model: finalModel,
           timestamp: new Date().toISOString(),
         });
       }
@@ -499,6 +520,36 @@ export async function testCredentialAction(formData: FormData) {
   revalidatePath("/ledger");
   revalidatePath("/reports");
   redirect("/settings/credentials");
+}
+
+function rewriteGuidedTestEndpoint(endpoint: string, providerName: string, model: string) {
+  if (providerName === "Google") {
+    return endpoint.replace(/models\/[^:]+:/, `models/${model}:`);
+  }
+  return endpoint;
+}
+
+function rewriteGuidedTestBody(
+  body: Record<string, unknown>,
+  providerName: string,
+  model: string
+) {
+  if (providerName === "Anthropic" || providerName === "OpenAI" || providerName === "Mistral" || providerName === "DeepSeek" || providerName === "MiniMax" || providerName === "GitHub") {
+    return { ...body, model };
+  }
+  return body;
+}
+
+function shouldRetryGuidedModel(status: number, text: string) {
+  if (status === 404) return true;
+  const lowered = text.toLowerCase();
+  return (
+    lowered.includes("model") &&
+    (lowered.includes("not found") ||
+      lowered.includes("unsupported") ||
+      lowered.includes("not available") ||
+      lowered.includes("does not exist"))
+  );
 }
 
 // --- Wipe demo data -------------------------------------------------------

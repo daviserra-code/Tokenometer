@@ -2,6 +2,7 @@ export type ProviderTestConfig = {
   providerName: string;
   endpoint: string;
   model: string;
+  candidateModels?: string[];
   title: string;
   summary: string;
   verifyHint: string;
@@ -28,8 +29,9 @@ export const PROVIDER_TESTS: ProviderTestConfig[] = [
     providerName: "Anthropic",
     endpoint: "/api/proxy/anthropic/v1/messages",
     model: "claude-3-5-haiku-latest",
+    candidateModels: ["claude-3-5-haiku-latest", "claude-3-7-sonnet-latest", "claude-sonnet-4-20250514"],
     title: "Anthropic guided test",
-    summary: "Runs one tiny messages request through Tokenometer using Claude 3.5 Haiku.",
+    summary: "Runs one tiny messages request through Tokenometer using a small current Claude model, with fallback if an older default is no longer available.",
     verifyHint: "Expect a fresh request ID and a small usage event in Gateway and Ledger. Historical sync still needs an Admin key.",
     historicalNote: "Historical sync needs an Admin API key. The guided test works with a normal API key.",
     body: {
@@ -40,10 +42,11 @@ export const PROVIDER_TESTS: ProviderTestConfig[] = [
   },
   {
     providerName: "Google",
-    endpoint: "/api/proxy/google/v1beta/models/gemini-2.0-flash:generateContent",
-    model: "gemini-2.0-flash",
+    endpoint: "/api/proxy/google/v1beta/models/gemini-2.5-flash:generateContent",
+    model: "gemini-2.5-flash",
+    candidateModels: ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"],
     title: "Gemini guided test",
-    summary: "Runs one tiny Gemini generateContent call through Tokenometer using gemini-2.0-flash.",
+    summary: "Runs one tiny Gemini generateContent call through Tokenometer using a stable Gemini model, with fallback if a specific model code is unavailable.",
     verifyHint: "Expect a fresh request ID and a small usage event in Gateway and Ledger. This is the recommended Google verification path.",
     historicalNote: "Google does not expose a public historical usage API, so the guided test is the main proof path.",
     body: {
