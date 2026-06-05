@@ -479,7 +479,7 @@ export async function testCredentialAction(formData: FormData) {
           timestamp: new Date().toISOString(),
         });
       } else {
-        message = `${provider.name} upstream rejected the call on ${finalModel} (${res.status}): ${text.slice(0, 200)}`;
+        message = `${provider.name} upstream rejected the call after trying ${candidateModels.length} model candidate${candidateModels.length === 1 ? "" : "s"}, last attempt ${finalModel} (${res.status}): ${text.slice(0, 200)}`;
         setVerificationFlash({
           kind: "guided-test",
           provider: provider.name,

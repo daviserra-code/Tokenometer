@@ -698,12 +698,20 @@ export default async function CredentialsPage({
                     <p className="mt-2 text-[12px] text-text-muted">{test.summary}</p>
                   </div>
                   <span className="rounded-md border border-border-subtle px-2 py-1 font-mono text-[11px] text-text-muted">
-                    {test.model}
+                    {test.modelLabel ?? test.model}
                   </span>
                 </div>
                 <div className="mt-3 space-y-2 text-[12px] text-text-muted">
                   <p>{test.verifyHint}</p>
                   <p>{test.historicalNote}</p>
+                  {test.candidateModels && test.candidateModels.length > 1 && (
+                    <p>
+                      Fallback order:{" "}
+                      <span className="font-mono text-on-surface">
+                        {test.candidateModels.join(" -> ")}
+                      </span>
+                    </p>
+                  )}
                   <p>
                     Latest live event:{" "}
                     <span className="text-on-surface">
