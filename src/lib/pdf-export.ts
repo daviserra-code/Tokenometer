@@ -70,6 +70,13 @@ export type LedgerPdfSpec = {
   footerNote?: string;
 };
 
+type LedgerColumn = {
+  key: keyof LedgerPdfEntry | "run" | "tokens";
+  label: string;
+  width: number;
+  align?: "left" | "right";
+};
+
 function toneColor(tone?: PdfMetric["tone"]) {
   if (tone === "success") return SUCCESS;
   if (tone === "input") return INPUT;
@@ -357,6 +364,161 @@ function drawLedgerCard(
   doc.y += cardHeight + 10;
 }
 
+function drawLedgerSummaryRow(
+  doc: PDFKit.PDFDocument,
+  title: string,
+  subtitle: string | undefined,
+  entry: LedgerPdfEntry
+) {
+  const width = doc.page.width - PAGE_MARGIN * 2;
+  const rowHeight = 40;
+  ensureSpace(doc, rowHeight + 8, title, subtitle);
+
+  doc.save();
+  doc.roundedRect(PAGE_MARGIN, doc.y, width, rowHeight, 10).fill(SURFACE_ALT);
+  doc.roundedRect(PAGE_MARGIN, doc.y, 5, rowHeight, 10).fill(BRAND);
+  doc.restore();
+
+  doc.fillColor(TEXT).font(FONT_BOLD).fontSize(10).text(`${entry.provider} / ${entry.model}`, PAGE_MARGIN + 16, doc.y + 10, {
+    width: width * 0.48,
+  });
+  doc.fillColor(MUTED).font(FONT_REGULAR).fontSize(9).text(entry.timestamp, PAGE_MARGIN + 16, doc.y + 23, {
+    width: width * 0.3,
+  });
+  doc.fillColor(TEXT).font(FONT_REGULAR).fontSize(9).text(`${entry.integration} · ${entry.project}`, PAGE_MARGIN + width * 0.44, doc.y + 10, {
+    width: width * 0.34,
+  });
+  doc.fillColor(MUTED).font(FONT_REGULAR).fontSize(9).text(`${entry.agent} / ${entry.workflow}`, PAGE_MARGIN + width * 0.44, doc.y + 23, {
+    width: width * 0.34,
+  });
+  doc.fillColor(SUCCESS).font(FONT_BOLD).fontSize(11).text(entry.cost, PAGE_MARGIN + width - 92, doc.y + 10, {
+    width: 76,
+    align: "right",
+  });
+  doc.fillColor(MUTED).font(FONT_REGULAR).fontSize(9).text(`${entry.totalTokens} tokens`, PAGE_MARGIN + width - 118, doc.y + 23, {
+    width: 102,
+    align: "right",
+  });
+
+  doc.y += rowHeight + 10;
+}
+
+function drawLedgerTable(
+  doc: PDFKit.PDFDocument,
+  title: string,
+  subtitle: string | undefined,
+  entries: LedgerPdfEntry[]
+) {
+  drawSectionHeading(doc, "Filtered events", "Compact ledger rows for the current filter set.");
+
+  if (!entries.length) {
+    ensureSpace(doc, 44, title, subtitle);
+    doc.fillColor(MUTED).font(FONT_REGULAR).fontSize(10).text(
+      "No matching events for the current filters.",
+      PAGE_MARGIN,
+      doc.y + 8
+    );
+    doc.y += 24;
+    return;
+  }
+
+  const width = doc.page.width - PAGE_MARGIN * 2;
+  const columns: LedgerColumn[] = [
+    { key: "timestamp", label: "Time", width: 0.12 },
+    { key: "provider", label: "Provider", width: 0.12 },
+    { key: "model", label: "Model", width: 0.14 },
+    { key: "integration", label: "Integration", width: 0.14 },
+    { key: "project", label: "Project", width: 0.11 },
+    { key: "team", label: "Team", width: 0.11 },
+    { key: "run", label: "Run", width: 0.13 },
+    { key: "tokens", label: "Tokens", width: 0.08, align: "right" },
+    { key: "cost", label: "Cost", width: 0.05, align: "right" },
+  ];
+  const resolvedColumns = columns.map((column) => ({
+    ...column,
+    width: width * column.width,
+  }));
+
+  const drawTableHeader = () => {
+    ensureSpace(doc, 28, title, subtitle);
+    doc.save();
+    doc.roundedRect(PAGE_MARGIN, doc.y, width, 24, 8).fill(SURFACE);
+    let x = PAGE_MARGIN;
+    resolvedColumns.forEach((column) => {
+      doc
+        .fillColor(MUTED)
+        .font(FONT_BOLD)
+        .fontSize(8)
+        .text(column.label.toUpperCase(), x + 8, doc.y + 8, {
+          width: column.width - 16,
+          align: column.align ?? "left",
+        });
+      x += column.width;
+    });
+    doc.restore();
+    doc.y += 30;
+  };
+
+  drawLedgerSummaryRow(doc, title, subtitle, entries[0]);
+  drawTableHeader();
+
+  entries.forEach((entry, index) => {
+    const values: Record<LedgerColumn["key"], string> = {
+      timestamp: entry.timestamp,
+      provider: entry.provider,
+      model: entry.model,
+      integration: entry.integration,
+      project: entry.project,
+      team: entry.team,
+      source: entry.source,
+      agent: entry.agent,
+      workflow: entry.workflow,
+      owner: entry.owner,
+      inputTokens: entry.inputTokens,
+      outputTokens: entry.outputTokens,
+      totalTokens: entry.totalTokens,
+      cost: entry.cost,
+      run: `${entry.agent} / ${entry.workflow}`,
+      tokens: `${entry.inputTokens} / ${entry.outputTokens} / ${entry.totalTokens}`,
+    };
+
+    const rowHeight = resolvedColumns.reduce((maxHeight, column) => {
+      const height = doc.heightOfString(values[column.key], {
+        width: column.width - 16,
+        align: column.align ?? "left",
+      });
+      return Math.max(maxHeight, height);
+    }, 0) + 12;
+
+    if (doc.y + rowHeight > doc.page.height - PAGE_MARGIN - FOOTER_HEIGHT) {
+      doc.addPage();
+      drawHeader(doc, title, subtitle);
+      drawTableHeader();
+    }
+
+    if (index % 2 === 0) {
+      doc.save();
+      doc.roundedRect(PAGE_MARGIN, doc.y, width, rowHeight, 6).fill(SURFACE_CARD);
+      doc.restore();
+    }
+
+    let x = PAGE_MARGIN;
+    resolvedColumns.forEach((column) => {
+      doc
+        .fillColor(column.key === "cost" ? SUCCESS : TEXT)
+        .font(column.key === "cost" ? FONT_BOLD : FONT_REGULAR)
+        .fontSize(8.5)
+        .text(values[column.key], x + 8, doc.y + 6, {
+          width: column.width - 16,
+          align: column.align ?? "left",
+        });
+      x += column.width;
+    });
+
+    doc.y += rowHeight + 4;
+  });
+}
+
 export async function renderSpendPdfBuffer(spec: SpendPdfSpec): Promise<Buffer> {
   const { doc, chunks } = createDocument("portrait");
   drawHeader(doc, spec.title, spec.subtitle);
@@ -381,14 +543,13 @@ export async function renderSpendPdfBuffer(spec: SpendPdfSpec): Promise<Buffer> 
 }
 
 export async function renderLedgerPdfBuffer(spec: LedgerPdfSpec): Promise<Buffer> {
-  const { doc, chunks } = createDocument("portrait");
+  const { doc, chunks } = createDocument("landscape");
   drawHeader(doc, spec.title, spec.subtitle);
   drawMetricCards(doc, spec.title, spec.subtitle, spec.metrics);
   if (spec.footerNote) {
     drawNarrativeBlock(doc, spec.title, spec.subtitle, "Export note", spec.footerNote);
   }
-  drawSectionHeading(doc, "Filtered events", "Readable event cards for the current ledger filter.");
-  spec.entries.forEach((entry) => drawLedgerCard(doc, spec.title, spec.subtitle, entry));
+  drawLedgerTable(doc, spec.title, spec.subtitle, spec.entries);
 
   const range = doc.bufferedPageRange();
   for (let index = 0; index < range.count; index += 1) {
