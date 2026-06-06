@@ -436,7 +436,7 @@ export async function testCredentialAction(formData: FormData) {
         : [testConfig.model];
       const candidateModels =
         modelOverride && testConfig.allowModelOverride
-          ? [modelOverride, ...defaultCandidateModels.filter((model) => model !== modelOverride)]
+          ? [modelOverride]
           : defaultCandidateModels;
       const requestHeaders = headers();
       const forwardedProto = requestHeaders.get("x-forwarded-proto");

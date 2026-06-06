@@ -714,7 +714,7 @@ export default async function CredentialsPage({
                   )}
                   {test.allowModelOverride && (
                     <p>
-                      Optional override: if your account only supports a specific Claude model, enter it below and Tokenometer will try that exact ID first.
+                      Optional override: if your account only supports a specific Claude model, enter the exact API model ID below. Tokenometer will test only that model when this field is filled.
                     </p>
                   )}
                   <p>
@@ -732,7 +732,7 @@ export default async function CredentialsPage({
                         <input
                           type="text"
                           name="modelOverride"
-                          placeholder="Optional model override, e.g. claude-sonnet-4-20250514"
+                          placeholder="Exact API model ID, e.g. claude-sonnet-4-20250514"
                           className="mb-2 w-full rounded-lg border border-border-subtle bg-surface-2 px-3 py-2 font-mono text-[12px] text-on-surface placeholder:text-text-muted focus:border-primary focus:outline-none"
                         />
                       )}
