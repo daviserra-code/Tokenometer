@@ -295,11 +295,12 @@ function drawCompactLedgerMetrics(
 ) {
   if (!metrics.length) return;
   const width = doc.page.width - PAGE_MARGIN * 2;
-  const rowHeight = 58;
+  const rowHeight = 64;
   ensureSpace(doc, rowHeight + 10, title, subtitle);
+  const baseY = doc.y;
 
   doc.save();
-  doc.roundedRect(PAGE_MARGIN, doc.y, width, rowHeight, 12).fill(SURFACE_ALT);
+  doc.roundedRect(PAGE_MARGIN, baseY, width, rowHeight, 12).fill(SURFACE_ALT);
   doc.restore();
 
   const usableWidth = width - 28;
@@ -309,19 +310,19 @@ function drawCompactLedgerMetrics(
     if (index > 0) {
       doc
         .strokeColor(BORDER)
-        .moveTo(x - 8, doc.y + 10)
-        .lineTo(x - 8, doc.y + rowHeight - 10)
+        .moveTo(x - 8, baseY + 10)
+        .lineTo(x - 8, baseY + rowHeight - 10)
         .stroke();
     }
-    doc.fillColor(MUTED).font(FONT_BOLD).fontSize(8).text(metric.label.toUpperCase(), x, doc.y + 12, {
+    doc.fillColor(MUTED).font(FONT_BOLD).fontSize(8).text(metric.label.toUpperCase(), x, baseY + 12, {
       width: perMetric - 14,
     });
-    doc.fillColor(toneColor(metric.tone)).font(FONT_BOLD).fontSize(16).text(metric.value, x, doc.y + 26, {
+    doc.fillColor(toneColor(metric.tone)).font(FONT_BOLD).fontSize(16).text(metric.value, x, baseY + 30, {
       width: perMetric - 14,
     });
   });
 
-  doc.y += rowHeight + 8;
+  doc.y = baseY + rowHeight + 8;
 
   if (footerNote) {
     ensureSpace(doc, 26, title, subtitle);
