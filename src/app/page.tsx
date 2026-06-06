@@ -15,6 +15,11 @@ import {
   startOfMonth,
   startOfPrevMonth,
 } from "@/lib/calc";
+import {
+  getReconciliationSnapshot,
+  reconciliationToneClasses,
+  summarizeReconciliation,
+} from "@/lib/reconciliation";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +54,7 @@ async function getDashboardData(mode: AppMode) {
     last30Events,
     eventCountThisMonth,
     latestEvent,
+    reconciliation,
   ] = await Promise.all([
     prisma.usageEvent.aggregate({
       where: thisMonthWhere,
@@ -111,6 +117,7 @@ async function getDashboardData(mode: AppMode) {
       orderBy: { timestamp: "desc" },
       select: { timestamp: true, source: true, createdAt: true },
     }),
+    getReconciliationSnapshot(org.id, 30),
   ]);
 
   const modelMap = new Map<string, { name: string; provider: string }>();
@@ -205,6 +212,7 @@ async function getDashboardData(mode: AppMode) {
       cost: toNumber(p._sum.estimatedTotalCost),
       tokens: toNumber(p._sum.totalTokens),
     })),
+    reconciliation,
   };
 }
 
@@ -238,6 +246,18 @@ export default async function DashboardPage() {
   const isStale = latestAgeHours == null || latestAgeHours > 24;
   const isLive = mode === "live";
   const reportHref = `/api/reports/export?period=monthly&mode=${mode}`;
+  const reconciliationSummary = summarizeReconciliation(data.reconciliation);
+  const reconciliationStatus =
+    reconciliationSummary.tone === "success"
+      ? "matched"
+      : reconciliationSummary.tone === "warning"
+        ? "drift"
+        : reconciliationSummary.tone === "danger"
+          ? "history_only"
+          : "live_only";
+  const comparedProviders =
+    data.reconciliation.counts.matched + data.reconciliation.counts.drift;
+  const topReconciliationRows = data.reconciliation.rows.slice(0, 3);
 
   return (
     <div className="space-y-section-gap">
@@ -311,6 +331,112 @@ export default async function DashboardPage() {
             Sync providers
           </a>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <Card
+          title="Metering confidence"
+          description="A quick read on how grounded this dashboard is right now."
+          className="xl:col-span-4"
+        >
+          <div className="space-y-4">
+            <div
+              className={`rounded-lg border px-4 py-3 ${reconciliationToneClasses(
+                reconciliationStatus
+              )}`}
+            >
+              <p className="text-sm font-semibold text-on-surface">
+                {reconciliationSummary.title}
+              </p>
+              <p className="mt-1 text-[12px] text-text-muted">
+                {reconciliationSummary.body}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="rounded-lg border border-border-subtle bg-background px-3 py-3">
+                <p className="font-mono text-caps text-text-muted">In range</p>
+                <p className="mt-1 font-display text-body-lg text-on-surface">
+                  {data.reconciliation.counts.matched}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border-subtle bg-background px-3 py-3">
+                <p className="font-mono text-caps text-text-muted">Drift</p>
+                <p className="mt-1 font-display text-body-lg text-on-surface">
+                  {data.reconciliation.counts.drift}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border-subtle bg-background px-3 py-3">
+                <p className="font-mono text-caps text-text-muted">Live only</p>
+                <p className="mt-1 font-display text-body-lg text-on-surface">
+                  {data.reconciliation.counts.live_only}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-[12px] text-text-muted">
+              {comparedProviders > 0
+                ? `${comparedProviders} provider${comparedProviders === 1 ? "" : "s"} currently have enough live and provider-history data to compare directly.`
+                : "No providers are directly comparable yet, so this view is leaning on live metering as the primary truth source."}
+            </p>
+          </div>
+        </Card>
+
+        <Card
+          title="Provider review"
+          description="The first places worth checking when spend confidence feels fuzzy."
+          className="xl:col-span-8"
+        >
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="text-[12px] uppercase tracking-wider text-text-muted">
+                <tr>
+                  <th className="px-4 py-3 text-left">Provider</th>
+                  <th className="px-4 py-3 text-left">Live spend</th>
+                  <th className="px-4 py-3 text-left">History spend</th>
+                  <th className="px-4 py-3 text-left">Status</th>
+                  <th className="px-4 py-3 text-left">Note</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-subtle">
+                {topReconciliationRows.map((row) => (
+                  <tr key={row.providerId}>
+                    <td className="px-4 py-3 font-semibold text-on-surface">
+                      {row.provider}
+                    </td>
+                    <td className="px-4 py-3 text-text-muted">
+                      {formatCurrency(row.liveCost, currency)}
+                    </td>
+                    <td className="px-4 py-3 text-text-muted">
+                      {formatCurrency(row.providerHistoryCost, currency)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={[
+                          "inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
+                          reconciliationToneClasses(row.status),
+                        ].join(" ")}
+                      >
+                        {row.label}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-[12px] text-text-muted">
+                      {row.note}
+                    </td>
+                  </tr>
+                ))}
+                {topReconciliationRows.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-6 text-center text-text-muted">
+                      No reconciliation rows yet. Once live usage and provider-history data accumulate,
+                      Tokenometer will show which providers are aligned and which need review.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       </div>
 
       {/* KPI Bento */}
