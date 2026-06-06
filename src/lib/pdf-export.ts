@@ -286,6 +286,52 @@ function drawNarrativeBlock(
   doc.y += height + 14;
 }
 
+function drawCompactLedgerMetrics(
+  doc: PDFKit.PDFDocument,
+  title: string,
+  subtitle: string | undefined,
+  metrics: PdfMetric[],
+  footerNote?: string
+) {
+  if (!metrics.length) return;
+  const width = doc.page.width - PAGE_MARGIN * 2;
+  const rowHeight = 58;
+  ensureSpace(doc, rowHeight + 10, title, subtitle);
+
+  doc.save();
+  doc.roundedRect(PAGE_MARGIN, doc.y, width, rowHeight, 12).fill(SURFACE_ALT);
+  doc.restore();
+
+  const usableWidth = width - 28;
+  const perMetric = usableWidth / metrics.length;
+  metrics.forEach((metric, index) => {
+    const x = PAGE_MARGIN + 14 + perMetric * index;
+    if (index > 0) {
+      doc
+        .strokeColor(BORDER)
+        .moveTo(x - 8, doc.y + 10)
+        .lineTo(x - 8, doc.y + rowHeight - 10)
+        .stroke();
+    }
+    doc.fillColor(MUTED).font(FONT_BOLD).fontSize(8).text(metric.label.toUpperCase(), x, doc.y + 12, {
+      width: perMetric - 14,
+    });
+    doc.fillColor(toneColor(metric.tone)).font(FONT_BOLD).fontSize(16).text(metric.value, x, doc.y + 26, {
+      width: perMetric - 14,
+    });
+  });
+
+  doc.y += rowHeight + 8;
+
+  if (footerNote) {
+    ensureSpace(doc, 26, title, subtitle);
+    doc.fillColor(MUTED).font(FONT_REGULAR).fontSize(9).text(footerNote, PAGE_MARGIN, doc.y, {
+      width,
+    });
+    doc.y += 18;
+  }
+}
+
 function drawLedgerCard(
   doc: PDFKit.PDFDocument,
   title: string,
@@ -545,10 +591,7 @@ export async function renderSpendPdfBuffer(spec: SpendPdfSpec): Promise<Buffer> 
 export async function renderLedgerPdfBuffer(spec: LedgerPdfSpec): Promise<Buffer> {
   const { doc, chunks } = createDocument("landscape");
   drawHeader(doc, spec.title, spec.subtitle);
-  drawMetricCards(doc, spec.title, spec.subtitle, spec.metrics);
-  if (spec.footerNote) {
-    drawNarrativeBlock(doc, spec.title, spec.subtitle, "Export note", spec.footerNote);
-  }
+  drawCompactLedgerMetrics(doc, spec.title, spec.subtitle, spec.metrics, spec.footerNote);
   drawLedgerTable(doc, spec.title, spec.subtitle, spec.entries);
 
   const range = doc.bufferedPageRange();
