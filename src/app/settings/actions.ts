@@ -399,6 +399,7 @@ export async function importCsvAction(formData: FormData): Promise<ImportActionS
 export async function testCredentialAction(formData: FormData) {
   requireAdmin();
   const id = String(formData.get("id") ?? "");
+  const modelOverride = String(formData.get("modelOverride") ?? "").trim();
   if (!id) throw new Error("Credential id required.");
 
   const cred = await prisma.providerCredential.findUnique({
@@ -430,9 +431,13 @@ export async function testCredentialAction(formData: FormData) {
       }
 
       const requestId = crypto.randomUUID();
-      const candidateModels = testConfig.candidateModels?.length
+      const defaultCandidateModels = testConfig.candidateModels?.length
         ? testConfig.candidateModels
         : [testConfig.model];
+      const candidateModels =
+        modelOverride && testConfig.allowModelOverride
+          ? [modelOverride, ...defaultCandidateModels.filter((model) => model !== modelOverride)]
+          : defaultCandidateModels;
       const requestHeaders = headers();
       const forwardedProto = requestHeaders.get("x-forwarded-proto");
       const forwardedHost = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");

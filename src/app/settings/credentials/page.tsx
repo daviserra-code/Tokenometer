@@ -712,6 +712,11 @@ export default async function CredentialsPage({
                       </span>
                     </p>
                   )}
+                  {test.allowModelOverride && (
+                    <p>
+                      Optional override: if your account only supports a specific Claude model, enter it below and Tokenometer will try that exact ID first.
+                    </p>
+                  )}
                   <p>
                     Latest live event:{" "}
                     <span className="text-on-surface">
@@ -723,6 +728,14 @@ export default async function CredentialsPage({
                   {credential ? (
                     <form action={testCredentialAction}>
                       <input type="hidden" name="id" value={credential.id} />
+                      {test.allowModelOverride && (
+                        <input
+                          type="text"
+                          name="modelOverride"
+                          placeholder="Optional model override, e.g. claude-sonnet-4-20250514"
+                          className="mb-2 w-full rounded-lg border border-border-subtle bg-surface-2 px-3 py-2 font-mono text-[12px] text-on-surface placeholder:text-text-muted focus:border-primary focus:outline-none"
+                        />
+                      )}
                       <button
                         type="submit"
                         className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-primary-container"

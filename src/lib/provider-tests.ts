@@ -4,6 +4,7 @@ export type ProviderTestConfig = {
   model: string;
   candidateModels?: string[];
   modelLabel?: string;
+  allowModelOverride?: boolean;
   title: string;
   summary: string;
   verifyHint: string;
@@ -37,6 +38,7 @@ export const PROVIDER_TESTS: ProviderTestConfig[] = [
       "claude-opus-4-20250514",
     ],
     modelLabel: "tries current official Claude IDs automatically",
+    allowModelOverride: true,
     title: "Anthropic guided test",
     summary: "Runs one tiny messages request through Tokenometer using documented Claude model IDs, with fallback across current Anthropic generations.",
     verifyHint: "Expect a fresh request ID and a small usage event in Gateway and Ledger. Historical sync still needs an Admin key.",
