@@ -29,9 +29,12 @@ type SearchParams = {
   integrationId?: string;
   projectId?: string;
   teamId?: string;
+  page?: string;
+  pageSize?: string;
 };
 
-const PAGE_SIZE = 100;
+const DEFAULT_PAGE_SIZE = 100;
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 250] as const;
 
 type VerificationFlashState = {
   kind: "guided-test";
@@ -49,6 +52,11 @@ export default async function LedgerPage({
   searchParams: Promise<SearchParams>;
 }) {
   const sp = await searchParams;
+  const requestedPageSize = Number(sp.pageSize ?? DEFAULT_PAGE_SIZE);
+  const pageSize = PAGE_SIZE_OPTIONS.includes(requestedPageSize as (typeof PAGE_SIZE_OPTIONS)[number])
+    ? requestedPageSize
+    : DEFAULT_PAGE_SIZE;
+  const requestedPage = Math.max(1, Number(sp.page ?? 1) || 1);
 
   const org = await prisma.organization.findFirst();
   if (!org) {
@@ -89,6 +97,7 @@ export default async function LedgerPage({
   if (sp.integrationId) baseExportParams.set("integrationId", sp.integrationId);
   if (sp.projectId) baseExportParams.set("projectId", sp.projectId);
   if (sp.teamId) baseExportParams.set("teamId", sp.teamId);
+  baseExportParams.set("pageSize", String(pageSize));
 
   const csvParams = new URLSearchParams(baseExportParams);
   csvParams.set("format", "csv");
@@ -97,20 +106,8 @@ export default async function LedgerPage({
   const csvExportHref = `/api/ledger/export${csvParams.size ? `?${csvParams.toString()}` : ""}`;
   const pdfExportHref = `/api/ledger/export${pdfParams.size ? `?${pdfParams.toString()}` : ""}`;
 
-  const [events, total, totals, providers, models, integrations, projects, teams, latestLiveEvent] =
+  const [total, totals, providers, models, integrations, projects, teams, latestLiveEvent] =
     await Promise.all([
-      prisma.usageEvent.findMany({
-        where,
-        orderBy: { timestamp: "desc" },
-        take: PAGE_SIZE,
-        include: {
-          provider: { select: { name: true } },
-          model: { select: { name: true } },
-          integration: { select: { name: true } },
-          project: { select: { name: true } },
-          team: { select: { name: true } },
-        },
-      }),
       prisma.usageEvent.count({ where }),
       prisma.usageEvent.aggregate({
         where,
@@ -147,6 +144,24 @@ export default async function LedgerPage({
         },
       }),
     ]);
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(requestedPage, totalPages);
+  const pageOffset = (currentPage - 1) * pageSize;
+
+  const events = await prisma.usageEvent.findMany({
+    where,
+    orderBy: { timestamp: "desc" },
+    skip: pageOffset,
+    take: pageSize,
+    include: {
+      provider: { select: { name: true } },
+      model: { select: { name: true } },
+      integration: { select: { name: true } },
+      project: { select: { name: true } },
+      team: { select: { name: true } },
+    },
+  });
 
   const verificationRaw = cookies().get("verification-flash")?.value;
   let verification: VerificationFlashState | null = null;
@@ -289,10 +304,7 @@ export default async function LedgerPage({
     <div className="space-y-section-gap">
       <PageHeader
         title="Token Ledger"
-        description={`${total.toLocaleString()} usage events. Showing latest ${Math.min(
-          PAGE_SIZE,
-          events.length
-        )}.`}
+        description={`${total.toLocaleString()} usage events. Page ${currentPage} of ${totalPages}, showing ${events.length} matching rows.`}
         action={
           <div className="flex flex-wrap items-center gap-3">
             <a
@@ -393,7 +405,7 @@ export default async function LedgerPage({
       )}
 
       <Card title="Filters">
-        <form method="get" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7">
+        <form method="get" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-8">
           <Field label="From">
             <input type="date" name="from" defaultValue={sp.from ?? ""} className={inputCls} />
           </Field>
@@ -450,7 +462,17 @@ export default async function LedgerPage({
               ))}
             </select>
           </Field>
-          <div className="flex items-center gap-2 sm:col-span-2 lg:col-span-7">
+          <Field label="Page size">
+            <select name="pageSize" defaultValue={String(pageSize)} className={inputCls}>
+              {PAGE_SIZE_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option} rows
+                </option>
+              ))}
+            </select>
+          </Field>
+          <input type="hidden" name="page" value="1" />
+          <div className="flex items-center gap-2 sm:col-span-2 lg:col-span-8">
             <button
               type="submit"
               className="rounded-lg bg-primary-container px-4 py-2 font-display text-body-md font-semibold text-on-primary transition-colors hover:bg-primary"
@@ -475,6 +497,35 @@ export default async function LedgerPage({
           empty="No usage events match your filters."
         />
       </Card>
+
+      <Card>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="text-sm text-text-muted">
+            Showing rows{" "}
+            <span className="font-semibold text-on-surface">
+              {total === 0 ? 0 : pageOffset + 1}-{Math.min(pageOffset + events.length, total)}
+            </span>{" "}
+            of <span className="font-semibold text-on-surface">{total.toLocaleString()}</span>.
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <PagerLink
+              disabled={currentPage <= 1}
+              href={buildLedgerHref(sp, { page: String(currentPage - 1), pageSize: String(pageSize) })}
+            >
+              Previous
+            </PagerLink>
+            <div className="rounded-lg border border-border-subtle bg-surface-elevated px-3 py-2 text-sm font-semibold text-on-surface">
+              Page {currentPage} / {totalPages}
+            </div>
+            <PagerLink
+              disabled={currentPage >= totalPages}
+              href={buildLedgerHref(sp, { page: String(currentPage + 1), pageSize: String(pageSize) })}
+            >
+              Next
+            </PagerLink>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }
@@ -496,3 +547,49 @@ function Field({
     </label>
   );
 }
+
+function buildLedgerHref(
+  searchParams: SearchParams,
+  overrides: Partial<Record<keyof SearchParams, string>>
+) {
+  const params = new URLSearchParams();
+  const merged: SearchParams = { ...searchParams, ...overrides };
+
+  (Object.entries(merged) as Array<[keyof SearchParams, string | undefined]>).forEach(
+    ([key, value]) => {
+      if (value) params.set(key, value);
+    }
+  );
+
+  const query = params.toString();
+  return query ? `/ledger?${query}` : "/ledger";
+}
+
+function PagerLink({
+  href,
+  disabled,
+  children,
+}: {
+  href: string;
+  disabled: boolean;
+  children: ReactNode;
+}) {
+  if (disabled) {
+    return (
+      <span className="rounded-lg border border-border-subtle px-3 py-2 text-sm font-semibold text-text-muted opacity-60">
+        {children}
+      </span>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      className="rounded-lg border border-border-subtle px-3 py-2 text-sm font-semibold text-on-surface transition-colors hover:border-primary hover:text-primary"
+    >
+      {children}
+    </Link>
+  );
+}
+
+
