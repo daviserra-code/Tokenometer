@@ -17,6 +17,22 @@ export function formatCurrency(value: number, currency = "USD"): string {
   }).format(value);
 }
 
+export function formatEventCurrency(value: number, currency = "USD"): string {
+  const abs = Math.abs(value);
+  if (abs === 0) {
+    return formatCurrency(0, currency);
+  }
+  if (abs < 0.01) {
+    return `<${formatCurrency(0.01, currency)}`;
+  }
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: abs < 1 ? 4 : 2,
+    maximumFractionDigits: abs < 1 ? 4 : 2,
+  }).format(value);
+}
+
 export function formatTokens(value: number): string {
   if (value >= 1_000_000_000) return (value / 1_000_000_000).toFixed(2) + "B";
   if (value >= 1_000_000) return (value / 1_000_000).toFixed(2) + "M";

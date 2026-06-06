@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 
 import { isAdmin } from "@/lib/auth";
-import { formatCurrency, formatDateTime, formatNumber, toNumber } from "@/lib/format";
+import { formatCurrency, formatDateTime, formatEventCurrency, formatNumber, toNumber } from "@/lib/format";
 import { classifyMeteringPath } from "@/lib/provider-capabilities";
 import { renderLedgerPdfBuffer } from "@/lib/pdf-export";
 import { prisma } from "@/lib/prisma";
@@ -138,12 +138,12 @@ export async function GET(request: NextRequest) {
         inputTokens: formatNumber(event.inputTokens),
         outputTokens: formatNumber(event.outputTokens),
         totalTokens: formatNumber(event.totalTokens),
-        cost: formatCurrency(toNumber(event.estimatedTotalCost), org.currency),
+        cost: formatEventCurrency(toNumber(event.estimatedTotalCost), org.currency),
       })),
       footerNote:
         events.length > 120
-          ? "PDF trimmed to the first 120 events so the document stays readable."
-          : "Readable ledger export for the current filters and current metering-path labels.",
+          ? "PDF trimmed to the first 120 events so the document stays readable. Event costs below one cent are shown with higher precision."
+          : "Readable ledger export for the current filters and current metering-path labels. Event costs below one cent are shown with higher precision.",
     });
 
     return new NextResponse(new Uint8Array(pdf), {

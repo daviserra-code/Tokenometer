@@ -11,6 +11,7 @@ import { ProviderTag } from "@/components/ProviderChip";
 import {
   formatCurrency,
   formatDateTime,
+  formatEventCurrency,
   formatNumber,
   formatRelativeTime,
   toNumber,
@@ -289,7 +290,7 @@ export default async function LedgerPage({
       key: "cost",
       header: "Est. Cost",
       align: "right",
-      cell: (row) => formatCurrency(toNumber(row.estimatedTotalCost), org.currency),
+      cell: (row) => formatEventCurrency(toNumber(row.estimatedTotalCost), org.currency),
     },
     {
       key: "owner",
