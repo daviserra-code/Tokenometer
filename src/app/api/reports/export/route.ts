@@ -177,8 +177,8 @@ export async function GET(request: NextRequest) {
       }));
 
     const pdf = await renderSpendPdfBuffer({
-      title: "Spend Report",
-      subtitle: `${periodLabel} - ${mode === "live" ? "Live mode" : "Demo mode"}`,
+      title: "Tokenometer Spend Report",
+      subtitle: `${periodLabel} | ${mode === "live" ? "Live mode" : "Demo mode"} | Generated ${new Date().toISOString().slice(0, 10)}`,
       metrics: [
         {
           label: "Total spend",
@@ -250,7 +250,7 @@ export async function GET(request: NextRequest) {
           })),
         },
       ],
-      footerNote: "Formatted spend report for finance and operator review, including reconciliation context where available.",
+      footerNote: "Formatted spend report for operator and finance review, including reconciliation context where available.",
     });
 
     return new NextResponse(new Uint8Array(pdf), {

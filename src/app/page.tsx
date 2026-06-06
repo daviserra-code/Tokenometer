@@ -202,13 +202,13 @@ async function getDashboardData(mode: AppMode) {
     eventCountThisMonth,
     latestEvent,
     topModels: topModels.map((m) => ({
-      name: modelMap.get(m.modelId)?.name ?? "—",
-      provider: modelMap.get(m.modelId)?.provider ?? "—",
+      name: modelMap.get(m.modelId)?.name ?? "-",
+      provider: modelMap.get(m.modelId)?.provider ?? "-",
       cost: toNumber(m._sum.estimatedTotalCost),
       tokens: toNumber(m._sum.totalTokens),
     })),
     topProjects: topProjects.map((p) => ({
-      name: projectMap.get(p.projectId!) ?? "—",
+      name: projectMap.get(p.projectId!) ?? "-",
       cost: toNumber(p._sum.estimatedTotalCost),
       tokens: toNumber(p._sum.totalTokens),
     })),
@@ -493,7 +493,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         <Card
           title="Daily Token & Cost Trend"
-          description="Last 30 days · Input vs Output"
+          description="Last 30 days - Input vs Output"
           className="lg:col-span-8"
         >
           <DualTrendChart data={data.trend} />
@@ -511,7 +511,7 @@ export default async function DashboardPage() {
                 </span>
               </div>
               <p className="mt-1 font-mono text-caps text-text-muted">
-                Organization · Monthly
+                Organization - Monthly
               </p>
             </div>
 
@@ -633,3 +633,4 @@ export default async function DashboardPage() {
     </div>
   );
 }
+

@@ -103,8 +103,8 @@ export async function GET(request: NextRequest) {
 
   if (format === "pdf") {
     const pdf = await renderLedgerPdfBuffer({
-      title: "Token Ledger Export",
-      subtitle: buildSubtitle(filters),
+      title: "Tokenometer Ledger Export",
+      subtitle: `${buildSubtitle(filters)} | Generated ${new Date().toISOString().slice(0, 10)}`,
       metrics: [
         { label: "Matching events", value: formatNumber(totals._count), tone: "output" },
         { label: "Input tokens", value: formatNumber(toNumber(totals._sum.inputTokens)), tone: "input" },
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
       footerNote:
         events.length > 120
           ? "PDF trimmed to the first 120 events so the document stays readable."
-          : "Readable ledger export for the current filters.",
+          : "Readable ledger export for the current filters and current metering-path labels.",
     });
 
     return new NextResponse(new Uint8Array(pdf), {

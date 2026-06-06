@@ -4,6 +4,7 @@ const PAGE_MARGIN = 42;
 const HEADER_HEIGHT = 68;
 const FOOTER_HEIGHT = 28;
 const BRAND = "#22d3ee";
+const BRAND_SOFT = "#143043";
 const SURFACE = "#0f172a";
 const SURFACE_ALT = "#162033";
 const SURFACE_CARD = "#111a2c";
@@ -92,7 +93,11 @@ function drawHeader(doc: PDFKit.PDFDocument, title: string, subtitle?: string) {
   const width = doc.page.width - PAGE_MARGIN * 2;
   doc.save();
   doc.roundedRect(PAGE_MARGIN, PAGE_MARGIN, width, HEADER_HEIGHT, 14).fill(SURFACE);
-  doc.fillColor(BRAND).font(FONT_BOLD).fontSize(10).text("TOKENOMETER", PAGE_MARGIN + 18, PAGE_MARGIN + 12);
+  doc.roundedRect(PAGE_MARGIN + 18, PAGE_MARGIN + 12, 120, 18, 9).fill(BRAND_SOFT);
+  doc.fillColor(BRAND).font(FONT_BOLD).fontSize(9).text("TOKENOMETER", PAGE_MARGIN + 30, PAGE_MARGIN + 17, {
+    width: 96,
+    align: "center",
+  });
   doc.fillColor(TEXT).font(FONT_BOLD).fontSize(22).text(title, PAGE_MARGIN + 18, PAGE_MARGIN + 28, {
     width: width - 36,
   });
@@ -165,6 +170,8 @@ function drawMetricCards(
 }
 
 function drawSectionHeading(doc: PDFKit.PDFDocument, title: string, description?: string) {
+  doc.strokeColor(BORDER).moveTo(PAGE_MARGIN, doc.y).lineTo(doc.page.width - PAGE_MARGIN, doc.y).stroke();
+  doc.y += 10;
   doc.fillColor(TEXT).font(FONT_BOLD).fontSize(14).text(title, PAGE_MARGIN, doc.y);
   if (description) {
     doc.fillColor(MUTED).font(FONT_REGULAR).fontSize(10).text(description, PAGE_MARGIN, doc.y + 2, {
@@ -250,13 +257,35 @@ function drawSpendTable(
   doc.y += 4;
 }
 
+function drawNarrativeBlock(
+  doc: PDFKit.PDFDocument,
+  title: string,
+  subtitle: string | undefined,
+  label: string,
+  body: string
+) {
+  const width = doc.page.width - PAGE_MARGIN * 2;
+  const height = 64;
+  ensureSpace(doc, height + 12, title, subtitle);
+  doc.save();
+  doc.roundedRect(PAGE_MARGIN, doc.y, width, height, 12).fill(SURFACE_ALT);
+  doc.fillColor(MUTED).font(FONT_BOLD).fontSize(9).text(label.toUpperCase(), PAGE_MARGIN + 16, doc.y + 14, {
+    width: width - 32,
+  });
+  doc.fillColor(TEXT).font(FONT_REGULAR).fontSize(11).text(body, PAGE_MARGIN + 16, doc.y + 30, {
+    width: width - 32,
+  });
+  doc.restore();
+  doc.y += height + 14;
+}
+
 function drawLedgerCard(
   doc: PDFKit.PDFDocument,
   title: string,
   subtitle: string | undefined,
   entry: LedgerPdfEntry
 ) {
-  const cardHeight = 108;
+  const cardHeight = 126;
   const width = doc.page.width - PAGE_MARGIN * 2;
   ensureSpace(doc, cardHeight + 12, title, subtitle);
 
@@ -293,18 +322,22 @@ function drawLedgerCard(
   doc.fillColor(MUTED).font(FONT_REGULAR).fontSize(9).text(entry.team, detailsX + 58, topY + 72, {
     width: width * 0.42,
   });
+  doc.fillColor(TEXT).font(FONT_BOLD).fontSize(9).text("Path", detailsX, topY + 88);
+  doc.fillColor(MUTED).font(FONT_REGULAR).fontSize(9).text(entry.source, detailsX + 58, topY + 88, {
+    width: width * 0.42,
+  });
 
   const rightX = PAGE_MARGIN + width * 0.58;
-  doc.fillColor(TEXT).font(FONT_BOLD).fontSize(9).text("Workflow", rightX, topY + 40);
+  doc.fillColor(TEXT).font(FONT_BOLD).fontSize(9).text("Run", rightX, topY + 40);
   doc.fillColor(MUTED).font(FONT_REGULAR).fontSize(9).text(`${entry.agent} / ${entry.workflow}`, rightX + 48, topY + 40, {
     width: width * 0.32,
   });
-  doc.fillColor(TEXT).font(FONT_BOLD).fontSize(9).text("Source", rightX, topY + 56);
-  doc.fillColor(MUTED).font(FONT_REGULAR).fontSize(9).text(entry.source, rightX + 48, topY + 56, {
+  doc.fillColor(TEXT).font(FONT_BOLD).fontSize(9).text("Owner", rightX, topY + 56);
+  doc.fillColor(MUTED).font(FONT_REGULAR).fontSize(9).text(entry.owner, rightX + 48, topY + 56, {
     width: width * 0.32,
   });
-  doc.fillColor(TEXT).font(FONT_BOLD).fontSize(9).text("Owner", rightX, topY + 72);
-  doc.fillColor(MUTED).font(FONT_REGULAR).fontSize(9).text(entry.owner, rightX + 48, topY + 72, {
+  doc.fillColor(TEXT).font(FONT_BOLD).fontSize(9).text("Tokens", rightX, topY + 88);
+  doc.fillColor(MUTED).font(FONT_REGULAR).fontSize(9).text(`${entry.inputTokens} in / ${entry.outputTokens} out`, rightX + 48, topY + 88, {
     width: width * 0.32,
   });
 
@@ -328,6 +361,9 @@ export async function renderSpendPdfBuffer(spec: SpendPdfSpec): Promise<Buffer> 
   const { doc, chunks } = createDocument("portrait");
   drawHeader(doc, spec.title, spec.subtitle);
   drawMetricCards(doc, spec.title, spec.subtitle, spec.metrics);
+  if (spec.footerNote) {
+    drawNarrativeBlock(doc, spec.title, spec.subtitle, "Report note", spec.footerNote);
+  }
   spec.sections.forEach((section) => drawSpendTable(doc, spec.title, spec.subtitle, section));
 
   const range = doc.bufferedPageRange();
@@ -348,6 +384,9 @@ export async function renderLedgerPdfBuffer(spec: LedgerPdfSpec): Promise<Buffer
   const { doc, chunks } = createDocument("portrait");
   drawHeader(doc, spec.title, spec.subtitle);
   drawMetricCards(doc, spec.title, spec.subtitle, spec.metrics);
+  if (spec.footerNote) {
+    drawNarrativeBlock(doc, spec.title, spec.subtitle, "Export note", spec.footerNote);
+  }
   drawSectionHeading(doc, "Filtered events", "Readable event cards for the current ledger filter.");
   spec.entries.forEach((entry) => drawLedgerCard(doc, spec.title, spec.subtitle, entry));
 

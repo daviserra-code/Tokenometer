@@ -170,7 +170,7 @@ export default async function ReportsPage({
 
   const providerRows: Row[] = byProvider
     .map((g) => ({
-      name: providerMap.get(g.providerId) ?? "—",
+      name: providerMap.get(g.providerId) ?? "-",
       tokens: toNumber(g._sum.totalTokens),
       cost: toNumber(g._sum.estimatedTotalCost),
     }))
@@ -180,7 +180,7 @@ export default async function ReportsPage({
     .map((g) => {
       const m = modelMap.get(g.modelId);
       return {
-        name: m?.name ?? "—",
+        name: m?.name ?? "-",
         subname: m?.provider,
         tokens: toNumber(g._sum.totalTokens),
         cost: toNumber(g._sum.estimatedTotalCost),
@@ -190,7 +190,7 @@ export default async function ReportsPage({
 
   const projectRows: Row[] = byProject
     .map((g) => ({
-      name: projectMap.get(g.projectId!) ?? "—",
+      name: projectMap.get(g.projectId!) ?? "-",
       tokens: toNumber(g._sum.totalTokens),
       cost: toNumber(g._sum.estimatedTotalCost),
     }))
@@ -198,7 +198,7 @@ export default async function ReportsPage({
 
   const teamRows: Row[] = byTeam
     .map((g) => ({
-      name: teamMap.get(g.teamId!) ?? "—",
+      name: teamMap.get(g.teamId!) ?? "-",
       tokens: toNumber(g._sum.totalTokens),
       cost: toNumber(g._sum.estimatedTotalCost),
     }))
@@ -242,7 +242,7 @@ export default async function ReportsPage({
       align: "right",
       cell: (r) => (
         <span className="text-primary-container">
-          {totalCost > 0 ? `${((r.cost / totalCost) * 100).toFixed(1)}%` : "—"}
+          {totalCost > 0 ? `${((r.cost / totalCost) * 100).toFixed(1)}%` : "-"}
         </span>
       ),
     },
@@ -544,3 +544,4 @@ export default async function ReportsPage({
     </div>
   );
 }
+
