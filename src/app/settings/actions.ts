@@ -466,7 +466,7 @@ export async function testCredentialAction(formData: FormData) {
         if (res.ok) {
           break;
         }
-        text = await res.text();
+        text = await safeReadResponseText(res);
         if (!shouldRetryGuidedModel(res.status, text)) {
           break;
         }
@@ -489,7 +489,8 @@ export async function testCredentialAction(formData: FormData) {
           timestamp: new Date().toISOString(),
         });
       } else {
-        message = `${provider.name} upstream rejected the call after trying ${candidateModels.length} model candidate${candidateModels.length === 1 ? "" : "s"}, last attempt ${finalModel} (${res.status}): ${text.slice(0, 200)}`;
+        const detail = text.trim() ? text.slice(0, 200) : "Upstream rejected the request without a readable error body.";
+        message = `${provider.name} upstream rejected the call after trying ${candidateModels.length} model candidate${candidateModels.length === 1 ? "" : "s"}, last attempt ${finalModel} (${res.status}): ${detail}`;
         setVerificationFlash({
           kind: "guided-test",
           provider: provider.name,
@@ -556,6 +557,14 @@ function shouldRetryGuidedModel(status: number, text: string) {
       lowered.includes("not available") ||
       lowered.includes("does not exist"))
   );
+}
+
+async function safeReadResponseText(response: Response) {
+  try {
+    return await response.text();
+  } catch (error) {
+    return error instanceof Error ? `Unreadable upstream error body (${error.message}).` : "Unreadable upstream error body.";
+  }
 }
 
 // --- Wipe demo data -------------------------------------------------------
