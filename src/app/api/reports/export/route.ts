@@ -22,6 +22,21 @@ function getPeriodStart(period: Period) {
   return startOfMonth(now);
 }
 
+function buildScopeLabel(args: {
+  provider?: string | null;
+  project?: string | null;
+  team?: string | null;
+  integration?: string | null;
+}) {
+  const parts = [
+    args.provider ? `Provider: ${args.provider}` : null,
+    args.project ? `Project: ${args.project}` : null,
+    args.team ? `Team: ${args.team}` : null,
+    args.integration ? `Integration: ${args.integration}` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(" | ") : "Whole organization";
+}
+
 function csvEscape(value: unknown) {
   const str = value == null ? "" : String(value);
   if (/[",\n]/.test(str)) {
@@ -59,6 +74,18 @@ export async function GET(request: NextRequest) {
     organizationId: org.id,
     ...modeUsageWhere(mode),
     timestamp: { gte: getPeriodStart(period) },
+    ...(request.nextUrl.searchParams.get("providerId")
+      ? { providerId: request.nextUrl.searchParams.get("providerId")! }
+      : {}),
+    ...(request.nextUrl.searchParams.get("projectId")
+      ? { projectId: request.nextUrl.searchParams.get("projectId")! }
+      : {}),
+    ...(request.nextUrl.searchParams.get("teamId")
+      ? { teamId: request.nextUrl.searchParams.get("teamId")! }
+      : {}),
+    ...(request.nextUrl.searchParams.get("integrationId")
+      ? { integrationId: request.nextUrl.searchParams.get("integrationId")! }
+      : {}),
   };
 
   const [totals, byProvider, byModel, byProject, byTeam, byIntegration, reconciliation] = await Promise.all([
@@ -114,6 +141,12 @@ export async function GET(request: NextRequest) {
   const projectMap = new Map(projects.map((project) => [project.id, project.name]));
   const teamMap = new Map(teams.map((team) => [team.id, team.name]));
   const integrationMap = new Map(integrations.map((integration) => [integration.id, integration.name]));
+  const scopeLabel = buildScopeLabel({
+    provider: providerMap.get(request.nextUrl.searchParams.get("providerId") ?? "") ?? null,
+    project: projectMap.get(request.nextUrl.searchParams.get("projectId") ?? "") ?? null,
+    team: teamMap.get(request.nextUrl.searchParams.get("teamId") ?? "") ?? null,
+    integration: integrationMap.get(request.nextUrl.searchParams.get("integrationId") ?? "") ?? null,
+  });
 
   const providerRows = byProvider
     .map((row) => ({
@@ -178,7 +211,7 @@ export async function GET(request: NextRequest) {
 
     const pdf = await renderSpendPdfBuffer({
       title: "Tokenometer Spend Report",
-      subtitle: `${periodLabel} | ${mode === "live" ? "Live mode" : "Demo mode"} | Generated ${new Date().toISOString().slice(0, 10)}`,
+      subtitle: `${periodLabel} | ${scopeLabel} | ${mode === "live" ? "Live mode" : "Demo mode"} | Generated ${new Date().toISOString().slice(0, 10)}`,
       metrics: [
         {
           label: "Total spend",
@@ -266,10 +299,11 @@ export async function GET(request: NextRequest) {
   const csv = [
     section(
       "summary",
-      ["period", "mode", "events", "input_tokens", "output_tokens", "total_tokens", "total_cost", "currency"],
+      ["period", "mode", "scope", "events", "input_tokens", "output_tokens", "total_tokens", "total_cost", "currency"],
       [[
         period,
         mode,
+        scopeLabel,
         totals._count,
         totals._sum.inputTokens ?? 0,
         totals._sum.outputTokens ?? 0,
