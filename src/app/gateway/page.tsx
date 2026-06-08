@@ -33,6 +33,7 @@ import {
   recommendMode,
 } from "@/lib/integration-onboarding";
 import { prisma } from "@/lib/prisma";
+import { getCurrentOrganization } from "@/lib/current-organization";
 import { ensureRuntimeProviderCatalog } from "@/lib/runtime-provider-catalog";
 
 export const dynamic = "force-dynamic";
@@ -68,7 +69,7 @@ export default async function GatewayPage({
   searchParams?: Promise<SearchParams> | SearchParams;
 }) {
   requireAdmin();
-  const org = await prisma.organization.findFirst();
+  const org = await getCurrentOrganization();
   if (!org) {
     return (
       <div>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 
 import { isAdmin } from "@/lib/auth";
+import { getCurrentOrganization } from "@/lib/current-organization";
 import { formatCurrency, formatDateTime, formatEventCurrency, formatNumber, toNumber } from "@/lib/format";
 import { classifyMeteringPath } from "@/lib/provider-capabilities";
 import { renderLedgerPdfBuffer } from "@/lib/pdf-export";
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  const org = await prisma.organization.findFirst({ orderBy: { createdAt: "asc" } });
+  const org = await getCurrentOrganization();
   if (!org) {
     return NextResponse.json({ error: "No organization found." }, { status: 404 });
   }

@@ -9,6 +9,7 @@ import { AutoRefresh } from "@/components/AutoRefresh";
 import { ModeSwitch } from "@/components/ModeSwitch";
 import { formatCurrency, formatDateTime, formatTokens, toNumber } from "@/lib/format";
 import { getAppMode, isAdmin, modeUsageWhere, type AppMode } from "@/lib/auth";
+import { getCurrentOrganization } from "@/lib/current-organization";
 import {
   daysInMonth,
   projectMonthEndSpend,
@@ -24,7 +25,7 @@ import {
 export const dynamic = "force-dynamic";
 
 async function getDashboardData(mode: AppMode) {
-  const org = await prisma.organization.findFirst();
+  const org = await getCurrentOrganization();
   if (!org) return null;
 
   const now = new Date();

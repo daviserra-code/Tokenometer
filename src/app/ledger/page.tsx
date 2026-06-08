@@ -17,6 +17,7 @@ import {
   toNumber,
 } from "@/lib/format";
 import { liveUsageWhere } from "@/lib/auth";
+import { getCurrentOrganization } from "@/lib/current-organization";
 import { classifyMeteringPath, meteringPathToneClasses } from "@/lib/provider-capabilities";
 import { getRealtimeSignals } from "@/lib/realtime-metering";
 
@@ -59,7 +60,7 @@ export default async function LedgerPage({
     : DEFAULT_PAGE_SIZE;
   const requestedPage = Math.max(1, Number(sp.page ?? 1) || 1);
 
-  const org = await prisma.organization.findFirst();
+  const org = await getCurrentOrganization();
   if (!org) {
     return (
       <div>

@@ -5,6 +5,7 @@ import { startOfMonth } from "@/lib/calc";
 import { formatCurrency, formatNumber, formatTokens, toNumber } from "@/lib/format";
 import { renderSpendPdfBuffer } from "@/lib/pdf-export";
 import { prisma } from "@/lib/prisma";
+import { getCurrentOrganization } from "@/lib/current-organization";
 import { getReconciliationSnapshot, summarizeReconciliation } from "@/lib/reconciliation";
 
 export const runtime = "nodejs";
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  const org = await prisma.organization.findFirst({ orderBy: { createdAt: "asc" } });
+  const org = await getCurrentOrganization();
   if (!org) {
     return NextResponse.json({ error: "No organization found." }, { status: 404 });
   }

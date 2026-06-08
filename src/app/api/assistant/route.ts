@@ -1,7 +1,6 @@
 import { streamText, tool } from "ai";
 import { z } from "zod";
 import {
-  defaultOrgId,
   detectAnomalies,
   forecastSpend,
   getBalances,
@@ -9,6 +8,7 @@ import {
   recommendModelSwap,
 } from "@/lib/analytics";
 import { getCopilotModel, resolveCopilotConfig } from "@/lib/copilot-provider";
+import { getCurrentOrganization } from "@/lib/current-organization";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -20,13 +20,14 @@ Always call the appropriate tool to ground answers in real data; never invent nu
 Format money with currency symbols and tokens with thousands separators. Be concise and actionable.`;
 
 export async function POST(req: Request) {
-  const orgId = await defaultOrgId();
-  if (!orgId) {
+  const organization = await getCurrentOrganization();
+  if (!organization) {
     return new Response(JSON.stringify({ error: "No organization seeded." }), {
       status: 400,
       headers: { "content-type": "application/json" },
     });
   }
+  const orgId = organization.id;
 
   const cfg = await resolveCopilotConfig(orgId);
   if (!cfg.configured) {

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getCurrentOrganizationId } from "@/lib/current-organization";
 
 export type Period = "7d" | "30d" | "90d" | "mtd";
 
@@ -216,6 +217,5 @@ function round(n: number, digits: number) {
 }
 
 export async function defaultOrgId(): Promise<string | null> {
-  const o = await prisma.organization.findFirst({ select: { id: true } });
-  return o?.id ?? null;
+  return getCurrentOrganizationId();
 }

@@ -10,6 +10,7 @@ import { ModeSwitch } from "@/components/ModeSwitch";
 import { formatCurrency, formatDateTime, formatRelativeTime, formatTokens, toNumber } from "@/lib/format";
 import { startOfMonth } from "@/lib/calc";
 import { getAppMode, isAdmin, liveUsageWhere, modeUsageWhere } from "@/lib/auth";
+import { getCurrentOrganization } from "@/lib/current-organization";
 import {
   getReconciliationSnapshot,
   reconciliationToneClasses,
@@ -56,7 +57,7 @@ export default async function ReportsPage({
 }: {
   searchParams?: ReportsSearchParams;
 }) {
-  const org = await prisma.organization.findFirst();
+  const org = await getCurrentOrganization();
   if (!org) {
     return (
       <div>

@@ -1,12 +1,12 @@
 import { PageHeader } from "@/components/Card";
 import { AssistantChat } from "./AssistantChat";
 import { resolveCopilotConfig } from "@/lib/copilot-provider";
-import { defaultOrgId } from "@/lib/analytics";
+import { getCurrentOrganizationId } from "@/lib/current-organization";
 
 export const dynamic = "force-dynamic";
 
 export default async function AssistantPage() {
-  const orgId = await defaultOrgId();
+  const orgId = await getCurrentOrganizationId();
   const cfg = await resolveCopilotConfig(orgId);
 
   return (
