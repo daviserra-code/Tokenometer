@@ -20,7 +20,15 @@ Always call the appropriate tool to ground answers in real data; never invent nu
 Format money with currency symbols and tokens with thousands separators. Be concise and actionable.`;
 
 export async function POST(req: Request) {
-  const cfg = resolveCopilotConfig();
+  const orgId = await defaultOrgId();
+  if (!orgId) {
+    return new Response(JSON.stringify({ error: "No organization seeded." }), {
+      status: 400,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
+  const cfg = await resolveCopilotConfig(orgId);
   if (!cfg.configured) {
     return new Response(JSON.stringify({ error: cfg.reason }), {
       status: 503,
@@ -29,13 +37,6 @@ export async function POST(req: Request) {
   }
 
   const { messages } = await req.json();
-  const orgId = await defaultOrgId();
-  if (!orgId) {
-    return new Response(JSON.stringify({ error: "No organization seeded." }), {
-      status: 400,
-      headers: { "content-type": "application/json" },
-    });
-  }
 
   const model = await getCopilotModel(cfg);
 
