@@ -2,12 +2,13 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/Card";
+import { KpiCard } from "@/components/KpiCard";
 import { DataTable, type Column } from "@/components/DataTable";
 import { ProviderChip } from "@/components/ProviderChip";
 import { formatCurrency } from "@/lib/format";
 import { formatTokenBalance } from "@/lib/wallet";
 import { issueChargebackStatementsAction } from "../actions";
-import { listWalletAllocationSummaries } from "@/lib/wallet-allocations";
+import { getFinanceCloseSnapshot, listWalletAllocationSummaries } from "@/lib/wallet-allocations";
 
 export const dynamic = "force-dynamic";
 
@@ -30,13 +31,14 @@ export default async function ChargebackPage() {
   const org = await prisma.organization.findFirst({ orderBy: { createdAt: "asc" } });
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
 
-  const [summaries, recentInvoices] = await Promise.all([
+  const [summaries, recentInvoices, close] = await Promise.all([
     listWalletAllocationSummaries(org.id),
     prisma.invoice.findMany({
       where: { organizationId: org.id, type: "MONTHLY_USAGE" },
       orderBy: { createdAt: "desc" },
       take: 20,
     }),
+    getFinanceCloseSnapshot(org.id),
   ]);
 
   const rows: ChargebackRow[] = summaries.map((summary) => ({
@@ -141,6 +143,27 @@ export default async function ChargebackPage() {
           </div>
         }
       />
+
+      <div
+        className={`rounded-lg border px-4 py-3 ${
+          close.status === "ready"
+            ? "border-status-normal/40 bg-status-normal/10"
+            : close.status === "attention"
+              ? "border-status-warning/40 bg-status-warning/10"
+              : "border-status-exceeded/40 bg-status-exceeded/10"
+        }`}
+      >
+        <p className="text-sm text-on-surface">
+          <strong>Chargeback readiness:</strong> {close.summary}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label="Chargeable scopes" value={String(close.chargeableScopes)} icon="account_tree" tone="input" />
+        <KpiCard label="Statements issued" value={String(close.statementsIssued)} icon="receipt_long" />
+        <KpiCard label="Missing statements" value={String(close.missingStatements)} icon="assignment_late" tone={close.missingStatements > 0 ? "warning" : "default"} />
+        <KpiCard label="Unmapped rollups" value={String(close.unmappedRollups)} icon="warning" tone={close.unmappedRollups > 0 ? "warning" : "default"} />
+      </div>
 
       <Card
         title="Month-to-date statement base"

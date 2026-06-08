@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/Card";
 import { KpiCard } from "@/components/KpiCard";
 import { formatCurrency } from "@/lib/format";
-import { listChargebackRollups } from "@/lib/wallet-allocations";
+import { getFinanceCloseSnapshot, listChargebackRollups } from "@/lib/wallet-allocations";
 
 export const dynamic = "force-dynamic";
 
@@ -13,13 +13,14 @@ export default async function WalletPackPage() {
   const org = await prisma.organization.findFirst({ orderBy: { createdAt: "asc" } });
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
 
-  const [rollups, invoices] = await Promise.all([
+  const [rollups, invoices, close] = await Promise.all([
     listChargebackRollups(org.id),
     prisma.invoice.findMany({
       where: { organizationId: org.id, type: "MONTHLY_USAGE" },
       orderBy: { createdAt: "desc" },
       take: 24,
     }),
+    getFinanceCloseSnapshot(org.id),
   ]);
 
   const totalChargeback = rollups.reduce((sum, row) => sum + row.spendCost, 0);
@@ -34,7 +35,21 @@ export default async function WalletPackPage() {
         description="Download the current finance artifacts and open statement-ready views for the month."
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div
+        className={`rounded-lg border px-4 py-3 ${
+          close.status === "ready"
+            ? "border-status-normal/40 bg-status-normal/10"
+            : close.status === "attention"
+              ? "border-status-warning/40 bg-status-warning/10"
+              : "border-status-exceeded/40 bg-status-exceeded/10"
+        }`}
+      >
+        <p className="text-sm text-on-surface">
+          <strong>Month-end posture:</strong> {close.summary}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           label="Chargeback pool"
           value={formatCurrency(totalChargeback, org.currency)}
@@ -44,6 +59,7 @@ export default async function WalletPackPage() {
         />
         <KpiCard label="Statements issued" value={String(invoices.length)} icon="receipt_long" />
         <KpiCard label="Mapped rollups" value={`${mappedRollups}/${rollups.length}`} icon="domain" tone="input" />
+        <KpiCard label="Missing statements" value={String(close.missingStatements)} icon="assignment_late" tone={close.missingStatements > 0 ? "warning" : "default"} />
       </div>
 
       <Card
@@ -92,6 +108,12 @@ export default async function WalletPackPage() {
           description="Issued monthly usage statements with cost center metadata."
           href="/api/wallet/chargeback/export?view=invoices"
           label="Download statements CSV"
+        />
+        <PackCard
+          title="Audit trail"
+          description="History of allocation, policy, cost center, and approval changes behind the close."
+          href="/wallet/history"
+          label="Open wallet history"
         />
         <PackCard
           title="Provider summary"

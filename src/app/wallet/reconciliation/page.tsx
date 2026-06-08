@@ -8,6 +8,7 @@ import { ProviderChip } from "@/components/ProviderChip";
 import { formatCurrency } from "@/lib/format";
 import { formatTokenBalance } from "@/lib/wallet";
 import {
+  getFinanceCloseSnapshot,
   listChargebackRollups,
   listWalletAllocationSummaries,
   type ChargebackRollup,
@@ -29,7 +30,7 @@ export default async function WalletReconciliationPage() {
   const org = await prisma.organization.findFirst({ orderBy: { createdAt: "asc" } });
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
 
-  const [rollups, summaries, invoices] = await Promise.all([
+  const [rollups, summaries, invoices, close] = await Promise.all([
     listChargebackRollups(org.id),
     listWalletAllocationSummaries(org.id),
     prisma.invoice.findMany({
@@ -37,6 +38,7 @@ export default async function WalletReconciliationPage() {
       orderBy: { createdAt: "desc" },
       take: 100,
     }),
+    getFinanceCloseSnapshot(org.id),
   ]);
 
   const totalChargeback = rollups.reduce((sum, row) => sum + row.spendCost, 0);
@@ -195,11 +197,31 @@ export default async function WalletReconciliationPage() {
         }
       />
 
+      <div
+        className={`rounded-lg border px-4 py-3 ${
+          close.status === "ready"
+            ? "border-status-normal/40 bg-status-normal/10"
+            : close.status === "attention"
+              ? "border-status-warning/40 bg-status-warning/10"
+              : "border-status-exceeded/40 bg-status-exceeded/10"
+        }`}
+      >
+        <p className="text-sm text-on-surface">
+          <strong>Reconciliation posture:</strong> {close.summary}
+        </p>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Chargeback pool" value={formatCurrency(totalChargeback, org.currency)} icon="payments" tone="success" accent />
         <KpiCard label="Mapped rollups" value={String(mappedRollups)} icon="domain" tone="input" />
         <KpiCard label="Unmapped rollups" value={String(unmappedRollups)} icon="warning" tone={unmappedRollups > 0 ? "warning" : "default"} />
         <KpiCard label="Statements issued" value={String(invoices.length)} icon="receipt_long" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <KpiCard label="Chargeable scopes" value={String(close.chargeableScopes)} icon="account_tree" tone="input" />
+        <KpiCard label="Missing statements" value={String(close.missingStatements)} icon="assignment_late" tone={close.missingStatements > 0 ? "warning" : "default"} />
+        <KpiCard label="Over-allocated rollups" value={String(close.overAllocatedRollups)} icon="priority_high" tone={close.overAllocatedRollups > 0 ? "warning" : "default"} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

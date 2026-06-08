@@ -35,6 +35,18 @@ export type ChargebackRollup = {
   overAllocatedScopes: number;
 };
 
+export type FinanceCloseSnapshot = {
+  totalChargeback: number;
+  chargeableScopes: number;
+  statementsIssued: number;
+  missingStatements: number;
+  mappedRollups: number;
+  unmappedRollups: number;
+  overAllocatedRollups: number;
+  status: "ready" | "attention" | "blocked";
+  summary: string;
+};
+
 type CreateWalletAllocationInput = {
   organizationId: string;
   walletId: string;
@@ -396,4 +408,77 @@ export async function listChargebackRollups(
     if (codeA !== codeB) return codeA.localeCompare(codeB);
     return a.providerName.localeCompare(b.providerName);
   });
+}
+
+export async function getFinanceCloseSnapshot(
+  organizationId: string,
+  periodStart = startOfMonth()
+): Promise<FinanceCloseSnapshot> {
+  const [summaries, rollups, invoices] = await Promise.all([
+    listWalletAllocationSummaries(organizationId, periodStart),
+    listChargebackRollups(organizationId, periodStart),
+    prisma.invoice.findMany({
+      where: {
+        organizationId,
+        type: "MONTHLY_USAGE",
+        createdAt: { gte: periodStart },
+      },
+      select: { dataJson: true },
+    }),
+  ]);
+
+  const chargeableScopes = summaries.filter((row) => row.usedTokens > 0n || row.spendCost > 0).length;
+  const totalChargeback = summaries.reduce((sum, row) => sum + row.spendCost, 0);
+  const mappedRollups = rollups.filter((row) => row.costCenterCode || row.costCenterName).length;
+  const unmappedRollups = rollups.length - mappedRollups;
+  const overAllocatedRollups = rollups.filter((row) => row.overAllocatedScopes > 0).length;
+
+  const existingKeys = new Set(
+    invoices.map((invoice) => {
+      const data =
+        invoice.dataJson && typeof invoice.dataJson === "object"
+          ? (invoice.dataJson as Record<string, unknown>)
+          : {};
+      return [
+        String(data.scope ?? ""),
+        String(data.scopeId ?? ""),
+        String(data.provider ?? ""),
+        String(data.periodStart ?? ""),
+      ].join(":");
+    })
+  );
+
+  const missingStatements = summaries.filter((summary) => {
+    if (!(summary.usedTokens > 0n || summary.spendCost > 0)) return false;
+    const statementKey = [
+      summary.scope,
+      summary.scopeId,
+      summary.providerName,
+      periodStart.toISOString(),
+    ].join(":");
+    return !existingKeys.has(statementKey);
+  }).length;
+
+  let status: FinanceCloseSnapshot["status"] = "ready";
+  let summary = "Month-end artifacts are in good shape. Reconciliation, mappings, and statements look ready for handoff.";
+
+  if (unmappedRollups > 0) {
+    status = "blocked";
+    summary = `There ${unmappedRollups === 1 ? "is" : "are"} ${unmappedRollups} unmapped rollup${unmappedRollups === 1 ? "" : "s"}. Clear cost center gaps before sending statements out.`;
+  } else if (overAllocatedRollups > 0 || missingStatements > 0) {
+    status = "attention";
+    summary = `Month-end still needs review. ${overAllocatedRollups > 0 ? `${overAllocatedRollups} rollup${overAllocatedRollups === 1 ? "" : "s"} exceed allocation. ` : ""}${missingStatements > 0 ? `${missingStatements} chargeable scope${missingStatements === 1 ? "" : "s"} still need statements.` : ""}`.trim();
+  }
+
+  return {
+    totalChargeback,
+    chargeableScopes,
+    statementsIssued: invoices.length,
+    missingStatements,
+    mappedRollups,
+    unmappedRollups,
+    overAllocatedRollups,
+    status,
+    summary,
+  };
 }
