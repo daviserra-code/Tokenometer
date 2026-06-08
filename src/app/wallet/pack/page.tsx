@@ -24,6 +24,8 @@ export default async function WalletPackPage() {
 
   const totalChargeback = rollups.reduce((sum, row) => sum + row.spendCost, 0);
   const mappedRollups = rollups.filter((row) => row.costCenterCode || row.costCenterName).length;
+  const unmappedRollups = rollups.length - mappedRollups;
+  const overAllocatedRollups = rollups.filter((row) => row.overAllocatedScopes > 0).length;
 
   return (
     <div className="space-y-6">
@@ -43,6 +45,40 @@ export default async function WalletPackPage() {
         <KpiCard label="Statements issued" value={String(invoices.length)} icon="receipt_long" />
         <KpiCard label="Mapped rollups" value={`${mappedRollups}/${rollups.length}`} icon="domain" tone="input" />
       </div>
+
+      <Card
+        title="Month-end checklist"
+        description="A simple operator sequence for turning live usage into finance-ready output."
+      >
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <ChecklistStep
+            n="1"
+            title="Review reconciliation"
+            body="Start in Wallet Reconciliation and confirm provider totals look sane before exporting anything."
+            href="/wallet/reconciliation"
+            cta="Open reconciliation"
+          />
+          <ChecklistStep
+            n="2"
+            title="Resolve exceptions"
+            body={`Unmapped rollups: ${unmappedRollups}. Over-allocated rollups: ${overAllocatedRollups}. Clear these first when possible.`}
+            href="/wallet/allocations"
+            cta="Open allocations"
+          />
+          <ChecklistStep
+            n="3"
+            title="Issue statements"
+            body="Generate monthly internal statements once the pool and mappings look right."
+            href="/wallet/chargeback"
+            cta="Open chargeback"
+          />
+          <ChecklistStep
+            n="4"
+            title="Export the pack"
+            body="Download the finance artifacts and use the printable statements for handoff."
+          />
+        </div>
+      </Card>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-4">
         <PackCard
@@ -132,5 +168,34 @@ function PackCard({
         {label}
       </Link>
     </Card>
+  );
+}
+
+function ChecklistStep({
+  n,
+  title,
+  body,
+  href,
+  cta,
+}: {
+  n: string;
+  title: string;
+  body: string;
+  href?: string;
+  cta?: string;
+}) {
+  return (
+    <div className="rounded-lg border border-border-subtle bg-background p-4">
+      <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-slate-900">
+        {n}
+      </div>
+      <h3 className="font-semibold text-on-surface">{title}</h3>
+      <p className="mt-1 text-[12px] text-text-muted">{body}</p>
+      {href && cta ? (
+        <Link href={href} className="mt-3 inline-flex text-xs font-semibold text-primary hover:underline">
+          {cta}
+        </Link>
+      ) : null}
+    </div>
   );
 }

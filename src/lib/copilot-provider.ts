@@ -31,7 +31,7 @@ export function resolveCopilotConfig(): CopilotConfig {
     if (provider === "anthropic" && process.env.ANTHROPIC_API_KEY) {
       return {
         provider,
-        modelId: process.env.ANTHROPIC_MODEL ?? "claude-3-5-haiku-latest",
+        modelId: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-20250514",
         configured: true,
       };
     }

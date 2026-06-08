@@ -717,6 +717,11 @@ export default async function CredentialsPage({
                       Optional override: if your account only supports a specific Claude model, enter the exact API model ID below. Tokenometer will test only that model when this field is filled.
                     </p>
                   )}
+                  {test.providerName === "Anthropic" && (
+                    <p>
+                      This guided test is for the direct Anthropic API only. Bedrock and Vertex model IDs or credentials will not work against the direct Anthropic proxy route.
+                    </p>
+                  )}
                   <p>
                     Latest live event:{" "}
                     <span className="text-on-surface">
@@ -732,7 +737,7 @@ export default async function CredentialsPage({
                         <input
                           type="text"
                           name="modelOverride"
-                          placeholder="Exact API model ID, e.g. claude-sonnet-4-20250514"
+                          placeholder="Exact direct API model ID, e.g. claude-sonnet-4-20250514"
                           className="mb-2 w-full rounded-lg border border-border-subtle bg-surface-2 px-3 py-2 font-mono text-[12px] text-on-surface placeholder:text-text-muted focus:border-primary focus:outline-none"
                         />
                       )}

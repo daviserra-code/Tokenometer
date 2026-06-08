@@ -250,7 +250,7 @@ export async function GET(request: NextRequest) {
           })),
         },
       ],
-      footerNote: "Formatted spend report for operator and finance review, including reconciliation context where available.",
+      footerNote: "Formatted spend report for operator and finance review, including reconciliation context where available. Ledger-style per-event exports may show tiny event costs as less than one cent while totals reflect the full summed amount.",
     });
 
     return new NextResponse(new Uint8Array(pdf), {

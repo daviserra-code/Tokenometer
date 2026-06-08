@@ -81,10 +81,12 @@ export default async function ReportsPage({
     byModel,
     byProject,
     byTeam,
+    byIntegration,
     totals,
     models,
     projects,
     teams,
+    integrations,
     providers,
     latestLiveEvent,
     reconciliation,
@@ -110,6 +112,11 @@ export default async function ReportsPage({
       where: { ...where, teamId: { not: null } },
       _sum: { totalTokens: true, estimatedTotalCost: true },
     }),
+    prisma.usageEvent.groupBy({
+      by: ["integrationId"],
+      where: { ...where, integrationId: { not: null } },
+      _sum: { totalTokens: true, estimatedTotalCost: true },
+    }),
     prisma.usageEvent.aggregate({
       where,
       _sum: { totalTokens: true, estimatedTotalCost: true },
@@ -118,6 +125,7 @@ export default async function ReportsPage({
     prisma.model.findMany({ include: { provider: true } }),
     prisma.project.findMany({ where: { organizationId: org.id } }),
     prisma.team.findMany({ where: { organizationId: org.id } }),
+    prisma.integration.findMany({ where: { organizationId: org.id } }),
     prisma.provider.findMany(),
     prisma.usageEvent.findFirst({
       where: {
@@ -164,6 +172,7 @@ export default async function ReportsPage({
   );
   const projectMap = new Map(projects.map((p) => [p.id, p.name]));
   const teamMap = new Map(teams.map((t) => [t.id, t.name]));
+  const integrationMap = new Map(integrations.map((i) => [i.id, i.name]));
 
   const totalCost = toNumber(totals._sum.estimatedTotalCost);
   const totalTokens = toNumber(totals._sum.totalTokens);
@@ -199,6 +208,14 @@ export default async function ReportsPage({
   const teamRows: Row[] = byTeam
     .map((g) => ({
       name: teamMap.get(g.teamId!) ?? "-",
+      tokens: toNumber(g._sum.totalTokens),
+      cost: toNumber(g._sum.estimatedTotalCost),
+    }))
+    .sort((a, b) => b.cost - a.cost);
+
+  const integrationRows: Row[] = byIntegration
+    .map((g) => ({
+      name: integrationMap.get(g.integrationId!) ?? "-",
       tokens: toNumber(g._sum.totalTokens),
       cost: toNumber(g._sum.estimatedTotalCost),
     }))
@@ -514,6 +531,15 @@ export default async function ReportsPage({
         />
       </div>
 
+      <Card
+        title="Cost interpretation"
+        description="A quick note so row-level exports and period totals tell the same story."
+      >
+        <div className="rounded-lg border border-border-subtle bg-background p-4 text-sm text-text-muted">
+          Period totals are summed from the full underlying event costs. In ledger exports, very small per-event costs can appear as <span className="font-mono text-on-surface">&lt;$0.01</span> even when the total period spend is materially higher.
+        </div>
+      </Card>
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card title="Cost by provider" description="Top providers by spend">
           <HBarChart
@@ -541,6 +567,10 @@ export default async function ReportsPage({
           <DataTable columns={cols} rows={teamRows} rowKey={(r) => r.name} />
         </Card>
       </div>
+
+      <Card title="Cost by integration" noPadding>
+        <DataTable columns={cols} rows={integrationRows} rowKey={(r) => r.name} />
+      </Card>
     </div>
   );
 }

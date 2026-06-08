@@ -58,7 +58,7 @@ export const INTEGRATION_PROVIDERS: ProviderConfig[] = [
     historical: "Admin key",
     live: "Response usage",
     streaming: "Yes",
-    model: "claude-3-5-haiku-latest",
+    model: "claude-sonnet-4-20250514",
     modelEnvVar: "ANTHROPIC_MODEL",
     envVar: "ANTHROPIC_API_KEY",
     nodeFunction: "callAnthropicMessages",

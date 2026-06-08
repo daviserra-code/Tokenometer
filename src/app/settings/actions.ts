@@ -495,7 +495,11 @@ export async function testCredentialAction(formData: FormData) {
         });
       } else {
         const detail = text.trim() ? text.slice(0, 200) : "Upstream rejected the request without a readable error body.";
-        message = `${provider.name} upstream rejected the call after trying ${candidateModels.length} model candidate${candidateModels.length === 1 ? "" : "s"}, last attempt ${finalModel} (${res.status}): ${detail}`;
+        const providerHint =
+          provider.name === "Anthropic" && res.status === 404
+            ? " This usually means the key does not have access to that direct Anthropic model, or the organization is actually using Bedrock or Vertex rather than the direct Anthropic API."
+            : "";
+        message = `${provider.name} upstream rejected the call after trying ${candidateModels.length} model candidate${candidateModels.length === 1 ? "" : "s"}, last attempt ${finalModel} (${res.status}): ${detail}${providerHint}`;
         setVerificationFlash({
           kind: "guided-test",
           provider: provider.name,
