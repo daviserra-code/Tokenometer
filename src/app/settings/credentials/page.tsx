@@ -719,7 +719,7 @@ export default async function CredentialsPage({
                   )}
                   {test.providerName === "Anthropic" && (
                     <p>
-                      This guided test is for the direct Anthropic API only. Bedrock and Vertex model IDs or credentials will not work against the direct Anthropic proxy route.
+                      This guided test is for the direct Anthropic API only. Direct IDs look like <span className="font-mono text-on-surface">claude-sonnet-4-20250514</span>. Vertex IDs use <span className="font-mono text-on-surface">@</span>, and Bedrock IDs usually start with <span className="font-mono text-on-surface">us.anthropic.</span> or an AWS ARN. Those will not work against the direct Anthropic proxy route.
                     </p>
                   )}
                   <p>
@@ -734,12 +734,19 @@ export default async function CredentialsPage({
                     <form action={testCredentialAction}>
                       <input type="hidden" name="id" value={credential.id} />
                       {test.allowModelOverride && (
-                        <input
-                          type="text"
-                          name="modelOverride"
-                          placeholder="Exact direct API model ID, e.g. claude-sonnet-4-20250514"
-                          className="mb-2 w-full rounded-lg border border-border-subtle bg-surface-2 px-3 py-2 font-mono text-[12px] text-on-surface placeholder:text-text-muted focus:border-primary focus:outline-none"
-                        />
+                        <div className="mb-2 space-y-2">
+                          <input
+                            type="text"
+                            name="modelOverride"
+                            placeholder="Exact direct API model ID, e.g. claude-sonnet-4-20250514"
+                            className="w-full rounded-lg border border-border-subtle bg-surface-2 px-3 py-2 font-mono text-[12px] text-on-surface placeholder:text-text-muted focus:border-primary focus:outline-none"
+                          />
+                          {test.providerName === "Anthropic" && (
+                            <p className="text-[11px] text-text-muted">
+                              Human labels like <span className="font-mono text-on-surface">Claude Sonnet 4.6</span> are not enough here. Use the exact direct API model ID.
+                            </p>
+                          )}
+                        </div>
                       )}
                       <button
                         type="submit"

@@ -35,6 +35,10 @@ type VerificationFlash = {
   timestamp: string;
 };
 
+type AnthropicModelResolution =
+  | { ok: true; model: string }
+  | { ok: false; message: string };
+
 function setVerificationFlash(flash: VerificationFlash) {
   cookies().set("verification-flash", JSON.stringify(flash), {
     path: "/",
@@ -434,10 +438,36 @@ export async function testCredentialAction(formData: FormData) {
       const defaultCandidateModels = testConfig.candidateModels?.length
         ? testConfig.candidateModels
         : [testConfig.model];
-      const candidateModels =
+      let candidateModels =
         modelOverride && testConfig.allowModelOverride
           ? [modelOverride]
           : defaultCandidateModels;
+      if (provider.name === "Anthropic" && modelOverride && testConfig.allowModelOverride) {
+        const resolved = resolveAnthropicDirectModel(modelOverride);
+        if (!resolved.ok) {
+          message = resolved.message;
+          setVerificationFlash({
+            kind: "guided-test",
+            provider: provider.name,
+            ok: false,
+            message,
+            model: modelOverride,
+            timestamp: new Date().toISOString(),
+          });
+          await auditLog({
+            action: "credential.test",
+            organizationId: cred?.organizationId,
+            targetType: "ProviderCredential",
+            targetId: id,
+            metadata: { provider: providerName, ok, message, modelOverride },
+          });
+          revalidatePath("/", "layout");
+          revalidatePath("/ledger");
+          revalidatePath("/reports");
+          redirect("/settings/credentials");
+        }
+        candidateModels = [resolved.model];
+      }
       const requestHeaders = headers();
       const forwardedProto = requestHeaders.get("x-forwarded-proto");
       const forwardedHost = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
@@ -566,6 +596,54 @@ function shouldRetryGuidedModel(status: number, text: string) {
       lowered.includes("not available") ||
       lowered.includes("does not exist"))
   );
+}
+
+function resolveAnthropicDirectModel(input: string): AnthropicModelResolution {
+  const raw = input.trim();
+  const lowered = raw.toLowerCase();
+
+  if (!raw) {
+    return { ok: false, message: "Enter a direct Anthropic API model ID first." };
+  }
+
+  if (lowered.startsWith("arn:aws:bedrock:") || lowered.startsWith("us.anthropic.") || lowered.includes(":0")) {
+    return {
+      ok: false,
+      message:
+        "That looks like an Amazon Bedrock Anthropic model ID, not a direct Anthropic API model ID. Tokenometer's guided Anthropic test currently targets the direct Anthropic API route only. Try a direct ID like claude-sonnet-4-20250514.",
+    };
+  }
+
+  if (lowered.includes("@")) {
+    return {
+      ok: false,
+      message:
+        "That looks like a Vertex Anthropic model ID, not a direct Anthropic API model ID. Tokenometer's guided Anthropic test currently targets the direct Anthropic API route only. Try a direct ID like claude-sonnet-4-20250514.",
+    };
+  }
+
+  if (/\bsonnet\b.*\b4\.6\b/.test(lowered) || /\b4\.6\b.*\bsonnet\b/.test(lowered)) {
+    return {
+      ok: false,
+      message:
+        "“Claude Sonnet 4.6” looks like a product label or non-direct alias, not a documented direct Anthropic API model ID. For the direct Anthropic API, try claude-sonnet-4-20250514.",
+    };
+  }
+
+  if (lowered === "sonnet" || lowered === "claude sonnet 4" || lowered === "claude-sonnet-4") {
+    return { ok: true, model: "claude-sonnet-4-20250514" };
+  }
+  if (lowered === "opus" || lowered === "claude opus 4" || lowered === "claude-opus-4") {
+    return { ok: true, model: "claude-opus-4-20250514" };
+  }
+  if (lowered === "claude 3.7 sonnet" || lowered === "claude-sonnet-3.7" || lowered === "claude 3-7 sonnet") {
+    return { ok: true, model: "claude-3-7-sonnet-20250219" };
+  }
+  if (lowered === "claude 3.5 haiku" || lowered === "claude-haiku-3.5" || lowered === "haiku 3.5") {
+    return { ok: true, model: "claude-3-5-haiku-20241022" };
+  }
+
+  return { ok: true, model: raw };
 }
 
 async function safeReadResponseText(response: Response) {
