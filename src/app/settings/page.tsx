@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Card, PageHeader } from "@/components/Card";
 import { requireAdmin } from "@/lib/auth";
+import { getCurrentOrganization } from "@/lib/current-organization";
 import { prisma } from "@/lib/prisma";
 
 import { wipeDemoDataAction } from "./actions";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   requireAdmin();
-  const org = await prisma.organization.findFirst();
+  const org = await getCurrentOrganization();
   const providers = await prisma.provider.findMany({ orderBy: { name: "asc" } });
 
   return (

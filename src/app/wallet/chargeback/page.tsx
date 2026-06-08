@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
+import { getCurrentOrganization } from "@/lib/current-organization";
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/Card";
 import { KpiCard } from "@/components/KpiCard";
@@ -28,7 +29,7 @@ type ChargebackRow = {
 
 export default async function ChargebackPage() {
   requireAdmin();
-  const org = await prisma.organization.findFirst({ orderBy: { createdAt: "asc" } });
+  const org = await getCurrentOrganization();
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
 
   const [summaries, recentInvoices, close] = await Promise.all([

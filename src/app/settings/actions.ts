@@ -13,6 +13,7 @@ import { newEncryptedIngestSecret } from "@/lib/ingest-secret";
 import { syncProviderUsage } from "@/lib/provider-sync";
 import { getProviderTestConfig } from "@/lib/provider-tests";
 import { prisma } from "@/lib/prisma";
+import { assertCurrentOrganizationId, requireCurrentOrganization } from "@/lib/current-organization";
 import { encryptVaultSecret } from "@/lib/secret-store";
 import { cookies } from "next/headers";
 
@@ -53,7 +54,8 @@ export async function saveCredentialAction(formData: FormData) {
   requireAdmin();
   const parsed = CredSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
-  const { organizationId, providerId, label, apiKey } = parsed.data;
+  const { providerId, label, apiKey } = parsed.data;
+  const organizationId = await assertCurrentOrganizationId(parsed.data.organizationId);
 
   await prisma.providerCredential.upsert({
     where: {
@@ -88,6 +90,7 @@ export async function deleteCredentialAction(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) throw new Error("Credential id required.");
   const existing = await prisma.providerCredential.findUnique({ where: { id } });
+  await assertCurrentOrganizationId(existing?.organizationId);
   await prisma.providerCredential.delete({ where: { id } });
   await auditLog({
     action: "credential.delete",
@@ -131,10 +134,11 @@ export async function createIngestSourceAction(formData: FormData) {
   requireAdmin();
   const parsed = IngestSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+  const organizationId = await assertCurrentOrganizationId(parsed.data.organizationId);
   const secret = newEncryptedIngestSecret();
   await prisma.ingestSource.create({
     data: {
-      organizationId: parsed.data.organizationId,
+      organizationId,
       name: parsed.data.name,
       apiKey: generateApiKey(),
       encryptedSecret: secret.encryptedSecret,
@@ -143,7 +147,7 @@ export async function createIngestSourceAction(formData: FormData) {
   });
   await auditLog({
     action: "ingest_source.create",
-    organizationId: parsed.data.organizationId,
+    organizationId,
     targetType: "IngestSource",
     metadata: { name: parsed.data.name },
   });
@@ -155,6 +159,8 @@ export async function rotateIngestSecretAction(formData: FormData) {
   requireAdmin();
   const id = String(formData.get("id") ?? "");
   if (!id) throw new Error("id required.");
+  const existing = await prisma.ingestSource.findUnique({ where: { id } });
+  await assertCurrentOrganizationId(existing?.organizationId);
   const secret = newEncryptedIngestSecret();
   const source = await prisma.ingestSource.update({
     where: { id },
@@ -174,6 +180,7 @@ export async function deleteIngestSourceAction(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) throw new Error("id required.");
   const source = await prisma.ingestSource.findUnique({ where: { id } });
+  await assertCurrentOrganizationId(source?.organizationId);
   await prisma.ingestSource.delete({ where: { id } });
   await auditLog({
     action: "ingest_source.delete",
@@ -193,7 +200,6 @@ export async function saveIntegrationAction(formData: FormData) {
 
   const {
     id,
-    organizationId,
     providerId,
     credentialId,
     ingestSourceId,
@@ -209,6 +215,7 @@ export async function saveIntegrationAction(formData: FormData) {
     active,
     notes,
   } = parsed.data;
+  const organizationId = await assertCurrentOrganizationId(parsed.data.organizationId);
 
   const provider = await prisma.provider.findUnique({ where: { id: providerId } });
   if (!provider) throw new Error("Provider not found.");
@@ -298,6 +305,11 @@ export async function markIntegrationVerifiedAction(formData: FormData) {
   requireAdmin();
   const id = String(formData.get("id") ?? "");
   if (!id) throw new Error("Integration id required.");
+  const existing = await prisma.integration.findUnique({
+    where: { id },
+    select: { organizationId: true },
+  });
+  await assertCurrentOrganizationId(existing?.organizationId);
   const integration = await prisma.integration.update({
     where: { id },
     data: { lastVerifiedAt: new Date() },
@@ -320,6 +332,7 @@ export async function deleteIntegrationAction(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) throw new Error("Integration id required.");
   const existing = await prisma.integration.findUnique({ where: { id } });
+  await assertCurrentOrganizationId(existing?.organizationId);
   await prisma.integration.delete({ where: { id } });
   await auditLog({
     action: "integration.delete",
@@ -341,9 +354,8 @@ export type ImportActionState =
 
 export async function importCsvAction(formData: FormData): Promise<ImportActionState> {
   requireAdmin();
-  const organizationId = String(formData.get("organizationId") ?? "");
+  const organizationId = await assertCurrentOrganizationId(String(formData.get("organizationId") ?? ""));
   const file = formData.get("file");
-  if (!organizationId) return { ok: false, error: "organizationId required." };
   if (!(file instanceof File) || file.size === 0) return { ok: false, error: "Please select a CSV file." };
   if (file.size > 20 * 1024 * 1024) return { ok: false, error: "File too large (>20MB)." };
 
@@ -410,6 +422,7 @@ export async function testCredentialAction(formData: FormData) {
     where: { id },
     include: { organization: true },
   });
+  await assertCurrentOrganizationId(cred?.organizationId);
   const provider = cred ? await prisma.provider.findUnique({ where: { id: cred.providerId } }) : null;
   const ingest = cred
     ? await prisma.ingestSource.findFirst({
@@ -669,17 +682,18 @@ async function safeReadResponseText(response: Response) {
  */
 export async function wipeDemoDataAction() {
   requireAdmin();
+  const organization = await requireCurrentOrganization();
   await prisma.$transaction([
-    prisma.insight.deleteMany(),
-    prisma.invoice.deleteMany(),
-    prisma.walletEntry.deleteMany(),
-    prisma.exchangeRate.deleteMany(),
-    prisma.usageEvent.deleteMany(),
-    prisma.budget.deleteMany(),
-    prisma.importJob.deleteMany(),
-    prisma.project.deleteMany(),
-    prisma.team.deleteMany(),
-    prisma.wallet.updateMany({ data: { balance: BigInt(0) } }),
+    prisma.insight.deleteMany({ where: { organizationId: organization.id } }),
+    prisma.invoice.deleteMany({ where: { organizationId: organization.id } }),
+    prisma.walletEntry.deleteMany({ where: { wallet: { organizationId: organization.id } } }),
+    prisma.exchangeRate.deleteMany({ where: { organizationId: organization.id } }),
+    prisma.usageEvent.deleteMany({ where: { organizationId: organization.id } }),
+    prisma.budget.deleteMany({ where: { organizationId: organization.id } }),
+    prisma.importJob.deleteMany({ where: { organizationId: organization.id } }),
+    prisma.project.deleteMany({ where: { organizationId: organization.id } }),
+    prisma.team.deleteMany({ where: { organizationId: organization.id } }),
+    prisma.wallet.updateMany({ where: { organizationId: organization.id }, data: { balance: BigInt(0) } }),
   ]);
   cookies().set(
     "sync-flash",
@@ -693,7 +707,12 @@ export async function wipeDemoDataAction() {
     }),
     { path: "/settings/credentials", maxAge: 30, httpOnly: false }
   );
-  await auditLog({ action: "demo_data.wipe", targetType: "Organization" });
+  await auditLog({
+    action: "demo_data.wipe",
+    organizationId: organization.id,
+    targetType: "Organization",
+    targetId: organization.id,
+  });
   revalidatePath("/", "layout");
   redirect("/settings/credentials");
 }

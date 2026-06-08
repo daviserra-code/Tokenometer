@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
+import { getCurrentOrganization } from "@/lib/current-organization";
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/Card";
 import { KpiCard } from "@/components/KpiCard";
@@ -27,7 +28,7 @@ type ProviderRow = {
 
 export default async function WalletReconciliationPage() {
   requireAdmin();
-  const org = await prisma.organization.findFirst({ orderBy: { createdAt: "asc" } });
+  const org = await getCurrentOrganization();
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
 
   const [rollups, summaries, invoices, close] = await Promise.all([

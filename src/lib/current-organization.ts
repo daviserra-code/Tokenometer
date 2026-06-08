@@ -40,3 +40,19 @@ export async function getCurrentOrganizationId(): Promise<string | null> {
   const organization = await getCurrentOrganization();
   return organization?.id ?? null;
 }
+
+export async function requireCurrentOrganization(): Promise<CurrentOrganization> {
+  const organization = await getCurrentOrganization();
+  if (!organization) {
+    throw new Error("No organization found.");
+  }
+  return organization;
+}
+
+export async function assertCurrentOrganizationId(organizationId?: string | null) {
+  const organization = await requireCurrentOrganization();
+  if (!organizationId || organizationId !== organization.id) {
+    throw new Error("This action cannot operate on a different organization.");
+  }
+  return organization.id;
+}

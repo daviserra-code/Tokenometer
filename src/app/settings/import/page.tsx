@@ -2,12 +2,13 @@ import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/Card";
 import { ImportForm } from "./ImportForm";
 import { requireAdmin } from "@/lib/auth";
+import { getCurrentOrganization } from "@/lib/current-organization";
 
 export const dynamic = "force-dynamic";
 
 export default async function ImportPage() {
   requireAdmin();
-  const org = await prisma.organization.findFirst();
+  const org = await getCurrentOrganization();
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
 
   const jobs = await prisma.importJob.findMany({

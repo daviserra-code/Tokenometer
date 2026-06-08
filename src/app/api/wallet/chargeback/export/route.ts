@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdmin } from "@/lib/auth";
+import { getCurrentOrganization } from "@/lib/current-organization";
 import { prisma } from "@/lib/prisma";
 import { listChargebackRollups } from "@/lib/wallet-allocations";
 import { listProviderValueRows } from "@/lib/provider-value";
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  const org = await prisma.organization.findFirst({ orderBy: { createdAt: "asc" } });
+  const org = await getCurrentOrganization();
   if (!org) {
     return NextResponse.json({ error: "No organization found." }, { status: 404 });
   }

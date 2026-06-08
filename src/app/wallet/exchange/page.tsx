@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/Card";
 import { requireAdmin } from "@/lib/auth";
+import { getCurrentOrganization } from "@/lib/current-organization";
 import { formatCurrency } from "@/lib/format";
 import { getOrganizationWalletGuardrail, syncOrganizationBudgetLocks } from "@/lib/wallet-guardrails";
 import { exchangeAction } from "../actions";
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ExchangePage() {
   requireAdmin();
-  const org = await prisma.organization.findFirst({ orderBy: { createdAt: "asc" } });
+  const org = await getCurrentOrganization();
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
   await syncOrganizationBudgetLocks(org.id);
   const guardrail = await getOrganizationWalletGuardrail(org.id);

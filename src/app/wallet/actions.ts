@@ -6,6 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auditLog } from "@/lib/audit";
 import { currentAdminUserId, requireAdmin } from "@/lib/auth";
+import { assertCurrentOrganizationId } from "@/lib/current-organization";
 import { getOrganizationWalletGuardrail, syncOrganizationBudgetLocks } from "@/lib/wallet-guardrails";
 import {
   createOrUpdateWalletAllocation,
@@ -57,12 +58,13 @@ export async function topupAction(formData: FormData) {
   requireAdmin();
   const parsed = TopupSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
-  await syncOrganizationBudgetLocks(parsed.data.organizationId);
+  const organizationId = await assertCurrentOrganizationId(parsed.data.organizationId);
+  await syncOrganizationBudgetLocks(organizationId);
 
   const userId = currentAdminUserId();
   if (parsed.data.submitMode === "request") {
     const request = await createTopupApprovalRequest({
-      organizationId: parsed.data.organizationId,
+      organizationId,
       providerId: parsed.data.providerId,
       tokens: parsed.data.tokens,
       unitCost: parsed.data.unitCost,
@@ -71,7 +73,7 @@ export async function topupAction(formData: FormData) {
     });
     await auditLog({
       action: "wallet_approval.requested",
-      organizationId: parsed.data.organizationId,
+      organizationId,
       targetType: "WalletApprovalRequest",
       targetId: request.id,
       metadata: {
@@ -82,7 +84,7 @@ export async function topupAction(formData: FormData) {
     });
   } else {
     const result = await postTopup({
-      organizationId: parsed.data.organizationId,
+      organizationId,
       providerId: parsed.data.providerId,
       tokens: parsed.data.tokens,
       unitCost: parsed.data.unitCost,
@@ -123,9 +125,10 @@ export async function transferAction(formData: FormData) {
   requireAdmin();
   const parsed = TransferSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
-  await syncOrganizationBudgetLocks(parsed.data.fromOrganizationId);
+  const fromOrganizationId = await assertCurrentOrganizationId(parsed.data.fromOrganizationId);
+  await syncOrganizationBudgetLocks(fromOrganizationId);
 
-  let toOrganizationId = parsed.data.toOrganizationId ?? parsed.data.fromOrganizationId;
+  let toOrganizationId = parsed.data.toOrganizationId ?? fromOrganizationId;
   if (parsed.data.mode === "p2p") {
     const handle = (parsed.data.toHandle ?? "").trim();
     if (!handle) throw new Error("Target @handle required.");
@@ -135,11 +138,11 @@ export async function transferAction(formData: FormData) {
     toOrganizationId = dest.id;
   }
 
-  const guardrail = await getOrganizationWalletGuardrail(parsed.data.fromOrganizationId);
+  const guardrail = await getOrganizationWalletGuardrail(fromOrganizationId);
   const userId = currentAdminUserId();
   if (parsed.data.submitMode === "request") {
     const request = await createTransferApprovalRequest({
-      fromOrganizationId: parsed.data.fromOrganizationId,
+      fromOrganizationId,
       toOrganizationId,
       providerId: parsed.data.providerId,
       tokens: parsed.data.tokens,
@@ -149,7 +152,7 @@ export async function transferAction(formData: FormData) {
     });
     await auditLog({
       action: "wallet_approval.requested",
-      organizationId: parsed.data.fromOrganizationId,
+      organizationId: fromOrganizationId,
       targetType: "WalletApprovalRequest",
       targetId: request.id,
       metadata: {
@@ -164,7 +167,7 @@ export async function transferAction(formData: FormData) {
       throw new Error(guardrail.message);
     }
     const result = await postTransfer({
-      fromOrganizationId: parsed.data.fromOrganizationId,
+      fromOrganizationId,
       toOrganizationId,
       providerId: parsed.data.providerId,
       tokens: parsed.data.tokens,
@@ -173,7 +176,7 @@ export async function transferAction(formData: FormData) {
     });
     await auditLog({
       action: "wallet_transfer.created",
-      organizationId: parsed.data.fromOrganizationId,
+      organizationId: fromOrganizationId,
       targetType: "WalletEntry",
       targetId: result.outEntry.id,
       metadata: {
@@ -202,7 +205,8 @@ export async function exchangeAction(formData: FormData) {
   requireAdmin();
   const parsed = ExchangeSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
-  await syncOrganizationBudgetLocks(parsed.data.organizationId);
+  const organizationId = await assertCurrentOrganizationId(parsed.data.organizationId);
+  await syncOrganizationBudgetLocks(organizationId);
 
   if (parsed.data.fromProviderId === parsed.data.toProviderId) {
     throw new Error("Cannot exchange a provider with itself.");
@@ -211,7 +215,7 @@ export async function exchangeAction(formData: FormData) {
   const rateRow = await prisma.exchangeRate.findUnique({
     where: {
       organizationId_fromProviderId_toProviderId: {
-        organizationId: parsed.data.organizationId,
+        organizationId,
         fromProviderId: parsed.data.fromProviderId,
         toProviderId: parsed.data.toProviderId,
       },
@@ -221,13 +225,13 @@ export async function exchangeAction(formData: FormData) {
     throw new Error("No active exchange rate for that pair.");
   }
 
-  const guardrail = await getOrganizationWalletGuardrail(parsed.data.organizationId);
+  const guardrail = await getOrganizationWalletGuardrail(organizationId);
   if (!guardrail.allowsDirectExchange) {
     throw new Error(guardrail.message);
   }
 
   const result = await postExchange({
-    organizationId: parsed.data.organizationId,
+    organizationId,
     fromProviderId: parsed.data.fromProviderId,
     toProviderId: parsed.data.toProviderId,
     fromTokens: parsed.data.fromTokens,
@@ -237,7 +241,7 @@ export async function exchangeAction(formData: FormData) {
   });
   await auditLog({
     action: "wallet_exchange.created",
-    organizationId: parsed.data.organizationId,
+    organizationId,
     targetType: "WalletEntry",
     targetId: result.outEntry.id,
     metadata: {
@@ -275,6 +279,7 @@ export async function updateWalletPolicyAction(formData: FormData) {
     },
   });
   if (!previous) throw new Error("Wallet not found.");
+  await assertCurrentOrganizationId(previous.organizationId);
 
   const wallet = await updateWalletPolicy({
     walletId: parsed.data.walletId,
@@ -316,7 +321,8 @@ export async function saveWalletAllocationAction(formData: FormData) {
   requireAdmin();
   const parsed = AllocationSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
-  await syncOrganizationBudgetLocks(parsed.data.organizationId);
+  const organizationId = await assertCurrentOrganizationId(parsed.data.organizationId);
+  await syncOrganizationBudgetLocks(organizationId);
   const previous = await prisma.walletAllocation.findFirst({
     where: {
       walletId: parsed.data.walletId,
@@ -331,7 +337,7 @@ export async function saveWalletAllocationAction(formData: FormData) {
   });
 
   const allocation = await createOrUpdateWalletAllocation({
-    organizationId: parsed.data.organizationId,
+    organizationId,
     walletId: parsed.data.walletId,
     scope: parsed.data.scope,
     scopeId: parsed.data.scopeId,
@@ -341,7 +347,7 @@ export async function saveWalletAllocationAction(formData: FormData) {
 
   await auditLog({
     action: "wallet_allocation.saved",
-    organizationId: parsed.data.organizationId,
+    organizationId,
     targetType: "WalletAllocation",
     targetId: allocation.id,
     metadata: {
@@ -373,6 +379,7 @@ export async function deleteWalletAllocationAction(formData: FormData) {
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
 
   const allocation = await deleteWalletAllocation(parsed.data.allocationId);
+  await assertCurrentOrganizationId(allocation.organizationId);
   await auditLog({
     action: "wallet_allocation.deleted",
     organizationId: allocation.organizationId,
@@ -403,15 +410,16 @@ export async function issueChargebackStatementsAction(formData: FormData) {
   requireAdmin();
   const parsed = ChargebackSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+  const organizationId = await assertCurrentOrganizationId(parsed.data.organizationId);
 
   const invoices = await issueChargebackInvoices(
-    parsed.data.organizationId,
+    organizationId,
     currentAdminUserId() ?? "admin"
   );
 
   await auditLog({
     action: "wallet_chargeback.issued",
-    organizationId: parsed.data.organizationId,
+    organizationId,
     targetType: "Invoice",
     metadata: {
       invoicesIssued: invoices.length,
@@ -449,11 +457,13 @@ export async function updateCostCenterMappingAction(formData: FormData) {
   requireAdmin();
   const parsed = CostCenterSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+  const organizationId = await assertCurrentOrganizationId(parsed.data.organizationId);
   const previous =
     parsed.data.scope === "PROJECT"
       ? await prisma.project.findUnique({
           where: { id: parsed.data.scopeId },
           select: {
+            organizationId: true,
             name: true,
             costCenterCode: true,
             costCenterName: true,
@@ -462,12 +472,16 @@ export async function updateCostCenterMappingAction(formData: FormData) {
       : await prisma.team.findUnique({
           where: { id: parsed.data.scopeId },
           select: {
+            organizationId: true,
             name: true,
             costCenterCode: true,
             costCenterName: true,
           },
         });
   if (!previous) throw new Error(`${parsed.data.scope} not found.`);
+  if (previous.organizationId !== organizationId) {
+    throw new Error(`${parsed.data.scope} does not belong to the current organization.`);
+  }
 
   const normalizedCode = parsed.data.costCenterCode?.toUpperCase() ?? null;
   const target =
@@ -489,7 +503,7 @@ export async function updateCostCenterMappingAction(formData: FormData) {
 
   await auditLog({
     action: "cost_center.updated",
-    organizationId: parsed.data.organizationId,
+    organizationId,
     targetType: parsed.data.scope,
     targetId: parsed.data.scopeId,
     metadata: {

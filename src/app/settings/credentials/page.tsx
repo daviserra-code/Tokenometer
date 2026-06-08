@@ -6,6 +6,7 @@ import { KpiCard } from "@/components/KpiCard";
 import { ProviderChip } from "@/components/ProviderChip";
 import { SetupSurfaceGuide } from "@/components/SetupSurfaceGuide";
 import { requireAdmin } from "@/lib/auth";
+import { getCurrentOrganization } from "@/lib/current-organization";
 import { formatCurrency, formatDateTime, formatRelativeTime, formatTokens } from "@/lib/format";
 import { evaluateIntegrationHealth, healthToneClasses } from "@/lib/integration-health";
 import {
@@ -76,7 +77,7 @@ export default async function CredentialsPage({
   searchParams?: Promise<SearchParams> | SearchParams;
 }) {
   requireAdmin();
-  const org = await prisma.organization.findFirst();
+  const org = await getCurrentOrganization();
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
   await ensureRuntimeProviderCatalog(org.id, org.currency);
 

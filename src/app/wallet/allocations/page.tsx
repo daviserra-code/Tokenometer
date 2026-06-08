@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/auth";
+import { getCurrentOrganization } from "@/lib/current-organization";
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/Card";
 import { DataTable, type Column } from "@/components/DataTable";
@@ -30,7 +31,7 @@ type AllocationRow = {
 
 export default async function WalletAllocationsPage() {
   requireAdmin();
-  const org = await prisma.organization.findFirst({ orderBy: { createdAt: "asc" } });
+  const org = await getCurrentOrganization();
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
 
   const [wallets, projects, teams, summaries] = await Promise.all([

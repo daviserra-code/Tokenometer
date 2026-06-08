@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { isAdmin } from "@/lib/auth";
+import { getCurrentOrganization } from "@/lib/current-organization";
 import { Card, PageHeader } from "@/components/Card";
 import { KpiCard } from "@/components/KpiCard";
 import { DataTable, type Column } from "@/components/DataTable";
@@ -46,7 +47,7 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 export default async function WalletPage() {
-  const org = await prisma.organization.findFirst({ orderBy: { createdAt: "asc" } });
+  const org = await getCurrentOrganization();
   if (!org) {
     return (
       <div>
