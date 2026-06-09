@@ -433,6 +433,7 @@ export async function testCredentialAction(formData: FormData) {
   let ok = false;
   let message = "Unknown error.";
   const providerName = provider?.name ?? "?";
+  let lastAttemptedModel = "";
 
   if (!cred || !provider) {
     message = "Credential or provider not found.";
@@ -455,6 +456,7 @@ export async function testCredentialAction(formData: FormData) {
         modelOverride && testConfig.allowModelOverride
           ? [modelOverride]
           : defaultCandidateModels;
+      lastAttemptedModel = candidateModels[0] ?? testConfig.model;
       if (provider.name === "Anthropic" && modelOverride && testConfig.allowModelOverride) {
         const resolved = resolveAnthropicDirectModel(modelOverride);
         if (!resolved.ok) {
@@ -480,6 +482,7 @@ export async function testCredentialAction(formData: FormData) {
           redirect("/settings/credentials");
         }
         candidateModels = [resolved.model];
+        lastAttemptedModel = resolved.model;
       }
       const requestHeaders = headers();
       const forwardedProto = requestHeaders.get("x-forwarded-proto");
@@ -496,6 +499,7 @@ export async function testCredentialAction(formData: FormData) {
 
       for (const candidateModel of candidateModels) {
         finalModel = candidateModel;
+        lastAttemptedModel = candidateModel;
         const endpoint = rewriteGuidedTestEndpoint(testConfig.endpoint, provider.name, candidateModel);
         const body = rewriteGuidedTestBody(testConfig.body, provider.name, candidateModel);
         res = await fetch(`${localBase}${endpoint}`, {
@@ -554,14 +558,19 @@ export async function testCredentialAction(formData: FormData) {
         });
       }
     } catch (e) {
-      const testConfigModel = getProviderTestConfig(provider.name)?.model;
-      message = `Test call failed: ${(e as Error).message}`;
+      const errorMessage = (e as Error).message;
+      if (provider.name === "Anthropic" && errorMessage.toLowerCase().includes("terminated")) {
+        message =
+          "Anthropic ended the failed response before Tokenometer could read the full error body. This usually means the key is valid but the chosen direct Anthropic model is unavailable for that key, or the organization is actually using Bedrock or Vertex instead of the direct Anthropic API.";
+      } else {
+        message = `Test call failed: ${errorMessage}`;
+      }
       setVerificationFlash({
         kind: "guided-test",
         provider: provider.name,
         ok: false,
         message,
-        model: testConfigModel ?? undefined,
+        model: lastAttemptedModel || getProviderTestConfig(provider.name)?.model || undefined,
         timestamp: new Date().toISOString(),
       });
     }
@@ -639,20 +648,40 @@ function resolveAnthropicDirectModel(input: string): AnthropicModelResolution {
     return {
       ok: false,
       message:
-        "“Claude Sonnet 4.6” looks like a product label or non-direct alias, not a documented direct Anthropic API model ID. For the direct Anthropic API, try claude-sonnet-4-20250514.",
+        "\"Claude Sonnet 4.6\" looks like a product label or non-direct alias, not a documented direct Anthropic API model ID. For the direct Anthropic API, try claude-sonnet-4-20250514.",
     };
   }
 
-  if (lowered === "sonnet" || lowered === "claude sonnet 4" || lowered === "claude-sonnet-4") {
+  if (
+    lowered === "sonnet" ||
+    lowered === "sonnet 4" ||
+    lowered === "claude sonnet 4" ||
+    lowered === "claude-sonnet-4"
+  ) {
     return { ok: true, model: "claude-sonnet-4-20250514" };
   }
-  if (lowered === "opus" || lowered === "claude opus 4" || lowered === "claude-opus-4") {
+  if (
+    lowered === "opus" ||
+    lowered === "opus 4" ||
+    lowered === "claude opus 4" ||
+    lowered === "claude-opus-4"
+  ) {
     return { ok: true, model: "claude-opus-4-20250514" };
   }
-  if (lowered === "claude 3.7 sonnet" || lowered === "claude-sonnet-3.7" || lowered === "claude 3-7 sonnet") {
+  if (
+    lowered === "claude 3.7 sonnet" ||
+    lowered === "sonnet 3.7" ||
+    lowered === "claude-sonnet-3.7" ||
+    lowered === "claude 3-7 sonnet"
+  ) {
     return { ok: true, model: "claude-3-7-sonnet-20250219" };
   }
-  if (lowered === "claude 3.5 haiku" || lowered === "claude-haiku-3.5" || lowered === "haiku 3.5") {
+  if (
+    lowered === "claude 3.5 haiku" ||
+    lowered === "haiku 3.5" ||
+    lowered === "claude haiku 3.5" ||
+    lowered === "claude-haiku-3.5"
+  ) {
     return { ok: true, model: "claude-3-5-haiku-20241022" };
   }
 
@@ -752,3 +781,4 @@ export async function syncCredentialAction(formData: FormData) {
   revalidatePath("/settings/credentials");
   redirect("/settings/credentials");
 }
+

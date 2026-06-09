@@ -9,6 +9,7 @@ import {
   extractAnthropicUsage,
   jsonProxyError,
   queueMetering,
+  safeReadUpstreamText,
 } from "@/lib/proxy-runtime";
 import { prisma } from "@/lib/prisma";
 
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
 
   if (body.stream) {
     if (!upstreamRes.ok || !upstreamRes.body) {
-      const responseText = await upstreamRes.text();
+      const responseText = await safeReadUpstreamText(upstreamRes);
       return createTextProxyResponse(upstreamRes, responseText, state, {
         upstreamStatus: upstreamRes.status,
       });
@@ -160,7 +161,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const responseText = await upstreamRes.text();
+  const responseText = await safeReadUpstreamText(upstreamRes);
 
   if (upstreamRes.ok) {
     try {

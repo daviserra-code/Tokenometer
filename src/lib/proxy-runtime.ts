@@ -98,6 +98,16 @@ export function createTextProxyResponse(
   );
 }
 
+export async function safeReadUpstreamText(response: Response) {
+  try {
+    return await response.text();
+  } catch (error) {
+    return error instanceof Error
+      ? `Unreadable upstream error body (${error.message}).`
+      : "Unreadable upstream error body.";
+  }
+}
+
 export function createSseProxyResponse(options: SseStreamOptions) {
   const { upstreamRes, state, onJson, onComplete } = options;
   if (!upstreamRes.body) {

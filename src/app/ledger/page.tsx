@@ -150,6 +150,7 @@ export default async function LedgerPage({
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const currentPage = Math.min(requestedPage, totalPages);
   const pageOffset = (currentPage - 1) * pageSize;
+  baseExportParams.set("page", String(currentPage));
 
   const events = await prisma.usageEvent.findMany({
     where,

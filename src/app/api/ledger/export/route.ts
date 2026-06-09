@@ -45,6 +45,12 @@ function buildSubtitle(filters: {
   return parts.length ? parts.join(" - ") : "No filters applied";
 }
 
+function parsePositiveInt(value: string | null, fallback: number, max: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(1, Math.floor(parsed)));
+}
+
 export async function GET(request: NextRequest) {
   if (!isAdmin()) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
@@ -57,6 +63,8 @@ export async function GET(request: NextRequest) {
 
   const search = request.nextUrl.searchParams;
   const format = (search.get("format") ?? "csv").toLowerCase();
+  const requestedPage = parsePositiveInt(search.get("page"), 1, 10_000);
+  const requestedPageSize = parsePositiveInt(search.get("pageSize"), 100, 250);
   const where: Prisma.UsageEventWhereInput = { organizationId: org.id };
 
   const filters = {
@@ -77,37 +85,42 @@ export async function GET(request: NextRequest) {
   if (filters.projectId) where.projectId = filters.projectId;
   if (filters.teamId) where.teamId = filters.teamId;
 
-  const [events, totals] = await Promise.all([
-    prisma.usageEvent.findMany({
-      where,
-      orderBy: { timestamp: "desc" },
-      take: 5000,
-      include: {
-        provider: { select: { name: true } },
-        model: { select: { name: true } },
-        integration: { select: { name: true } },
-        project: { select: { name: true } },
-        team: { select: { name: true } },
-      },
-    }),
-    prisma.usageEvent.aggregate({
-      where,
-      _sum: {
-        inputTokens: true,
-        outputTokens: true,
-        totalTokens: true,
-        estimatedTotalCost: true,
-      },
-      _count: true,
-    }),
-  ]);
+  const totals = await prisma.usageEvent.aggregate({
+    where,
+    _sum: {
+      inputTokens: true,
+      outputTokens: true,
+      totalTokens: true,
+      estimatedTotalCost: true,
+    },
+    _count: true,
+  });
+
+  const totalMatching = totals._count;
+  const totalPages = Math.max(1, Math.ceil(totalMatching / requestedPageSize));
+  const currentPage = Math.min(requestedPage, totalPages);
+
+  const events = await prisma.usageEvent.findMany({
+    where,
+    orderBy: { timestamp: "desc" },
+    skip: format === "pdf" ? (currentPage - 1) * requestedPageSize : 0,
+    take: format === "pdf" ? requestedPageSize : 5000,
+    include: {
+      provider: { select: { name: true } },
+      model: { select: { name: true } },
+      integration: { select: { name: true } },
+      project: { select: { name: true } },
+      team: { select: { name: true } },
+    },
+  });
 
   if (format === "pdf") {
     const pdf = await renderLedgerPdfBuffer({
       title: "Tokenometer Ledger Export",
-      subtitle: `${buildSubtitle(filters)} | Generated ${new Date().toISOString().slice(0, 10)}`,
+      subtitle: `${buildSubtitle(filters)} | Page ${currentPage} of ${totalPages} | Generated ${new Date().toISOString().slice(0, 10)}`,
       metrics: [
-        { label: "Matching events", value: formatNumber(totals._count), tone: "output" },
+        { label: "Matching events", value: formatNumber(totalMatching), tone: "output" },
+        { label: "Events shown", value: formatNumber(events.length), tone: "default" },
         { label: "Input tokens", value: formatNumber(toNumber(totals._sum.inputTokens)), tone: "input" },
         { label: "Output tokens", value: formatNumber(toNumber(totals._sum.outputTokens)), tone: "output" },
         {
@@ -116,7 +129,7 @@ export async function GET(request: NextRequest) {
           tone: "success",
         },
       ],
-      entries: events.slice(0, 120).map((event) => ({
+      entries: events.map((event) => ({
         ...(() => {
           const metadata =
             event.metadataJson && typeof event.metadataJson === "object"
@@ -142,8 +155,8 @@ export async function GET(request: NextRequest) {
         cost: formatEventCurrency(toNumber(event.estimatedTotalCost), org.currency),
       })),
       footerNote:
-        events.length > 120
-          ? "PDF trimmed to the first 120 events so the document stays readable. Event costs below one cent are shown with higher precision."
+        totalMatching > events.length
+          ? `PDF shows page ${currentPage} of ${totalPages} for readability. Event costs below one cent are shown with higher precision.`
           : "Readable ledger export for the current filters and current metering-path labels. Event costs below one cent are shown with higher precision.",
     });
 
