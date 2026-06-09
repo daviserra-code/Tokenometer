@@ -6,7 +6,9 @@ import { Card, PageHeader } from "@/components/Card";
 import { KpiCard } from "@/components/KpiCard";
 import { DataTable, type Column } from "@/components/DataTable";
 import { ProviderChip } from "@/components/ProviderChip";
+import { getFinanceReadinessSnapshot, financeReadinessToneClasses } from "@/lib/finance-readiness";
 import { formatCurrency } from "@/lib/format";
+import { getReconciliationSnapshot } from "@/lib/reconciliation";
 import { formatTokenBalance } from "@/lib/wallet";
 import { issueChargebackStatementsAction } from "../actions";
 import { getFinanceCloseSnapshot, listWalletAllocationSummaries } from "@/lib/wallet-allocations";
@@ -32,7 +34,7 @@ export default async function ChargebackPage() {
   const org = await getCurrentOrganization();
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
 
-  const [summaries, recentInvoices, close] = await Promise.all([
+  const [summaries, recentInvoices, close, reconciliation] = await Promise.all([
     listWalletAllocationSummaries(org.id),
     prisma.invoice.findMany({
       where: { organizationId: org.id, type: "MONTHLY_USAGE" },
@@ -40,7 +42,10 @@ export default async function ChargebackPage() {
       take: 20,
     }),
     getFinanceCloseSnapshot(org.id),
+    getReconciliationSnapshot(org.id, 30),
   ]);
+
+  const financeReadiness = getFinanceReadinessSnapshot({ close, reconciliation });
 
   const rows: ChargebackRow[] = summaries.map((summary) => ({
     id: summary.id,
@@ -159,11 +164,24 @@ export default async function ChargebackPage() {
         </p>
       </div>
 
+      <div className={`rounded-lg border px-4 py-3 ${financeReadinessToneClasses(financeReadiness.status)}`}>
+        <p className="text-sm text-on-surface">
+          <strong>{financeReadiness.title}.</strong> {financeReadiness.summary}
+        </p>
+        <p className="mt-1 text-[12px] text-text-muted">{financeReadiness.nextAction}</p>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Chargeable scopes" value={String(close.chargeableScopes)} icon="account_tree" tone="input" />
         <KpiCard label="Statements issued" value={String(close.statementsIssued)} icon="receipt_long" />
         <KpiCard label="Missing statements" value={String(close.missingStatements)} icon="assignment_late" tone={close.missingStatements > 0 ? "warning" : "default"} />
         <KpiCard label="Unmapped rollups" value={String(close.unmappedRollups)} icon="warning" tone={close.unmappedRollups > 0 ? "warning" : "default"} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <KpiCard label="In-range providers" value={String(reconciliation.counts.matched)} icon="sync" tone="success" />
+        <KpiCard label="Drift providers" value={String(reconciliation.counts.drift)} icon="compare_arrows" tone={reconciliation.counts.drift > 0 ? "warning" : "default"} />
+        <KpiCard label="Live-only providers" value={String(reconciliation.counts.live_only)} icon="bolt" tone={reconciliation.counts.live_only > 0 ? "input" : "default"} />
       </div>
 
       <Card

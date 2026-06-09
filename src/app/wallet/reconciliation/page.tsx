@@ -6,7 +6,9 @@ import { Card, PageHeader } from "@/components/Card";
 import { KpiCard } from "@/components/KpiCard";
 import { DataTable, type Column } from "@/components/DataTable";
 import { ProviderChip } from "@/components/ProviderChip";
+import { getFinanceReadinessSnapshot, financeReadinessToneClasses } from "@/lib/finance-readiness";
 import { formatCurrency } from "@/lib/format";
+import { getReconciliationSnapshot } from "@/lib/reconciliation";
 import { formatTokenBalance } from "@/lib/wallet";
 import {
   getFinanceCloseSnapshot,
@@ -31,7 +33,7 @@ export default async function WalletReconciliationPage() {
   const org = await getCurrentOrganization();
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
 
-  const [rollups, summaries, invoices, close] = await Promise.all([
+  const [rollups, summaries, invoices, close, reconciliation] = await Promise.all([
     listChargebackRollups(org.id),
     listWalletAllocationSummaries(org.id),
     prisma.invoice.findMany({
@@ -40,7 +42,10 @@ export default async function WalletReconciliationPage() {
       take: 100,
     }),
     getFinanceCloseSnapshot(org.id),
+    getReconciliationSnapshot(org.id, 30),
   ]);
+
+  const financeReadiness = getFinanceReadinessSnapshot({ close, reconciliation });
 
   const totalChargeback = rollups.reduce((sum, row) => sum + row.spendCost, 0);
   const mappedRollups = rollups.filter((row) => row.costCenterCode || row.costCenterName).length;
@@ -212,6 +217,13 @@ export default async function WalletReconciliationPage() {
         </p>
       </div>
 
+      <div className={`rounded-lg border px-4 py-3 ${financeReadinessToneClasses(financeReadiness.status)}`}>
+        <p className="text-sm text-on-surface">
+          <strong>{financeReadiness.title}.</strong> {financeReadiness.summary}
+        </p>
+        <p className="mt-1 text-[12px] text-text-muted">{financeReadiness.nextAction}</p>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Chargeback pool" value={formatCurrency(totalChargeback, org.currency)} icon="payments" tone="success" accent />
         <KpiCard label="Mapped rollups" value={String(mappedRollups)} icon="domain" tone="input" />
@@ -223,6 +235,13 @@ export default async function WalletReconciliationPage() {
         <KpiCard label="Chargeable scopes" value={String(close.chargeableScopes)} icon="account_tree" tone="input" />
         <KpiCard label="Missing statements" value={String(close.missingStatements)} icon="assignment_late" tone={close.missingStatements > 0 ? "warning" : "default"} />
         <KpiCard label="Over-allocated rollups" value={String(close.overAllocatedRollups)} icon="priority_high" tone={close.overAllocatedRollups > 0 ? "warning" : "default"} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+        <KpiCard label="In range" value={String(reconciliation.counts.matched)} icon="sync" tone="success" />
+        <KpiCard label="Drift" value={String(reconciliation.counts.drift)} icon="compare_arrows" tone={reconciliation.counts.drift > 0 ? "warning" : "default"} />
+        <KpiCard label="Live only" value={String(reconciliation.counts.live_only)} icon="bolt" tone={reconciliation.counts.live_only > 0 ? "input" : "default"} />
+        <KpiCard label="History only" value={String(reconciliation.counts.history_only)} icon="history" tone={reconciliation.counts.history_only > 0 ? "danger" : "default"} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

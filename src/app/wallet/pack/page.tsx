@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/Card";
 import { KpiCard } from "@/components/KpiCard";
 import { formatCurrency } from "@/lib/format";
+import { getFinanceReadinessSnapshot, financeReadinessToneClasses } from "@/lib/finance-readiness";
+import { getReconciliationSnapshot } from "@/lib/reconciliation";
 import { getFinanceCloseSnapshot, listChargebackRollups } from "@/lib/wallet-allocations";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +16,7 @@ export default async function WalletPackPage() {
   const org = await getCurrentOrganization();
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
 
-  const [rollups, invoices, close] = await Promise.all([
+  const [rollups, invoices, close, reconciliation] = await Promise.all([
     listChargebackRollups(org.id),
     prisma.invoice.findMany({
       where: { organizationId: org.id, type: "MONTHLY_USAGE" },
@@ -22,7 +24,10 @@ export default async function WalletPackPage() {
       take: 24,
     }),
     getFinanceCloseSnapshot(org.id),
+    getReconciliationSnapshot(org.id, 30),
   ]);
+
+  const financeReadiness = getFinanceReadinessSnapshot({ close, reconciliation });
 
   const totalChargeback = rollups.reduce((sum, row) => sum + row.spendCost, 0);
   const mappedRollups = rollups.filter((row) => row.costCenterCode || row.costCenterName).length;
@@ -50,6 +55,13 @@ export default async function WalletPackPage() {
         </p>
       </div>
 
+      <div className={`rounded-lg border px-4 py-3 ${financeReadinessToneClasses(financeReadiness.status)}`}>
+        <p className="text-sm text-on-surface">
+          <strong>{financeReadiness.title}.</strong> {financeReadiness.summary}
+        </p>
+        <p className="mt-1 text-[12px] text-text-muted">{financeReadiness.nextAction}</p>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           label="Chargeback pool"
@@ -61,6 +73,12 @@ export default async function WalletPackPage() {
         <KpiCard label="Statements issued" value={String(invoices.length)} icon="receipt_long" />
         <KpiCard label="Mapped rollups" value={`${mappedRollups}/${rollups.length}`} icon="domain" tone="input" />
         <KpiCard label="Missing statements" value={String(close.missingStatements)} icon="assignment_late" tone={close.missingStatements > 0 ? "warning" : "default"} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <KpiCard label="Reconciliation in range" value={String(reconciliation.counts.matched)} icon="sync" tone="success" />
+        <KpiCard label="Reconciliation drift" value={String(reconciliation.counts.drift)} icon="compare_arrows" tone={reconciliation.counts.drift > 0 ? "warning" : "default"} />
+        <KpiCard label="Live-only providers" value={String(reconciliation.counts.live_only)} icon="bolt" tone={reconciliation.counts.live_only > 0 ? "input" : "default"} />
       </div>
 
       <Card
