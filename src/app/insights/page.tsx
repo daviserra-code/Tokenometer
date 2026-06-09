@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { Card, PageHeader } from "@/components/Card";
+import { getCurrentOrganization } from "@/lib/current-organization";
 import { generateInsightsAction, resolveInsightAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function InsightsPage() {
-  const org = await prisma.organization.findFirst();
+  const org = await getCurrentOrganization();
   if (!org) return <p className="text-text-muted">Run the seed first.</p>;
 
   const insights = await prisma.insight.findMany({

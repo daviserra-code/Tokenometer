@@ -4,6 +4,7 @@ import { KpiCard } from "@/components/KpiCard";
 import { DataTable, type Column, type RowTone } from "@/components/DataTable";
 import { BudgetBar } from "@/components/BudgetBar";
 import { StatusBadge } from "@/components/StatusBadge";
+import { getCurrentOrganization } from "@/lib/current-organization";
 import { formatCurrency, formatTokens, toNumber } from "@/lib/format";
 import { startOfMonth } from "@/lib/calc";
 import { listWalletAllocationSummaries } from "@/lib/wallet-allocations";
@@ -13,7 +14,7 @@ import { syncOrganizationBudgetLocks } from "@/lib/wallet-guardrails";
 export const dynamic = "force-dynamic";
 
 export default async function ProjectsPage() {
-  const org = await prisma.organization.findFirst();
+  const org = await getCurrentOrganization();
   if (!org) {
     return (
       <div>

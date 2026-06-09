@@ -3,6 +3,7 @@ import { Card, PageHeader } from "@/components/Card";
 import { KpiCard } from "@/components/KpiCard";
 import { DataTable, type Column, type RowTone } from "@/components/DataTable";
 import { BudgetBar } from "@/components/BudgetBar";
+import { getCurrentOrganization } from "@/lib/current-organization";
 import { formatCurrency, toNumber } from "@/lib/format";
 import { daysInMonth, projectMonthEndSpend, startOfMonth } from "@/lib/calc";
 import { syncOrganizationBudgetLocks } from "@/lib/wallet-guardrails";
@@ -30,7 +31,7 @@ function stateForPct(pct: number): BudgetRow["state"] {
 }
 
 export default async function BudgetsPage() {
-  const org = await prisma.organization.findFirst();
+  const org = await getCurrentOrganization();
   if (!org) {
     return (
       <div>

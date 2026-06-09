@@ -4,6 +4,7 @@ import { Card, PageHeader } from "@/components/Card";
 import { KpiCard } from "@/components/KpiCard";
 import { ProviderTag } from "@/components/ProviderChip";
 import { requireAdmin } from "@/lib/auth";
+import { getCurrentOrganization } from "@/lib/current-organization";
 import { formatDateTime, formatRelativeTime } from "@/lib/format";
 import { evaluateIntegrationHealth } from "@/lib/integration-health";
 import { prisma } from "@/lib/prisma";
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic";
 export default async function SetupPage() {
   requireAdmin();
 
-  const org = await prisma.organization.findFirst();
+  const org = await getCurrentOrganization();
   if (!org) {
     return (
       <div>

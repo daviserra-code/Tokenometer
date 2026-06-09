@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { prisma } from "@/lib/prisma";
+import { getCurrentOrganizationId } from "@/lib/current-organization";
 import { decryptVaultSecret, encryptVaultSecret } from "@/lib/secret-store";
 
 const PASSWORD_ITERATIONS = 210_000;
@@ -36,12 +37,12 @@ export async function ensureBootstrapAdmin() {
   const password = process.env.ADMIN_PASSWORD;
   if (!password || password.length < 16) return null;
 
-  const org = await prisma.organization.findFirst({ select: { id: true } });
+  const organizationId = await getCurrentOrganizationId();
   const { hash, salt, iterations } = hashPassword(password);
   return prisma.adminUser.create({
     data: {
       username,
-      organizationId: org?.id,
+      organizationId,
       passwordHash: hash,
       passwordSalt: salt,
       passwordIterations: iterations,
