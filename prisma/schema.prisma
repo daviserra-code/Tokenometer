@@ -76,12 +76,39 @@ enum IntegrationMode {
   ENFORCE
 }
 
+enum DeploymentMode {
+  HOSTED
+  SELF_HOSTED
+  PRIVATE_CLOUD
+  DESKTOP_COMPANION
+}
+
+enum SubscriptionPlan {
+  STARTER
+  TEAM
+  BUSINESS
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  PAUSED
+  CANCELED
+}
+
 model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  handle    String   @unique // public P2P handle, e.g. @acme
-  currency  String   @default("USD")
-  createdAt DateTime @default(now())
+  id                 String             @id @default(cuid())
+  name               String
+  handle             String             @unique // public P2P handle, e.g. @acme
+  currency           String             @default("USD")
+  deploymentMode     DeploymentMode     @default(HOSTED)
+  subscriptionPlan   SubscriptionPlan   @default(TEAM)
+  subscriptionStatus SubscriptionStatus @default(ACTIVE)
+  retentionDays      Int                @default(90)
+  seatCapacity       Int                @default(10)
+  createdAt          DateTime           @default(now())
 
   teams               Team[]
   projects            Project[]

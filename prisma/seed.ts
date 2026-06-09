@@ -1,4 +1,16 @@
-import { PrismaClient, ProjectStatus, ProviderType, BudgetScope, BudgetPeriod, WalletEntryType, InvoiceType, Prisma } from "@prisma/client";
+import {
+  PrismaClient,
+  ProjectStatus,
+  ProviderType,
+  BudgetScope,
+  BudgetPeriod,
+  WalletEntryType,
+  InvoiceType,
+  Prisma,
+  DeploymentMode,
+  SubscriptionPlan,
+  SubscriptionStatus,
+} from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -42,10 +54,28 @@ async function main() {
 
   console.log("🏢 Creating organizations…");
   const org = await prisma.organization.create({
-    data: { name: "Acme AI Holdings", handle: "@acme", currency: "USD" },
+    data: {
+      name: "Acme AI Holdings",
+      handle: "@acme",
+      currency: "USD",
+      deploymentMode: DeploymentMode.HOSTED,
+      subscriptionPlan: SubscriptionPlan.BUSINESS,
+      subscriptionStatus: SubscriptionStatus.ACTIVE,
+      retentionDays: 180,
+      seatCapacity: 25,
+    },
   });
   const partnerOrg = await prisma.organization.create({
-    data: { name: "Globex AI", handle: "@globex", currency: "USD" },
+    data: {
+      name: "Globex AI",
+      handle: "@globex",
+      currency: "USD",
+      deploymentMode: DeploymentMode.HOSTED,
+      subscriptionPlan: SubscriptionPlan.STARTER,
+      subscriptionStatus: SubscriptionStatus.TRIAL,
+      retentionDays: 30,
+      seatCapacity: 5,
+    },
   });
 
   console.log("👥 Creating teams…");

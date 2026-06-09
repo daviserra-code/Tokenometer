@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { auditLog } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth";
+import { assertCommercialLimit } from "@/lib/commercial-plans";
 import { generateApiKey, maskKey } from "@/lib/crypto";
 import { importUsageCsv } from "@/lib/ingest";
 import { newEncryptedIngestSecret } from "@/lib/ingest-secret";
@@ -56,6 +57,13 @@ export async function saveCredentialAction(formData: FormData) {
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
   const { providerId, label, apiKey } = parsed.data;
   const organizationId = await assertCurrentOrganizationId(parsed.data.organizationId);
+  const existing = await prisma.providerCredential.findUnique({
+    where: {
+      organizationId_providerId_label: { organizationId, providerId, label },
+    },
+    select: { id: true },
+  });
+  await assertCommercialLimit(organizationId, "credentials", !existing);
 
   await prisma.providerCredential.upsert({
     where: {
@@ -135,6 +143,7 @@ export async function createIngestSourceAction(formData: FormData) {
   const parsed = IngestSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
   const organizationId = await assertCurrentOrganizationId(parsed.data.organizationId);
+  await assertCommercialLimit(organizationId, "ingestSources");
   const secret = newEncryptedIngestSecret();
   await prisma.ingestSource.create({
     data: {
@@ -216,6 +225,7 @@ export async function saveIntegrationAction(formData: FormData) {
     notes,
   } = parsed.data;
   const organizationId = await assertCurrentOrganizationId(parsed.data.organizationId);
+  await assertCommercialLimit(organizationId, "integrations", !id);
 
   const provider = await prisma.provider.findUnique({ where: { id: providerId } });
   if (!provider) throw new Error("Provider not found.");

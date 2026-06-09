@@ -1,6 +1,12 @@
 import Link from "next/link";
+import { SubscriptionStatus } from "@prisma/client";
 
 import { Card, PageHeader } from "@/components/Card";
+import {
+  formatDeploymentMode,
+  formatSubscriptionStatus,
+  getOrganizationCommercialSnapshot,
+} from "@/lib/commercial-plans";
 import { requireAdmin } from "@/lib/auth";
 import { getCurrentOrganization } from "@/lib/current-organization";
 import { prisma } from "@/lib/prisma";
@@ -13,6 +19,7 @@ export default async function SettingsPage() {
   requireAdmin();
   const org = await getCurrentOrganization();
   const providers = await prisma.provider.findMany({ orderBy: { name: "asc" } });
+  const commercial = org ? await getOrganizationCommercialSnapshot(org.id) : null;
 
   return (
     <div className="space-y-section-gap">
@@ -73,6 +80,103 @@ export default async function SettingsPage() {
           />
         </div>
       </Card>
+
+      {commercial && (
+        <Card
+          title="Commercial tenancy"
+          description="This is the tenant contract for the current organization: hosted plan, deployment shape, feature posture, and hard limits."
+        >
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr,1fr]">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <CommercialStat
+                  label="Plan"
+                  value={commercial.plan.label}
+                  tone="neutral"
+                />
+                <CommercialStat
+                  label="Status"
+                  value={formatSubscriptionStatus(commercial.organization.subscriptionStatus)}
+                  tone={commercial.organization.subscriptionStatus === SubscriptionStatus.ACTIVE ? "good" : "warn"}
+                />
+                <CommercialStat
+                  label="Deployment"
+                  value={formatDeploymentMode(commercial.organization.deploymentMode)}
+                  tone="neutral"
+                />
+                <CommercialStat
+                  label="Retention"
+                  value={`${commercial.effectiveRetentionDays} days`}
+                  tone="neutral"
+                />
+              </div>
+
+              <div className="rounded-lg border border-border-subtle/60 bg-surface-elevated/30 p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <strong className="text-on-surface">Hosted-plan boundaries</strong>
+                    <p className="mt-1 text-[12px] text-text-muted">
+                      These limits now apply on create paths, so hosted tenants cannot quietly drift past their commercial envelope.
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-primary">
+                    enforced
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <LimitMeter
+                    label="Vaulted credentials"
+                    used={commercial.counts.credentials}
+                    limit={commercial.plan.limits.credentials}
+                  />
+                  <LimitMeter
+                    label="Ingest sources"
+                    used={commercial.counts.ingestSources}
+                    limit={commercial.plan.limits.ingestSources}
+                  />
+                  <LimitMeter
+                    label="Named integrations"
+                    used={commercial.counts.integrations}
+                    limit={commercial.plan.limits.integrations}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Meaning
+                title="Feature posture"
+                body={
+                  commercial.plan.financeEnabled
+                    ? "Finance surfaces stay open on this plan: reconciliation, chargeback, close pack, and exports."
+                    : "Finance surfaces are intended for higher plans. This plan is better for core live metering and basic exports."
+                }
+              />
+              <Meaning
+                title="Assistant and copilot"
+                body={
+                  commercial.plan.assistantEnabled
+                    ? "The tenant is allowed to use assistant and copilot features."
+                    : "Assistant and copilot are currently outside this plan envelope."
+                }
+              />
+              <Meaning
+                title="Support expectation"
+                body={commercial.plan.supportLabel}
+              />
+              <Meaning
+                title="Commercial direction"
+                body={
+                  commercial.isHostedCommercial
+                    ? "This organization is aligned with the hosted Tokenometer offer. Self-hosted and private deployments can keep a wider policy surface later."
+                    : "This organization is marked as a non-hosted deployment, so the plan card is informational first and strict hosted billing semantics can diverge later."
+                }
+              />
+            </div>
+          </div>
+        </Card>
+      )}
 
       <Card title="What each surface is for" description="These names now have one job across the product.">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -314,6 +418,64 @@ function Meaning({ title, body }: { title: string; body: string }) {
     <div className="rounded-lg border border-border-subtle/60 bg-surface-elevated/30 p-4">
       <strong className="block text-on-surface">{title}</strong>
       <p className="mt-1 text-[12px] text-text-muted">{body}</p>
+    </div>
+  );
+}
+
+function CommercialStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "neutral" | "good" | "warn";
+}) {
+  const toneClass =
+    tone === "good"
+      ? "text-status-normal"
+      : tone === "warn"
+        ? "text-status-warning"
+        : "text-on-surface";
+
+  return (
+    <div className="rounded-lg border border-border-subtle/60 bg-surface-elevated/30 p-4">
+      <div className="text-caps text-text-muted">{label}</div>
+      <div className={`mt-2 font-display text-body-lg font-semibold ${toneClass}`}>{value}</div>
+    </div>
+  );
+}
+
+function LimitMeter({
+  label,
+  used,
+  limit,
+}: {
+  label: string;
+  used: number;
+  limit: number | null;
+}) {
+  const pct = limit === null || limit === 0 ? 0 : Math.min(100, Math.round((used / limit) * 100));
+  const toneClass =
+    limit === null
+      ? "bg-status-normal"
+      : pct >= 100
+        ? "bg-status-exceeded"
+        : pct >= 80
+          ? "bg-status-warning"
+          : "bg-primary";
+
+  return (
+    <div className="rounded-lg border border-border-subtle/60 bg-background p-3">
+      <div className="flex items-center justify-between gap-2">
+        <strong className="text-sm text-on-surface">{label}</strong>
+        <span className="text-[12px] text-text-muted">
+          {limit === null ? `${used} / unlimited` : `${used} / ${limit}`}
+        </span>
+      </div>
+      <div className="mt-3 h-2 rounded-full bg-surface-elevated">
+        <div className={`h-2 rounded-full ${toneClass}`} style={{ width: `${limit === null ? 100 : pct}%` }} />
+      </div>
     </div>
   );
 }
